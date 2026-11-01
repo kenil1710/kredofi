@@ -1,0 +1,10 @@
+# Allowlist: only what the image needs. Secrets (.env, web/.env.local) can never enter the build.
+*
+!web/
+!scorer/out/kredofi_scorer_demo.wasm
+!docker-entrypoint.sh
+web/node_modules
+web/.next
+web/.data
+web/.env*
+web/**/*.test.ts

@@ -26,15 +26,20 @@ export function runScorer(input: object, sender?: string): Promise<Record<string
   args.push(wasmPath());
   return new Promise((resolve, reject) => {
     const p = spawn('wasmtime', args, { env: process.env, timeout: 60_000 });
-    let out = '';
+    let out = '', err = '';
     p.stdout.on('data', (d) => (out += d));
+    p.stderr.on('data', (d) => (err += d));
     p.on('error', () => reject(new Error('The scorer could not start.')));
     p.on('close', () => {
       try {
         const v = JSON.parse(out.trim().split('\n').pop() ?? '');
         if (v.success === false) reject(new Error(String(v.error)));
         else resolve(v);
-      } catch { reject(new Error('The scorer returned no result.')); }
+      } catch {
+        // Server log only (wasmtime's own error text; never sent to the browser).
+        console.error(`scorer produced no JSON (exit ${p.exitCode}): ${err.slice(0, 500)}`);
+        reject(new Error('The scorer returned no result.'));
+      }
     });
     p.stdin.end(JSON.stringify(input));
   });

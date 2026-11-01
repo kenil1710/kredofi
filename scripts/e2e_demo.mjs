@@ -39,8 +39,8 @@ const loan = (await view(POOL, 'get_borrower', { account_id: id })).loan;
 check(loan?.state === 'Active' && loan.interest === '4000000', 'loan active, $4 interest');
 check((await view(USDC, 'ft_balance_of', { account_id: id })) === '110000000', 'demo account received $100');
 
-const bad = await relay(POOL, 'withdraw', { shares: '1' });
-check(bad.status === 403, `relayer refuses withdraw: "${bad.j.error}"`);
+const bad = await relay(POOL, 'withdraw_treasury', { amount: '1' });
+check(bad.status === 403, `relayer refuses withdraw_treasury: "${bad.j.error}"`);
 const bad2 = await relay(USDC, 'ft_transfer_call', { receiver_id: 'kency.testnet', amount: '1', msg: 'repay' });
 check(bad2.status === 403, `relayer refuses sending USDC elsewhere: "${bad2.j.error}"`);
 
