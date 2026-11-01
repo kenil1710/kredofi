@@ -1,0 +1,371 @@
+<title>KredoFi passbook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..700&family=Public+Sans:wght@300..700&display=swap">
+<style>
+/* Layout: a passbook column on security paper; the private work (scoring) happens in night-ink panels inside it. A sticky side rail keeps the proof in view. */
+:root{
+  --night:#08130F; --deep:#0F2A23; --deep-2:#123229;
+  --paper:#E6EAE1; --paper-2:#EEF1E9; --ink:#10302A; --ink-soft:#4E635B;
+  --mint:#9FD9BF; --violet-ink:#4A2C8C; --violet:#8E6CF0; --red-ink:#A3241C;
+  --muted:#93AAA1; --line-paper:rgba(16,48,42,.22); --line-night:rgba(230,234,225,.14);
+  --display:'Bodoni Moda', Didot, Georgia, serif; --body:'Public Sans', 'Helvetica Neue', Arial, sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:clip}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--ink)}
+h1,h2,h3{font-family:var(--display);font-weight:500;letter-spacing:-.025em;margin:0;text-wrap:balance;font-variation-settings:'opsz' 96}
+p{margin:0}
+button{font-family:inherit}
+a{color:var(--violet-ink)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--violet-ink);outline-offset:3px}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.banner{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:var(--ink);color:var(--paper);font-size:14px}
+.banner .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;min-height:60px;padding-block:8px}
+.banner .logo{font-family:var(--display);font-size:22px;font-weight:600;color:var(--paper);text-decoration:none}
+.banner nav{display:flex;gap:22px;flex:1}
+.banner nav a{color:#C7D3CD;text-decoration:none}
+.banner nav a[aria-current]{color:var(--paper);text-decoration:underline;text-underline-offset:6px}
+.chip{border:1px solid rgba(230,234,225,.3);padding:6px 12px;border-radius:2px;font-weight:600}
+.testnet{background:var(--paper-2);border-bottom:1px solid var(--line-paper);font-size:14px;text-align:center;padding:8px 16px;color:var(--ink-soft)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:56px;padding-block:56px 120px;align-items:start}
+@media (max-width:980px){.layout{grid-template-columns:1fr}.rail{position:static!important}}
+.title h1{font-size:clamp(40px,5vw,64px);line-height:1}
+.title p{margin-top:12px;font-size:17px;color:#2C4A41;max-width:560px}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:50px;padding:0 24px;border-radius:2px;border:1px solid transparent;font-weight:600;font-size:15px;cursor:pointer;text-decoration:none;transition:background-color .2s,opacity .2s}
+.btn[disabled]{opacity:.55;cursor:default}
+.btn-ink{background:var(--ink);color:var(--paper)}
+.btn-violet{background:var(--violet-ink);color:#F3F0FA}
+.btn-violet:hover:not([disabled]){background:#5B3AA6}
+.btn-line{border-color:var(--ink);color:var(--ink);background:transparent}
+.btn-red{border-color:var(--red-ink);color:var(--red-ink);background:transparent}
+
+/* pick */
+.pick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:40px}
+.who{position:relative;background:var(--paper-2);border:1px solid var(--line-paper);padding:26px 24px 24px;display:flex;flex-direction:column;gap:12px;box-shadow:0 14px 30px rgba(16,48,42,.08)}
+.who svg.strip{position:absolute;left:0;right:0;top:0;width:100%;height:10px}
+.who h3{font-size:30px}
+.who p{font-size:15px;color:#2C4A41}
+.who .expect{font-size:14px;color:var(--ink-soft)}
+.who .btn{margin-top:auto}
+@media (max-width:820px){.pick{grid-template-columns:1fr}}
+.acct{margin-top:22px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:14px;color:var(--ink-soft)}
+
+/* passbook */
+.book{list-style:none;margin:44px 0 0;padding:0}
+.entry{display:grid;grid-template-columns:84px minmax(0,1fr);gap:0 24px;animation:entry .6s cubic-bezier(.2,.8,.2,1)}
+@keyframes entry{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.entry .when{font-variant-numeric:tabular-nums;font-size:15px;font-weight:600;padding-top:2px}
+.entry .when small{display:block;font-weight:400;color:var(--ink-soft);font-size:13px}
+.entry .body{border-left:1px solid #9DB8AD;padding:0 0 40px 28px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.entry h2{font-size:24px}
+.entry .body > p{color:#2C4A41;font-size:16px}
+@media (max-width:600px){.entry{grid-template-columns:1fr}.entry .when{padding-bottom:6px}.entry .body{padding-left:18px}}
+
+.enclave{background:var(--night);color:var(--paper);padding:22px 24px;display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:24px;position:relative;overflow:hidden}
+.enclave::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 80% at 80% 30%,rgba(110,80,220,.30),transparent 70%);pointer-events:none}
+.enclave .rows{position:relative;height:190px;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,transparent,#000 15%,#000 80%,transparent);mask-image:linear-gradient(180deg,transparent,#000 15%,#000 80%,transparent)}
+.enclave .rows ul{list-style:none;margin:0;padding:0;animation:stream 6s linear infinite;filter:blur(3px);opacity:.75}
+@keyframes stream{to{transform:translateY(-50%)}}
+.enclave .rows li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line-night);font-size:14px;font-variant-numeric:tabular-nums}
+.enclave .cube{position:relative;display:flex;align-items:center;justify-content:center;perspective:600px}
+.cube3{width:110px;height:110px;position:relative;transform-style:preserve-3d;animation:spin 9s linear infinite}
+@keyframes spin{from{transform:rotateX(-24deg) rotateY(0)}to{transform:rotateX(-24deg) rotateY(360deg)}}
+.cube3 i{position:absolute;inset:0;border:1px solid rgba(207,235,221,.7);background:rgba(159,217,191,.05)}
+.cube3 i:nth-child(1){transform:translateZ(55px)}.cube3 i:nth-child(2){transform:rotateY(180deg) translateZ(55px)}.cube3 i:nth-child(3){transform:rotateY(90deg) translateZ(55px)}
+.cube3 i:nth-child(4){transform:rotateY(-90deg) translateZ(55px)}.cube3 i:nth-child(5){transform:rotateX(90deg) translateZ(55px)}.cube3 i:nth-child(6){transform:rotateX(-90deg) translateZ(55px)}
+.core{position:absolute;width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#E9E1FF,#8E6CF0 60%,#4A2C8C);box-shadow:0 0 40px 10px rgba(142,108,240,.55);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.15)}}
+.phases{grid-column:1 / -1;list-style:none;margin:0;padding:14px 0 0;border-top:1px solid var(--line-night);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;position:relative}
+.phases li{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;line-height:1.35}
+.phases li b{flex:0 0 14px;height:14px;border-radius:50%;border:1.5px solid rgba(230,234,225,.4);margin-top:2px}
+.phases li.now{color:var(--paper)}
+.phases li.now b{border-color:var(--mint);box-shadow:inset 0 0 0 3px var(--night);background:var(--mint)}
+.phases li.done{color:#C7D3CD}
+.phases li.done b{background:var(--mint);border-color:var(--mint)}
+.phases small{display:block;color:var(--mint);font-size:12px}
+@media (max-width:700px){.enclave{grid-template-columns:1fr}.enclave .cube{display:none}.phases{grid-template-columns:1fr 1fr}}
+
+.result{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;align-items:start;max-width:680px}
+@media (max-width:820px){.result{grid-template-columns:1fr}}
+.notebox{position:relative}
+.notebox canvas{width:100%;aspect-ratio:1100/540;display:block;border-radius:3px;box-shadow:0 1px 0 rgba(16,48,42,.08),0 18px 36px rgba(16,48,42,.18)}
+.stamp{position:absolute;right:-12px;bottom:-26px;padding:8px 16px;border:4px double;font-family:var(--display);font-weight:700;font-size:28px;letter-spacing:.08em;background:rgba(238,241,233,.92);white-space:nowrap;opacity:0;transform:rotate(-7deg) scale(1.5)}
+.stamp.on{animation:slam .3s cubic-bezier(.2,.9,.3,1.25) forwards}
+@keyframes slam{0%{opacity:0;transform:rotate(-7deg) scale(1.5)}60%{opacity:1}100%{opacity:1;transform:rotate(-7deg) scale(1)}}
+.shake{animation:shake .3s ease}
+@keyframes shake{25%{transform:translate(2px,-2px)}50%{transform:translate(-3px,1px)}75%{transform:translate(1px,2px)}}
+.tally{margin:0;border-top:1px solid var(--line-paper)}
+.tally .r{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0;border-bottom:1px solid var(--line-paper)}
+.tally dt{font-size:14px;color:#2C4A41}
+.tally dt span{display:block;font-size:12.5px;color:var(--ink-soft)}
+.tally dd{margin:0;font-family:var(--display);font-size:21px;font-variant-numeric:tabular-nums}
+.tally .tot{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px}
+.tally .tot b{font-family:var(--display);font-weight:500;font-size:44px;line-height:1;border-bottom:4px double var(--ink);padding-bottom:2px;font-variant-numeric:tabular-nums}
+.change{background:var(--paper-2);border:1px solid var(--line-paper);padding:16px 18px;font-size:15px;color:#2C4A41}
+.change h3{font-family:var(--body);font-size:15px;font-weight:700;letter-spacing:0;margin-bottom:6px;color:var(--ink)}
+.change ul{margin:0;padding-left:18px}
+
+.form{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:8px;flex:1 1 220px;max-width:300px}
+.field label{font-size:14px;font-weight:600}
+.money{display:flex;align-items:center;height:52px;border:1px solid rgba(16,48,42,.45);border-radius:2px;background:var(--paper-2);padding:0 14px;gap:8px}
+.money input{flex:1;min-width:0;border:0;background:transparent;font-family:var(--display);font-size:24px;color:var(--ink);font-variant-numeric:tabular-nums;outline:none}
+.money span{font-size:14px;color:var(--ink-soft)}
+.hint{font-size:13px;color:var(--ink-soft)}
+.hint.err{color:var(--red-ink)}
+.terms{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 24px;font-size:15px;font-variant-numeric:tabular-nums}
+.terms dt{color:var(--ink-soft)}
+.terms dd{margin:0;font-weight:600}
+.terms dd.plain{font-weight:400}
+.txline{font-size:13px;color:var(--ink-soft)}
+.txline a{font-weight:600}
+.status{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--ink-soft)}
+.status i{width:9px;height:9px;border-radius:50%;background:var(--violet-ink);animation:pulse 1s ease-in-out infinite}
+.level{display:flex;gap:10px;align-items:flex-end;margin-top:4px}
+.level div{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft)}
+.level i{display:block;width:100%;background:rgba(16,48,42,.12);transition:background-color .6s}
+.level div.on i{background:var(--violet-ink)}
+.level div.on{color:var(--ink);font-weight:600}
+.chain{list-style:none;margin:0;padding:0;border-top:1px solid var(--line-paper)}
+.chain li{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--line-paper);font-size:15px}
+.chain li span:last-child{font-family:var(--display);font-size:18px}
+
+/* rail */
+.rail{position:sticky;top:calc(88px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:18px}
+.card{background:var(--paper-2);border:1px solid var(--line-paper);padding:20px 22px}
+.card h3{font-size:22px;margin-bottom:10px}
+.card pre{margin:0;font:13px/1.65 var(--body);white-space:pre-wrap;overflow-wrap:anywhere;color:#2C4A41;font-variant-numeric:tabular-nums}
+.card pre b{color:var(--ink)}
+.card dl{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;font-size:14px}
+.card dt{color:var(--ink-soft)}
+.card dd{margin:0}
+.card p{font-size:14px;color:#2C4A41}
+@media (prefers-reduced-motion: reduce){.entry,.stamp.on,.shake,.enclave .rows ul,.cube3,.core,.status i{animation:none}.stamp.on{opacity:1;transform:rotate(-7deg)}}
+</style>
+
+<header class="banner">
+  <div class="wrap">
+    <a class="logo" href="#top">KredoFi</a>
+    <nav aria-label="Main"><a href="#top" aria-current="page">Borrow</a><a href="#top">Lend</a><a href="#top">Public ledger</a></nav>
+    <span class="chip" id="who">Not signed in</span>
+  </div>
+</header>
+<p class="testnet">Testnet demo. Test banks and test money only.</p>
+
+<main class="wrap layout" id="top">
+  <div>
+    <div class="title" id="title">
+      <h1>Your passbook</h1>
+      <p>Pick a test borrower. Each step lands here as an entry, like a bank passbook. Your bank data never appears on this page or on-chain.</p>
+    </div>
+
+    <section id="pickSec" aria-label="Pick a test borrower">
+      <div class="pick">
+        <article class="who"><svg class="strip" viewBox="0 0 400 10" preserveAspectRatio="none" aria-hidden="true"></svg><h3>Riya</h3><p>$4,000 salary on the 1st of every month. No overdraft fees. Saves about half.</p><p class="expect">Expect band A and a $100 first loan. She repays.</p><button class="btn btn-violet" data-who="riya">Use Riya</button></article>
+        <article class="who"><svg class="strip" viewBox="0 0 400 10" preserveAspectRatio="none" aria-hidden="true"></svg><h3>Sam</h3><p>Gig income that jumps around. Two months with nothing. Four overdraft or returned-payment fees.</p><p class="expect">Expect no loan, with the reasons and what would change them.</p><button class="btn btn-line" data-who="sam">Use Sam</button></article>
+        <article class="who"><svg class="strip" viewBox="0 0 400 10" preserveAspectRatio="none" aria-hidden="true"></svg><h3>Max</h3><p>$3,800 salary. Looks perfect on paper. He borrows and never pays back.</p><p class="expect">Expect band A, then a default: the reserve pays and his name is released.</p><button class="btn btn-line" data-who="max">Use Max</button></article>
+      </div>
+      <p class="acct">No wallet needed: we create a demo account and pay its network fees.</p>
+    </section>
+
+    <ol class="book" id="book" aria-live="polite"></ol>
+  </div>
+
+  <aside class="rail" aria-label="Proof">
+    <div class="card">
+      <h3>What left the enclave</h3>
+      <pre id="onchain">Nothing yet. Pick a test borrower to start.</pre>
+    </div>
+    <div class="card">
+      <h3>Verify</h3>
+      <dl>
+        <dt>Scoring code</dt><dd>f45185a0…6131</dd>
+        <dt>Last real run</dt><dd><a href="https://nearblocks.io/txns/8u8RsNzgxKSdhSbzSwi5qb7CGeWrk9RJWhHzVvWfZfbW">8u8RsN…fbW</a></dd>
+        <dt>Data</dt><dd>Plaid sandbox bank</dd>
+      </dl>
+    </div>
+    <div class="card"><p>This is a design prototype. Steps are simulated with the real timings and outputs from our test runs; the built app reads them from the contract.</p></div>
+  </aside>
+</main>
+
+<script>
+(function(){
+'use strict';
+var REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+var clamp=function(x,a,b){ return Math.max(a===undefined?0:a, Math.min(b===undefined?1:b, x)); };
+function rng(seed){ var s=seed; return function(){ s=(s*16807)%2147483647; return (s-1)/2147483646; }; }
+function drawNote(ctx, W, H, ovi, o){
+  o = o || {}; var NM=o.name||'riya.testnet', BD=o.band||'A', AMT=(o.amount===undefined?100:o.amount), WD=o.words||'One hundred US dollars, in USDC', RP=o.repay||'24 November 2026, $102';
+  var s = W/1100; ctx.save(); ctx.scale(s, s);
+  var g = ctx.createLinearGradient(0,0,1100,440);
+  g.addColorStop(0,'#E7EEE7'); g.addColorStop(.5,'#EFEDF3'); g.addColorStop(1,'#E6EEE8');
+  ctx.fillStyle = g; ctx.fillRect(0,0,1100,540);
+  ctx.strokeStyle = '#B9CBC1'; ctx.lineWidth = .5;
+  for (var i=0;i<24;i++){ var y0=30+i*21, ph=i*.55; ctx.beginPath();
+    for (var x=0;x<=1100;x+=6){ var t=x/1100*Math.PI*2; var y=y0+7*Math.sin(t*6+ph)+3*Math.sin(t*17-ph); x?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); }
+  var R = rng(42), cols=['#B3261E','#2F5DA8','#4A2C8C','#1F6B52']; ctx.lineWidth=.8; ctx.globalAlpha=.55;
+  for (var j=0;j<40;j++){ var fx=R()*1100, fy=R()*540, a=R()*Math.PI, len=6+R()*10; ctx.strokeStyle=cols[j%4]; ctx.beginPath(); ctx.moveTo(fx,fy);
+    ctx.quadraticCurveTo(fx+Math.cos(a)*len*.5+(R()-.5)*6, fy+Math.sin(a)*len*.5+(R()-.5)*6, fx+Math.cos(a)*len, fy+Math.sin(a)*len); ctx.stroke(); }
+  ctx.globalAlpha=1;
+  // watermark
+  ctx.fillStyle='rgba(246,247,242,.88)'; ctx.beginPath(); ctx.ellipse(975,230,70,95,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(16,48,42,.22)'; ctx.lineWidth=.9; ctx.beginPath(); ctx.arc(975,230,40,0,Math.PI*2); ctx.stroke();
+  ctx.setLineDash([2,2]); ctx.beginPath(); ctx.arc(975,230,34,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.lineWidth=2.6; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.beginPath(); ctx.moveTo(958,231); ctx.lineTo(969,242); ctx.lineTo(991,218); ctx.stroke();
+  // frame ropes
+  function band(x0,y0,w,h,amp,waves,phase,lw){ var L=2*(w+h), n=1400; ctx.lineWidth=lw; ctx.beginPath();
+    for (var k=0;k<=n;k++){ var d=k/n*L, px,py,nx,ny;
+      if(d<w){px=x0+d;py=y0;nx=0;ny=-1;} else if(d<w+h){px=x0+w;py=y0+d-w;nx=1;ny=0;} else if(d<2*w+h){px=x0+w-(d-w-h);py=y0+h;nx=0;ny=1;} else {px=x0;py=y0+h-(d-2*w-h);nx=-1;ny=0;}
+      var o=amp*Math.sin(2*Math.PI*waves*k/n+phase); var X=px+nx*o, Y=py+ny*o; k?ctx.lineTo(X,Y):ctx.moveTo(X,Y); }
+    ctx.closePath(); ctx.stroke(); }
+  ctx.strokeStyle='#1F4A3D';
+  band(32,32,1036,476,0,1,0,1.3); band(40,40,1020,460,5,120,0,.7); band(40,40,1020,460,5,120,Math.PI,.7);
+  band(48,48,1004,444,3,180,.8,.5); band(48,48,1004,444,3,180,.8+Math.PI,.5);
+  ctx.lineWidth=1; ctx.strokeRect(62,62,976,416);
+  // rosette
+  ctx.globalAlpha=.7; ctx.lineWidth=.55;
+  for (var r=0;r<12;r++){ var ph2=r*Math.PI*2/(12*20); ctx.beginPath();
+    for (var si=0;si<=360;si++){ var tt=si/360*Math.PI*2, rr=1+.045*Math.sin(20*tt+ph2); var X2=760+128*rr*Math.cos(tt), Y2=262+158*rr*Math.sin(tt); si?ctx.lineTo(X2,Y2):ctx.moveTo(X2,Y2); }
+    ctx.stroke(); }
+  ctx.globalAlpha=1;
+  ctx.fillStyle='#EEF1EA'; ctx.beginPath(); ctx.ellipse(760,262,96,126,0,0,Math.PI*2); ctx.fill(); ctx.lineWidth=1; ctx.stroke();
+  var og = ctx.createLinearGradient(640, 140+ovi.y*120, 880, 380-ovi.y*120);
+  og.addColorStop(0,'#1F6B52'); og.addColorStop(clamp(.2+.6*ovi.x,.05,.95),'#B07035'); og.addColorStop(1,'#4A2C8C');
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle=og; ctx.font='700 190px "Bodoni Moda", Didot, Georgia, serif'; ctx.fillText(BD,760,330);
+  ctx.fillStyle='#1F4A3D'; ctx.font='600 11px "Public Sans", Arial, sans-serif'; spaced('BAND',760,366,3,'center');
+  // thread
+  ctx.fillStyle='rgba(74,44,140,.84)'; for (var q=0;q<9;q++) ctx.fillRect(598,70+q*46,12,30);
+  ctx.save(); ctx.translate(606,72); ctx.rotate(Math.PI/2); ctx.fillStyle='#EDE7FA'; ctx.font='700 5px "Public Sans", Arial, sans-serif'; ctx.textAlign='left';
+  ctx.fillText('KREDOFI SEALED  KREDOFI SEALED  KREDOFI SEALED  KREDOFI SEALED  KREDOFI SEALED  KREDOFI SEALED  KREDOFI SEALED  KREDOFI SEALED  KREDOFI SEALED  KREDOFI SEALED',0,2); ctx.restore();
+  // text
+  ctx.textAlign='left';
+  ctx.fillStyle='#4A2C8C'; ctx.font='600 21px "Bodoni Moda", Didot, Georgia, serif'; spaced('KF 9C1E 4A7B',96,112,2,'left');
+  ctx.fillStyle='#10302A'; ctx.font='600 22px "Bodoni Moda", Didot, Georgia, serif'; spaced('KREDOFI CREDIT NOTE',470,112,6,'center');
+  ctx.fillStyle='#1F4A3D'; ctx.font='700 40px "Bodoni Moda", Didot, Georgia, serif'; ctx.textAlign='right'; ctx.fillText(String(AMT),1004,116); ctx.textAlign='left';
+  var lab='600 11px "Public Sans", Arial, sans-serif';
+  ctx.fillStyle='#4E635B'; ctx.font=lab; spaced('PAY TO',96,176,2,'left');
+  ctx.fillStyle='#10302A'; ctx.font='italic 400 32px "Bodoni Moda", Didot, Georgia, serif'; ctx.fillText(NM,96,210);
+  ctx.fillStyle='#4E635B'; ctx.font=lab; spaced('THE SUM OF',96,256,2,'left');
+  ctx.fillStyle='#10302A'; ctx.font='400 27px "Bodoni Moda", Didot, Georgia, serif'; ctx.fillText(WD,96,290);
+  ctx.fillStyle='#4E635B'; ctx.font=lab; spaced('REPAY BY',96,336,2,'left');
+  ctx.fillStyle='#10302A'; ctx.font='400 27px "Bodoni Moda", Didot, Georgia, serif'; ctx.fillText(RP,96,370);
+  ctx.strokeStyle='#10302A'; ctx.lineWidth=.8; ctx.beginPath(); ctx.moveTo(96,420); ctx.lineTo(420,420); ctx.stroke();
+  ctx.fillStyle='#4E635B'; ctx.font='400 12px "Public Sans", Arial, sans-serif'; ctx.fillText('Scored inside Intel TDX, transaction 8u8RsN…fbW',96,440);
+  var og2 = ctx.createLinearGradient(850, 380+ovi.y*60, 1010, 470-ovi.y*60);
+  og2.addColorStop(0,'#1F6B52'); og2.addColorStop(clamp(.2+.6*ovi.x,.05,.95),'#B07035'); og2.addColorStop(1,'#4A2C8C');
+  ctx.fillStyle=og2; ctx.font='700 92px "Bodoni Moda", Didot, Georgia, serif'; ctx.textAlign='right'; ctx.fillText('$'+AMT,1004,462); ctx.textAlign='left';
+  ctx.fillStyle='#4A2C8C'; ctx.font='600 17px "Bodoni Moda", Didot, Georgia, serif'; spaced('KF 9C1E 4A7B',96,470,2,'left');
+  ctx.fillStyle='#1F4A3D'; ctx.font='400 4.2px "Public Sans", Arial, sans-serif'; ctx.textAlign='center';
+  ctx.fillText('THIS NOTE IS BACKED BY SIX MONTHS OF INCOME READ IN PRIVATE AND BY NOTHING ELSE     THIS NOTE IS BACKED BY SIX MONTHS OF INCOME READ IN PRIVATE AND BY NOTHING ELSE     THIS NOTE IS BACKED BY SIX MONTHS OF INCOME READ IN PRIVATE AND BY NOTHING ELSE',550,497);
+  if (o.denied){ ctx.save(); ctx.translate(550,280); ctx.rotate(-.18); ctx.strokeStyle='#A3241C'; ctx.fillStyle='#A3241C'; ctx.lineWidth=5; ctx.strokeRect(-250,-58,500,116); ctx.lineWidth=2; ctx.strokeRect(-240,-48,480,96); ctx.font='700 58px "Bodoni Moda", Didot, Georgia, serif'; ctx.textAlign='center'; ctx.fillText('NOT ISSUED',0,20); ctx.restore(); }
+  ctx.restore();
+  function spaced(txt,x,y,sp,align){
+    var w=0, ws=[]; for (var c=0;c<txt.length;c++){ var cw=ctx.measureText(txt[c]).width; ws.push(cw); w+=cw+(c<txt.length-1?sp:0); }
+    var sx = align==='center' ? x-w/2 : x; var prev=ctx.textAlign; ctx.textAlign='left';
+    for (var c2=0;c2<txt.length;c2++){ ctx.fillText(txt[c2],sx,y); sx+=ws[c2]+sp; } ctx.textAlign=prev;
+  }
+}
+
+
+var wait=function(ms){ return new Promise(function(r){ setTimeout(r, REDUCE? Math.min(ms,150) : ms); }); };
+var book=document.getElementById('book'), whoChip=document.getElementById('who'), onchain=document.getElementById('onchain');
+var P={
+  riya:{name:'Riya', acct:'riya', f:[250,250,250,150,100], why:['$4,000 a month on average','Paid in 6 of 6 months','No fees in six months','Keeps 55% of income','Savings cover 3.3 months'], band:'A', limit:100, score:1000, fp:'9c1e…4a7b'},
+  sam:{name:'Sam', acct:'sam', f:[100,100,10,0,60], why:['$1,333 a month on average','Paid in 4 of 6 months','4 fees in six months','Spends more than he earns','Savings cover 1.4 months'], band:'D', limit:0, score:270, fp:'51ab…e0c2'},
+  max:{name:'Max', acct:'max', f:[250,250,250,150,100], why:['$3,800 a month on average','Paid in 6 of 6 months','No fees in six months','Keeps 52% of income','Savings cover 3.1 months'], band:'A', limit:100, score:1000, fp:'d77f…19aa'}
+};
+var NAMES=['Income level','Steady income','On-time payments','Money left over','Savings buffer'];
+var clockMin = 14*60+2;
+function now(){ clockMin+=1; var h=Math.floor(clockMin/60), m=clockMin%60; return (h<10?'0':'')+h+':'+(m<10?'0':'')+m; }
+function entry(title, html, when){
+  var li=document.createElement('li'); li.className='entry';
+  li.innerHTML='<div class="when">'+(when||now())+'<small>29 Oct</small></div><div class="body"><h2>'+title+'</h2>'+html+'</div>';
+  book.appendChild(li);
+  setTimeout(function(){ li.scrollIntoView({behavior: REDUCE?'auto':'smooth', block:'center'}); },60);
+  return li.querySelector('.body');
+}
+function strip(svg){ var d=''; for (var u=0;u<4;u++){ var s=''; for (var x=0;x<=400;x+=2) s+=(x?'L':'M')+x+' '+(5+4*Math.sin(x/400*Math.PI*2*28+u*Math.PI/2)).toFixed(1)+' '; d+='<path d="'+s+'" fill="none" stroke="#1F4A3D" stroke-width=".6" stroke-opacity=".6" vector-effect="non-scaling-stroke"/>'; } svg.innerHTML=d; }
+document.querySelectorAll('svg.strip').forEach(strip);
+function paintNote(cv, o){ var w=cv.clientWidth||620, dpr=Math.min(devicePixelRatio||1,2); cv.width=Math.round(w*dpr); cv.height=Math.round(w*dpr*540/1100); drawNote(cv.getContext('2d'), cv.width, cv.height, {x:.5,y:.4}, o); }
+
+document.querySelectorAll('[data-who]').forEach(function(b){ b.addEventListener('click', function(){ start(P[b.dataset.who]); }); });
+
+async function start(p){
+  document.getElementById('pickSec').hidden=true;
+  var acct='demo'+(Date.now()%100000)+'.kredofi.testnet';
+  whoChip.textContent=acct;
+  document.querySelector('#title p').textContent='You are '+p.name+', a test borrower. Every step below is recorded here as it happens.';
+  entry('Demo account created', '<p>'+acct+'. It can only talk to KredoFi, and we pay its network fees, so you never see a wallet pop-up.</p>');
+  await wait(900);
+  entry('Bank connected', '<p>First Platypus Bank, checking account ending 0000. Read-only, through Plaid. KredoFi never sees the bank login.</p>');
+  await wait(900);
+  var b = entry('Checking your limit', '<div class="enclave"><div class="rows"><ul>'+rowsHtml(p)+rowsHtml(p)+'</ul></div><div class="cube"><div class="cube3"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="core"></div></div><ol class="phases"><li><b></b><span>Waiting for signature</span></li><li><b></b><span>Request sent</span></li><li><b></b><span>Enclave reading your transactions</span></li><li><b></b><span>Sealed</span></li></ol></div><p class="txline" id="txl" hidden>Scoring request <a href="https://nearblocks.io/txns/8u8RsNzgxKSdhSbzSwi5qb7CGeWrk9RJWhHzVvWfZfbW">5qT9mW…k3Ra</a></p>');
+  var ph=b.querySelectorAll('.phases li');
+  function phase(i, extra){ ph.forEach(function(li,k){ li.className = k<i?'done':(k===i?'now':''); }); if (extra!==undefined){ var s=ph[i].querySelector('small'); if(!s){ s=document.createElement('small'); ph[i].querySelector('span').appendChild(s); } s.textContent=extra; } }
+  phase(0); await wait(900); phase(1); b.querySelector('#txl').hidden=false; await wait(800);
+  for (var t=1;t<=4;t++){ phase(2, t+' s'); await wait(950); }
+  phase(4); ph[3].className='done';
+  b.querySelector('.rows ul').style.animationPlayState='paused';
+  await wait(400);
+  result(p);
+}
+function rowsHtml(p){
+  var r = p.acct==='sam' ? [['Gig payout','+2,500.00'],['Rent','−1,100.00'],['Overdraft fee','−35.00'],['Groceries','−210.40'],['Returned payment fee','−35.00'],['Gig payout','+2,000.00'],['Phone','−45.00'],['Overdraft fee','−35.00']]
+        : [['Salary','+'+(p.acct==='max'?'3,800.00':'4,000.00')],['Rent','−1,200.00'],['Groceries','−186.40'],['Electricity','−92.10'],['To savings','−600.00'],['Phone','−45.00'],['Groceries','−201.75'],['Bus pass','−64.00']];
+  return r.map(function(x){ return '<li><span>'+x[0]+'</span><span>'+x[1]+'</span></li>'; }).join('');
+}
+async function result(p){
+  var denied = p.band==='D';
+  var b = entry(denied ? 'Not this time' : 'Your credit note',
+    '<div class="result"><div class="notebox"><canvas role="img" aria-label="Credit note for '+p.acct+'.testnet"></canvas><span class="stamp" style="color:'+(denied?'var(--red-ink)':'var(--violet-ink)')+';border-color:'+(denied?'var(--red-ink)':'var(--violet-ink)')+'">'+(denied?'NOT THIS TIME':'BAND '+p.band+', $'+p.limit)+'</span></div>'+
+    '<dl class="tally">'+p.f.map(function(v,i){ return '<div class="r"><dt>'+NAMES[i]+'<span>'+p.why[i]+'</span></dt><dd>0</dd></div>'; }).join('')+'<div class="tot"><span>Score</span><b>0</b></div></dl></div>'+
+    (denied ? '<div class="change"><h3>What would change this</h3><ul><li>Income in at least 5 of 6 months</li><li>No overdraft or returned-payment fees for three months</li><li>Spending below income</li></ul><p style="margin-top:8px">You can check again in 30 days. Nothing about this result is shown to lenders except the band.</p></div>'
+            : '<p>Band '+p.band+'. You can borrow up to $'+p.limit+' today. Only the line on the right left the enclave.</p>'));
+  var cv=b.querySelector('canvas');
+  paintNote(cv, {name:p.acct+'.testnet', band:p.band, amount:p.limit, words: denied?'Zero US dollars':'One hundred US dollars, in USDC', repay: denied?'Not issued':'24 November 2026, $102', denied:false});
+  if (document.fonts) document.fonts.ready.then(function(){ paintNote(cv, {name:p.acct+'.testnet', band:p.band, amount:p.limit, words: denied?'Zero US dollars':'One hundred US dollars, in USDC', repay: denied?'Not issued':'24 November 2026, $102', denied:false}); });
+  onchain.innerHTML='{\n  "v": 1,\n  "caller": "'+p.acct+'.testnet",\n  <b>"band": "'+p.band+'",</b>\n  "score": '+p.score+',\n  <b>"income_cap": '+(denied?'500000000':'1000000000')+',</b>\n  "fingerprint": "'+p.fp+'",\n  "sealed_identity": "Xk3p…Qw8="\n}';
+  var dds=b.querySelectorAll('.tally dd'), tot=b.querySelector('.tot b'), sum=0;
+  for (var i=0;i<5;i++){ await countTo(dds[i], p.f[i], 380); sum+=p.f[i]; tot.textContent=sum; }
+  await wait(200);
+  var st=b.querySelector('.stamp'); st.classList.add('on'); b.querySelector('.notebox').classList.add('shake');
+  if (!denied){ await wait(900); borrowStep(p); }
+}
+function countTo(el, to, ms){ return new Promise(function(res){ if (REDUCE){ el.textContent=to; return res(); } var t0=performance.now(); (function f(t){ var k=clamp((t-t0)/ms); el.textContent=Math.round(to*(1-Math.pow(1-k,3))); if(k<1) requestAnimationFrame(f); else res(); })(t0); }); }
+
+function borrowStep(p){
+  var b = entry('Borrow', '<div class="form"><div class="field"><label for="amt">Amount</label><div class="money"><input id="amt" value="100.00" inputmode="decimal"><span>USDC</span></div><span class="hint" id="amtHint">Your limit is $100.00</span></div><button class="btn btn-violet" id="bBtn">Borrow $100</button></div>'+
+    '<dl class="terms"><dt>Interest</dt><dd>$2.00 flat</dd><dt>You repay</dt><dd>$102.00 by 24 November 2026</dd><dt>If you don\'t repay</dt><dd class="plain">After a 7-day grace period the loan is marked as defaulted, your name is released to the recovery partner, and you can\'t borrow again.</dd></dl>', 'Now');
+  var inp=b.querySelector('#amt'), hint=b.querySelector('#amtHint'), btn=b.querySelector('#bBtn');
+  inp.addEventListener('input', function(){ var v=parseFloat(inp.value)||0; var ok=v>0&&v<=100; hint.textContent = ok ? 'Your limit is $100.00' : (v>100 ? 'Above your limit of $100.00' : 'Enter an amount'); hint.classList.toggle('err',!ok); btn.disabled=!ok; btn.textContent='Borrow $'+(ok? (v%1?v.toFixed(2):v):'100'); });
+  btn.addEventListener('click', async function(){ var v=parseFloat(inp.value)||100; btn.disabled=true; inp.disabled=true; btn.textContent='Sending…'; await wait(1100); btn.textContent='Confirmed';
+    var amt = v.toFixed(2), due=(v*1.02).toFixed(2);
+    entry('Loan issued', '<p>$'+amt+' USDC arrived in '+whoChip.textContent+'. Repay $'+due+' by 24 November 2026.</p><p class="txline">Transaction <a href="#top">Za9wE…r4k</a></p>');
+    await wait(900);
+    if (p.acct==='max') defaultStep(p, amt); else repayStep(p, due);
+  });
+}
+function repayStep(p, due){
+  var b = entry('Repay', '<div class="form"><button class="btn btn-ink" id="rBtn">Repay $'+due+'</button><span class="hint">Due in 26 days. In the demo, a loan term is 5 minutes.</span></div>', 'Next');
+  var btn=b.querySelector('#rBtn');
+  btn.addEventListener('click', async function(){ btn.disabled=true; btn.textContent='Sending…'; await wait(1100); btn.textContent='Repaid';
+    var e = entry('Repaid on time', '<p>$'+due+' paid. $0.40 of the interest went to the reserve that protects lenders; $1.60 went to lenders.</p><div class="level" aria-label="Limit levels"><div class="on"><i style="height:24px"></i>$100</div><div id="lv2"><i style="height:44px"></i>$250</div><div><i style="height:70px"></i>$500</div><div><i style="height:100px"></i>$1,000</div></div><p>Your next note can be up to <b>$250</b>. Limits only grow after a loan held at least half its term.</p>');
+    await wait(500); e.querySelector('#lv2').classList.add('on');
+  });
+}
+function defaultStep(p, amt){
+  var b = entry('Repay', '<div class="form"><button class="btn btn-ink" disabled>Repay $102.00</button><button class="btn btn-red" id="skip">Max never pays: skip ahead 12 days</button></div><p class="hint">In the demo, time runs in minutes. Max ignores the due date and the 7-day grace period.</p>', 'Next');
+  b.querySelector('#skip').addEventListener('click', async function(){ this.disabled=true;
+    entry('Grace period over', '<p>Max missed the due date and the 7-day grace period. Anyone can now mark the loan as defaulted; the contract checks the dates itself.</p>', '+12 days');
+    await wait(1100);
+    var e = entry('Defaulted', '<ul class="chain"><li><span>Loan marked as defaulted</span><span>$'+amt+'</span></li><li><span>Reserve paid the pool back</span><span>$'+amt+'</span></li><li><span>Lost by lenders</span><span>$0.00</span></li><li><span>Name released to the recovery partner</span><span>sealed → opened</span></li><li><span>Max can borrow again</span><span>Never</span></li></ul><p class="txline">Transaction <a href="#top">3Kp0d…uY7</a>. The bank fingerprint stays taken, so a new account with the same bank can\'t start over.</p>');
+    await wait(300);
+    var notes=document.querySelectorAll('.notebox'); var nb=notes[notes.length-1]; var s=document.createElement('span'); s.className='stamp'; s.style.cssText='color:var(--red-ink);border-color:var(--red-ink);right:auto;left:18px;bottom:auto;top:18px'; s.textContent='DEFAULT'; nb.appendChild(s); void s.offsetWidth; s.classList.add('on');
+  });
+}
+})();
+</script>
