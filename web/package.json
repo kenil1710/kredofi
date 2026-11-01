@@ -1,0 +1,26 @@
+{
+  "name": "kredofi-web",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types --no-warnings src/lib/format.test.ts src/lib/tx.test.ts"
+  },
+  "dependencies": {
+    "@hot-labs/near-connect": "0.11.4",
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "three": "0.160.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.160.0",
+    "typescript": "5.9.3"
+  }
+}

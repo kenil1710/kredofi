@@ -82,6 +82,8 @@ cd scripts && npm install && cd ..
 set -a; source .env; set +a; node scripts/demo.mjs
 node scripts/dev_scorer.mjs score <borrower> <input.json> [reply_pubkey]   # or: release <borrower>
 node --test scripts/seal.test.mjs   # JS <-> Rust seal compatibility
+# web (Next.js 16): lib unit tests, typecheck, production build; component sheet at /dev/components
+cd web && npm install && npm test && npx tsc --noEmit && npx next build && npx next start
 ```
 
 ## Never
