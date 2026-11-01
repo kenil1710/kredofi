@@ -177,6 +177,8 @@ OutLayer project, `wasm32-wasip2`, reads JSON from stdin, writes JSON to stdout.
 
 Demo-only: `{"op": "score", "profile": {...}}` creates a sandbox custom user (`override_username: "user_custom"`) instead of a Link token. Never accepted in production config.
 
+Builds (`scorer/build.sh`): the production build (no Cargo features) is the one pinned on OutLayer; it rejects `profile` and `debug`. Feature `demo` accepts profiles (local and testnet Dev mode, run by `dev_scorer`); feature `debug` (local only) prints features to stderr, never stdout. Profiles are validated in the scorer: one depository account, starting balance 0-30,000, 1-200 transactions, amounts -8,000 to 8,000, one identity name of 1-64 bytes. Any failure outputs `{"success": false, "error": "..."}` (no `v`), which the contract records as `score_failed`.
+
 ### Score steps
 
 1. `public_token` to `/item/public_token/exchange`. The access token never leaves the TEE.
@@ -184,10 +186,12 @@ Demo-only: `{"op": "score", "profile": {...}}` creates a sandbox custom user (`o
 3. `/accounts/get` for current balance; `/identity/get` for the owner name (the Item needs products `transactions` and `identity`). Tested Oct 25 in sandbox: returns `accounts[].owners[].names` ("Alberta Bobbeth Charleson", 29 bytes). Plaid custom users (Riya, Sam, Max) need an identity block with a name added in `gen_borrowers.py`, or they may return none.
 4. Compute features over the last 6 full months (Plaid sign: negative = money in).
 5. Score (section 6). Fingerprint = `HMAC-SHA256(SEAL_KEY, institution_id | normalized owner name | account mask)`.
-6. `sealed_identity` = owner name encrypted with `SEAL_KEY` (ChaCha20-Poly1305).
+   Scored account: the primary depository account (first `checking`, else first depository). Its transactions (posted, not pending), current balance, mask and owner name are used; other accounts are ignored, so transfers between own accounts and credit cards don't count as income or spending. The 6-month window is the 6 full calendar months before the current UTC month.
+6. `sealed_identity` = owner name (at most 64 bytes) encrypted with `SEAL_KEY` (ChaCha20-Poly1305). Because `SEAL_KEY` is reused for every borrower, each seal uses a fresh random 12-byte nonce: key = SHA-256("kredofi-identity-v1" | SEAL_KEY), output = nonce (12) | ciphertext+tag, base64.
    Crypto tested in `wasm32-wasip2` under wasmtime on Oct 25 (practice crate `seal-test`): `x25519-dalek` 2 (`default-features = false`, `static_secrets`), `chacha20poly1305` 0.10 (`default-features = false`, `alloc`), `sha2` 0.10, `getrandom` 0.3 (`getrandom::fill`), `base64` 0.22. Sealing to an x25519 key: ephemeral key, key = SHA-256("kredofi-seal-v1" | shared | eph_pub | rcpt_pub), zero nonce (key is single-use), output = eph_pub (32) | ciphertext+tag, base64. A 25-character name seals to 100 bytes. Right key opens it, wrong key fails. Use the same scheme for the release step.
 7. Optional: AI summary from NEAR AI Cloud `Qwen/Qwen3.8-27B` (proven private: gateway + model attestation with `nvidia_payload`), encrypted to `reply_pubkey` so only the borrower's browser can read it. The score never depends on AI.
    Tested Oct 25: `POST https://cloud-api.near.ai/v1/chat/completions` with `"chat_template_kwargs": {"enable_thinking": false}` and `/no_think` in the system prompt. Without them Qwen3 spends the whole `max_tokens` on reasoning and returns `content: null`. Result: 2 plain sentences, 66 in / 31 out tokens, about $0.00005 per run. Key = `NEARAI_KEY` secret.
+   `reply` (optional, when `reply_pubkey` is given): the five rule results `{"parts":{"income","stability","payment","cash_flow","buffer"}}` (plus the AI summary if built) sealed to `reply_pubkey` with the x25519 scheme, so only the borrower's browser can show why the band was given (SPEC 8b).
 8. **Always** call `/item/remove` with the access token before the run ends, on success and on every error path. The bank connection is then revoked at Plaid, so the access token is useless even if it ever leaked. A new score needs a new bank connection (Plaid Link again).
 
 Fee and refund: the borrower attaches the OutLayer fee (>= 0.01 NEAR) to `request_score`; the contract forwards all of it to `request_execution` with `payer_account_id` set to the borrower, so any unused part is refunded by OutLayer directly to the borrower, never kept by the contract. If mainnet shows `payer_account_id` does not work this way, the refund stays in the contract and the README says so (PLAN day 6).

@@ -1,6 +1,10 @@
 """Generate 3 fake Plaid sandbox borrowers (6 months of history each).
-Plaid sign: negative amount = money IN (salary), positive = money OUT (spending)."""
-import json
+Plaid sign: negative amount = money IN (salary), positive = money OUT (spending).
+
+Usage: python3 scripts/gen_borrowers.py [out_dir]   (default: scorer/out/borrowers)
+Each file is a ready scorer input: {"op":"score","profile":{...}} (demo builds only).
+Each borrower has one identity name (Plaid /identity/get needs it for the fingerprint)."""
+import json, os, sys
 from datetime import date, timedelta
 
 def months_back(n):
@@ -21,7 +25,7 @@ def borrower(name, start_balance, monthly):
     txs = []
     for i, m in enumerate(months_back(6)):
         txs += monthly(i, m)
-    return {"profile": {
+    return {"op": "score", "profile": {
         "seed": name, "roll_dates_forward": True,
         "override_accounts": [{
             "type": "depository", "subtype": "checking", "starting_balance": start_balance,
@@ -54,10 +58,12 @@ def cheater(i, m):
             tx(m + timedelta(days=9), 300, "GROCERY MART"),
             tx(m + timedelta(days=14), 120, "ONLINE SHOPPING")]
 
+out_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "scorer", "out", "borrowers")
+os.makedirs(out_dir, exist_ok=True)
 for fname, b in [("good.json", borrower("Riya Good", 6000, good)),
                  ("risky.json", borrower("Sam Risky", 3000, risky)),
                  ("cheater.json", borrower("Max Cheater", 5000, cheater))]:
-    with open(fname, "w") as f:
+    with open(os.path.join(out_dir, fname), "w") as f:
         json.dump(b, f)
     n = len(b["profile"]["override_accounts"][0]["transactions"])
     print(f"{fname}: {n} transactions, {len(json.dumps(b))} bytes")

@@ -1,0 +1,265 @@
+//! KredoFi scorer: everything except the Plaid HTTP calls, so it can be unit-tested natively.
+//!
+//! Input (stdin, SPEC 5):
+//!   {"op":"score","public_token":"public-sandbox-...","reply_pubkey":"<x25519 hex>"}
+//!   {"op":"score","profile":{...},"reply_pubkey":"..."}   (demo builds only)
+//!   {"op":"release","sealed":"<base64>","partner_pubkey":"<x25519 hex>"}
+//! Output (stdout): the score or release JSON, or {"success":false,"error":"..."}.
+//! Never output: transactions, balances, names, tokens.
+
+pub mod crypto;
+pub mod rules;
+
+use crypto::Key32;
+use rules::{Features, Score, Tx};
+use serde_json::{Map, Value, json};
+
+/// On-chain OutLayer output limit (prep lesson).
+pub const MAX_OUTPUT_BYTES: usize = 900;
+const MAX_NAME_BYTES: usize = 64;
+
+/// What the scorer needs from the bank, already reduced to the primary depository account.
+#[derive(Clone, Debug)]
+pub struct BankData {
+    pub institution_id: String,
+    pub owner_name: String,
+    pub mask: String,
+    pub balance_cents: i64,
+    pub txs: Vec<Tx>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Source {
+    PublicToken(String),
+    /// Plaid sandbox custom-user config (demo builds only).
+    Profile(Value),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Input {
+    Score { source: Source, reply_pubkey: Option<Key32>, debug: bool },
+    Release { sealed: String, partner_pubkey: Key32 },
+}
+
+/// Which optional inputs this build accepts (Cargo features `demo` and `debug`).
+#[derive(Clone, Copy, Debug)]
+pub struct BuildFlags {
+    pub demo: bool,
+    pub debug: bool,
+}
+
+pub const BUILD: BuildFlags = BuildFlags { demo: cfg!(feature = "demo"), debug: cfg!(feature = "debug") };
+
+pub fn error_output(msg: &str) -> Value {
+    json!({ "success": false, "error": msg })
+}
+
+// ------------------------------------------------------------------ dates
+
+/// (year, month 1-12) from a unix timestamp (UTC).
+pub fn year_month(unix_secs: u64) -> (i64, u32) {
+    // Howard Hinnant's civil_from_days.
+    let z = (unix_secs / 86_400) as i64 + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    (y, m)
+}
+
+/// The last 6 full calendar months before the current one, oldest first, as `YYYY-MM`.
+pub fn window(unix_secs: u64) -> [String; 6] {
+    let (y, m) = year_month(unix_secs);
+    let current = y * 12 + (m as i64 - 1);
+    std::array::from_fn(|i| {
+        let k = current - 6 + i as i64;
+        format!("{:04}-{:02}", k.div_euclid(12), k.rem_euclid(12) + 1)
+    })
+}
+
+// ------------------------------------------------------------------ input
+
+fn only_keys(m: &Map<String, Value>, allowed: &[&str], what: &str) -> Result<(), String> {
+    match m.keys().find(|k| !allowed.contains(&k.as_str())) {
+        Some(k) => Err(format!("unexpected field in {what}: {k}")),
+        None => Ok(()),
+    }
+}
+
+pub fn parse_input(raw: &str, build: BuildFlags) -> Result<Input, String> {
+    let v: Value = serde_json::from_str(raw).map_err(|_| "input is not JSON")?;
+    let m = v.as_object().ok_or("input must be a JSON object")?;
+    if m.contains_key("debug") && !build.debug {
+        return Err("debug is disabled in this build".into());
+    }
+    match m.get("op").and_then(Value::as_str) {
+        Some("score") => {
+            only_keys(m, &["op", "public_token", "profile", "reply_pubkey", "debug"], "input")?;
+            let reply_pubkey = match m.get("reply_pubkey") {
+                None | Some(Value::Null) => None,
+                Some(k) => Some(crypto::unhex32(k.as_str().ok_or("reply_pubkey must be hex")?)
+                    .map_err(|_| "reply_pubkey must be 32 bytes of hex")?),
+            };
+            let source = match (m.get("public_token"), m.get("profile")) {
+                (Some(t), None) => {
+                    let t = t.as_str().ok_or("public_token must be a string")?;
+                    if t.is_empty() || t.len() > 256 || !t.starts_with("public-") {
+                        return Err("invalid public_token".into());
+                    }
+                    Source::PublicToken(t.to_string())
+                }
+                (None, Some(p)) => {
+                    if !build.demo {
+                        return Err("demo profiles are disabled in this build".into());
+                    }
+                    validate_profile(p)?;
+                    Source::Profile(p.clone())
+                }
+                _ => return Err("give exactly one of public_token or profile".into()),
+            };
+            let debug = m.get("debug").and_then(Value::as_bool).unwrap_or(false);
+            Ok(Input::Score { source, reply_pubkey, debug })
+        }
+        Some("release") => {
+            only_keys(m, &["op", "sealed", "partner_pubkey"], "input")?;
+            let sealed = m.get("sealed").and_then(Value::as_str).ok_or("missing sealed")?;
+            if sealed.is_empty() || sealed.len() > 512 {
+                return Err("invalid sealed".into());
+            }
+            let pk = m.get("partner_pubkey").and_then(Value::as_str).ok_or("missing partner_pubkey")?;
+            let partner_pubkey = crypto::unhex32(pk).map_err(|_| "partner_pubkey must be 32 bytes of hex")?;
+            Ok(Input::Release { sealed: sealed.to_string(), partner_pubkey })
+        }
+        _ => Err("op must be \"score\" or \"release\"".into()),
+    }
+}
+
+/// SPEC 8b: demo profiles are checked again in the scorer (the browser checks first).
+pub fn validate_profile(p: &Value) -> Result<(), String> {
+    let m = p.as_object().ok_or("profile must be an object")?;
+    only_keys(m, &["seed", "roll_dates_forward", "override_accounts"], "profile")?;
+    let accounts = m.get("override_accounts").and_then(Value::as_array).ok_or("profile needs override_accounts")?;
+    if accounts.len() != 1 {
+        return Err("profile needs exactly one account".into());
+    }
+    let a = accounts[0].as_object().ok_or("account must be an object")?;
+    only_keys(a, &["type", "subtype", "starting_balance", "identity", "transactions"], "account")?;
+    if a.get("type").and_then(Value::as_str) != Some("depository") {
+        return Err("account type must be depository".into());
+    }
+    let bal = a.get("starting_balance").and_then(Value::as_f64).ok_or("missing starting_balance")?;
+    if !(0.0..=30_000.0).contains(&bal) {
+        return Err("starting_balance must be 0 to 30000".into());
+    }
+    let names = a
+        .get("identity")
+        .and_then(|i| i.get("names"))
+        .and_then(Value::as_array)
+        .ok_or("account needs identity.names")?;
+    if names.len() != 1 || names[0].as_str().is_none_or(|n| n.trim().is_empty() || n.len() > MAX_NAME_BYTES) {
+        return Err("identity.names needs one name of 1-64 bytes".into());
+    }
+    let txs = a.get("transactions").and_then(Value::as_array).ok_or("account needs transactions")?;
+    if txs.is_empty() || txs.len() > 200 {
+        return Err("1 to 200 transactions".into());
+    }
+    for t in txs {
+        let amount = t.get("amount").and_then(Value::as_f64).ok_or("transaction needs amount")?;
+        if !(-8_000.0..=8_000.0).contains(&amount) {
+            return Err("transaction amount must be -8000 to 8000".into());
+        }
+        let desc = t.get("description").and_then(Value::as_str).ok_or("transaction needs description")?;
+        if desc.is_empty() || desc.len() > 64 {
+            return Err("description must be 1-64 bytes".into());
+        }
+        for k in ["date_transacted", "date_posted"] {
+            if t.get(k).and_then(Value::as_str).is_none_or(|d| d.len() != 10) {
+                return Err(format!("transaction needs {k} as YYYY-MM-DD"));
+            }
+        }
+    }
+    Ok(())
+}
+
+// ------------------------------------------------------------------ output
+
+pub struct Scored {
+    pub output: Value,
+    pub score: Score,
+    pub features: Features,
+}
+
+/// Build the on-chain output (SPEC 5). `caller` comes from NEAR_SENDER_ID, never from input.
+pub fn score_output(
+    caller: &str,
+    bank: &BankData,
+    seal_key: &Key32,
+    reply_pubkey: Option<&Key32>,
+    now_unix: u64,
+) -> Result<Scored, String> {
+    if caller.is_empty() || caller.len() > 64 {
+        return Err("NEAR_SENDER_ID missing or invalid".into());
+    }
+    let name = bank.owner_name.trim();
+    if name.is_empty() {
+        return Err("no owner name returned by the bank".into());
+    }
+    let features = rules::features(&bank.txs, &window(now_unix), bank.balance_cents);
+    let score = rules::score(&features);
+    let fp = crypto::fingerprint(seal_key, &bank.institution_id, name, &bank.mask);
+    let sealed = crypto::seal_identity(seal_key, truncate(name, MAX_NAME_BYTES))?;
+
+    let mut out = json!({
+        "v": 1,
+        "caller": caller,
+        "band": score.band,
+        "score": score.score,
+        "income_cap": score.income_cap_usd * 1_000_000,
+        "fingerprint": crypto::hex(&fp),
+        "sealed_identity": sealed,
+    });
+    if let Some(pk) = reply_pubkey {
+        // Private to the borrower's browser: why this band (SPEC 8b result screen).
+        let p = &score.parts;
+        let detail = json!({ "parts": {
+            "income": p.income, "stability": p.stability, "payment": p.payment,
+            "cash_flow": p.cash_flow, "buffer": p.buffer,
+        }});
+        out["reply"] = json!(crypto::seal_to(pk, detail.to_string().as_bytes())?);
+    }
+    check_size(&out)?;
+    Ok(Scored { output: out, score, features })
+}
+
+/// Release step: open the sealed name with SEAL_KEY, re-seal it to the partner key.
+pub fn release_output(seal_key: &Key32, sealed: &str, partner_pubkey: &Key32) -> Result<Value, String> {
+    let name = crypto::open_identity(seal_key, sealed)?;
+    let out = json!({ "v": 1, "released": crypto::seal_to(partner_pubkey, name.as_bytes())? });
+    check_size(&out)?;
+    Ok(out)
+}
+
+fn check_size(out: &Value) -> Result<(), String> {
+    let n = out.to_string().len();
+    if n >= MAX_OUTPUT_BYTES {
+        return Err(format!("output is {n} bytes, limit {MAX_OUTPUT_BYTES}"));
+    }
+    Ok(())
+}
+
+fn truncate(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    let mut end = max;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
+#[cfg(test)]
+mod tests;

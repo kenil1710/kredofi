@@ -481,3 +481,18 @@ fn init_rejects_non_hash_version() {
     i.scorer_version = "latest".into();
     Contract::new(i);
 }
+
+/// Contract <-> scorer compatibility: a real output of the scorer WASM (demo build, live Plaid
+/// sandbox, Nov 1 2026) for Sam, including the optional `reply`, passes the strict parser.
+#[test]
+fn accepts_real_scorer_output() {
+    let raw = r#"{"band":"D","caller":"sam.kency.testnet","fingerprint":"e329d846f3946c538dd48f289e95f1970064768ad3b50d16ff10b83e88b4e7fa","income_cap":650000000,"reply":"e4QQ3agqEuF1V/WBgKZ9Qo5rwLfkZIcC0auSgd7hPyZOYjrKeaiqVBqj+a/SVJyXbDHWR2oLor82mqCRkvho2bWAKLmCuKcCIOio4tbLhS8m2HIta5XS5AeuipKQmgyPDde56nkTrwmP5boLtRNLpdLaPOBt4PKaiPpIuAhNCg==","score":270,"sealed_identity":"K0UGKn1YNJUWdYtT3N5WEpPpz4QhJkX8P/tOVGaRu+tLGQbRMA==","v":1}"#;
+    let v: Value = near_sdk::serde_json::from_str(raw).unwrap();
+    let o = parse_output(&v).unwrap();
+    assert_eq!(o.caller.as_str(), "sam.kency.testnet");
+    assert_eq!((o.band, o.score, o.income_cap), (Band::D, 270, 650 * USDC));
+    let mut c = new_contract();
+    let sam = acc("sam.kency.testnet");
+    dev_submit(&mut c, sam.clone(), v);
+    assert_eq!(c.get_limit(sam).0, 0, "band D");
+}

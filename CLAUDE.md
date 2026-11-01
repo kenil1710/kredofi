@@ -63,11 +63,18 @@ cd contracts/kredofi && cargo near build non-reproducible-wasm && cargo test
 cd contracts/mock-usdc && cargo near build non-reproducible-wasm && cargo test
 # full suite from the repo root (unit + near-workspaces sandbox tests in tests/; rebuilds both wasm files)
 cargo test --workspace
-# scorer: build and run locally (keys from the shell, never typed into files)
-cd scorer && ./build.sh
-echo '{"op":"score","profile":{...}}' | wasmtime run -S http --env PLAID_CLIENT_ID="$PLAID_CLIENT_ID" --env PLAID_SECRET="$PLAID_SECRET" --env SEAL_KEY="$SEAL_KEY" --env NEAR_SENDER_ID=test.testnet out/kredofi_scorer.wasm
-# demo borrowers
+# scorer: unit tests (native) and wasm builds; each build prints its SHA-256 (= OutLayer version_key)
+cd scorer && cargo test
+cd scorer && ./build.sh          # production (pin this): out/kredofi_scorer.wasm, rejects profiles and debug
+cd scorer && ./build.sh demo     # + demo profiles: out/kredofi_scorer_demo.wasm (local / testnet Dev mode)
+cd scorer && ./build.sh debug    # + debug features on stderr: local only, never deploy
+# demo borrowers -> scorer/out/borrowers/{good,risky,cheater}.json (ready scorer inputs)
 python3 scripts/gen_borrowers.py
+# run locally: keys from .env, passed to wasmtime by NAME only (never values on the command line)
+set -a; source .env; set +a
+wasmtime run -S http --env PLAID_CLIENT_ID --env PLAID_SECRET --env SEAL_KEY --env NEAR_SENDER_ID=riya.kency.testnet scorer/out/kredofi_scorer_demo.wasm < scorer/out/borrowers/good.json
+# open a sealed reply/release with a secret held in an env var
+(cd scorer && cargo run -q --example open_sealed -- PARTNER_PRIVKEY) < released.b64
 ```
 
 ## Never
