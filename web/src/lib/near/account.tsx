@@ -61,7 +61,14 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     return {
       accountId: wallet.accountId ?? demo?.accountId ?? null,
       kind,
-      signAndSend: (receiverId, acts) => (kind === 'wallet' ? wallet.signAndSend(receiverId, acts) : demo ? relay(demo, receiverId, acts) : Promise.reject(new Error('No account yet.'))),
+      signAndSend: async (receiverId, acts) => {
+        if (kind !== 'wallet') return demo ? relay(demo, receiverId, acts) : Promise.reject(new Error('No account yet.'));
+        const out = await wallet.signAndSend(receiverId, acts);
+        // The relayer records its own transactions; a wallet's go to the public ledger here.
+        const hash = (out as { transaction?: { hash?: string } })?.transaction?.hash;
+        if (hash) fetch('/api/ledger/report', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ hash, signer: wallet.accountId }) }).catch(() => {});
+        return out;
+      },
       createDemo,
       connectWallet: wallet.connect,
       signOut: async () => { if (kind === 'wallet') await wallet.disconnect(); },

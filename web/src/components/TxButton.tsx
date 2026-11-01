@@ -17,7 +17,7 @@ export function TxButton({
   label: string;
   doneLabel?: string;
   onClick: () => void;
-  variant?: 'violet' | 'ink' | 'light' | 'line' | 'red';
+  variant?: 'violet' | 'ink' | 'light' | 'line' | 'red' | 'ghost';
   disabled?: boolean;
   big?: boolean;
 }) {

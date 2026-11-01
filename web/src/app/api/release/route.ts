@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { KREDOFI_CONTRACT } from '@/lib/config';
 import { call, isTestnetAccount, rateLimited, scorerAccount, viewPool } from '@/server/near';
 import { checkPinned, loadSubmitted, runScorer } from '@/server/scorer';
+import { recordSoon } from '@/server/ledger';
 
 export const runtime = 'nodejs';
 
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
     const output = await runScorer({ op: 'release', sealed: sub.sealed_identity, partner_pubkey });
     const r = await call(scorerAccount(), KREDOFI_CONTRACT, 'dev_submit_release', { borrower, output });
     if (!r.ok) return NextResponse.json({ error: r.error, hash: r.hash }, { status: 409 });
+    recordSoon(r.hash, scorerAccount().accountId);
     return NextResponse.json({ hash: r.hash });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Release failed.' }, { status: 502 });

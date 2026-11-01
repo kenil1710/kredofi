@@ -9,6 +9,7 @@ import { checkCustom, customProfile, profileFor, type BorrowerKey, type CustomIn
 import { KREDOFI_CONTRACT } from '@/lib/config';
 import { call, isTestnetAccount, rateLimited, scorerAccount } from '@/server/near';
 import { checkPinned, runScorer, saveSubmitted } from '@/server/scorer';
+import { recordSoon } from '@/server/ledger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -32,7 +33,9 @@ export async function POST(req: Request) {
       ? { op: 'score', public_token: publicToken, reply_pubkey: replyPubkey }
       : { op: 'score', profile: borrower === 'custom' ? customProfile(custom as CustomInputs, tag) : profileFor(borrower as BorrowerKey, tag), reply_pubkey: replyPubkey };
     const output = await runScorer(input, accountId);
-    const r = await call(scorerAccount(), KREDOFI_CONTRACT, 'dev_submit_score', { borrower: accountId, output });
+    const scorer = scorerAccount();
+    const r = await call(scorer, KREDOFI_CONTRACT, 'dev_submit_score', { borrower: accountId, output });
+    recordSoon(r.hash, scorer.accountId);
     if (!r.ok) {
       const error = /already used by another borrower/.test(r.error ?? '')
         ? 'This sandbox bank identity already backs another KredoFi account: one bank identity, one borrower. Pick a test borrower or build your own.'

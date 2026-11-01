@@ -214,3 +214,43 @@ button{font-family:inherit}
 .slider span{display:flex;justify-content:space-between;gap:12px}
 .slider b{font-family:var(--display);font-size:18px;color:var(--ink)}
 .slider input{width:100%;accent-color:var(--violet-ink);min-height:28px}
+
+/* Lender + public ledger (landing reference #lend, .ledger, .feed) */
+.ledger{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.ledger caption{text-align:left;font-size:14px;color:var(--muted);padding-bottom:10px}
+.ledger th{text-align:left;font-weight:400;font-size:16px;padding:16px 0;color:#BFCDC6}
+.ledger td{text-align:right;font-family:var(--display);font-size:30px}
+.ledger tr{border-top:1px solid var(--line-night)}
+.ledger tr.sum{border-top:4px double var(--paper)}
+.ledger tr.sum th{color:var(--paper);font-weight:600}
+.feed{border:1px solid var(--line-night);background:rgba(8,19,15,.5)}
+.feed h2{font-size:24px;padding:22px 24px;border-bottom:1px solid var(--line-night);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.feed h2 small{font-family:var(--body);font-size:13px;color:var(--muted);letter-spacing:0}
+.feed ol{list-style:none;margin:0;padding:0}
+.feed li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;padding:14px 24px;border-bottom:1px solid var(--line-night);font-size:15px}
+.feed li .t{color:var(--muted);font-size:13px}
+.feed li .v{font-family:var(--display);font-size:20px;text-align:right}
+.feed li.new{animation:rowin .6s var(--ease-out)}
+@keyframes rowin{0%{background:rgba(159,217,191,.16);transform:translateY(-12px);opacity:0}100%{background:transparent;transform:none;opacity:1}}
+.lend-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:72px;align-items:start;padding-block:72px 120px}
+@media (max-width:899px){.lend-grid{grid-template-columns:1fr;gap:40px;padding-block:48px 90px}}
+.panel{border:1px solid var(--line-night);padding:24px;display:flex;flex-direction:column;gap:14px}
+.panel h2{font-size:26px}
+.g-deep .money,.g-night .money{background:rgba(8,19,15,.4);border-color:rgba(230,234,225,.35)}
+.g-deep .money input,.g-night .money input{color:var(--paper)}
+.g-deep .money span,.g-night .money span{color:var(--muted)}
+.g-deep .hint,.g-night .hint{color:var(--muted)}
+.g-deep .linkbtn,.g-night .linkbtn{color:var(--mint)}
+.g-deep .terms dt,.g-night .terms dt{color:var(--muted)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;padding:14px 24px;border-bottom:1px solid var(--line-night)}
+.filters button{background:transparent;border:1px solid rgba(230,234,225,.25);color:#C7D3CD;border-radius:2px;padding:6px 12px;min-height:36px;font-size:14px;cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--paper);color:var(--night);border-color:var(--paper)}
+.bandt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:15px}
+.bandt th,.bandt td{padding:10px 8px;text-align:right;border-top:1px solid var(--line-night)}
+.bandt th:first-child,.bandt td:first-child{text-align:left}
+.bandt thead th{color:var(--muted);font-weight:400;border-top:0}
+.bandt tr.sum td{border-top:4px double var(--paper);font-weight:600}
+.verify dl{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 16px;font-size:14px}
+.verify dt{color:var(--muted)}
+.verify dd{margin:0;overflow-wrap:anywhere}
+.verify code{font-family:var(--body);font-size:13px;background:rgba(8,19,15,.6);padding:8px 10px;display:block;overflow-wrap:anywhere;border:1px solid var(--line-night)}

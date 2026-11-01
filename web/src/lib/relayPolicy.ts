@@ -34,6 +34,12 @@ export function checkDelegate(d: DecodedDelegate, cfg: RelayConfig): string | nu
   if (!args) return 'Arguments must be JSON.';
 
   if (d.receiverId === cfg.kredofi) {
+    // withdraw pays only the caller's own shares, so it is as safe to relay as borrow.
+    if (fc.methodName === 'withdraw') {
+      if (deposit !== ONE_YOCTO) return 'withdraw needs exactly 1 yoctoNEAR.';
+      if (typeof args.shares !== 'string' || !/^\d{1,24}$/.test(args.shares)) return 'Invalid shares.';
+      return null;
+    }
     if (fc.methodName !== 'borrow') return `The relayer does not call ${fc.methodName}.`;
     if (deposit !== ONE_YOCTO) return 'borrow needs exactly 1 yoctoNEAR.';
     if (typeof args.amount !== 'string' || !/^\d{1,20}$/.test(args.amount)) return 'Invalid amount.';

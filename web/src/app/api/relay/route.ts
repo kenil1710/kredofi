@@ -7,6 +7,7 @@ import { SCHEMA, actions } from 'near-api-js';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
 import { checkDelegate, type DecodedDelegate } from '@/lib/relayPolicy';
 import { overQuota, relayerAccount } from '@/server/near';
+import { recordSoon } from '@/server/ledger';
 
 export const runtime = 'nodejs';
 
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
       throwOnFailure: false,
       waitUntil: 'FINAL',
     });
+    recordSoon(outcome.transaction_outcome?.id, relayer.accountId);
     return NextResponse.json(JSON.parse(JSON.stringify(outcome, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))));
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Relay failed.';

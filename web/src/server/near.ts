@@ -1,9 +1,27 @@
 import 'server-only';
 // Server-side NEAR access for the testnet API routes. Keys come from web/.env.local.
-import { Account, JsonRpcProvider, actions } from 'near-api-js';
-import { KREDOFI_CONTRACT, RPC, USDC_CONTRACT } from '@/lib/config';
+import { Account, FailoverRpcProvider, JsonRpcProvider, actions } from 'near-api-js';
+import { KREDOFI_CONTRACT, NETWORK, RPC, USDC_CONTRACT } from '@/lib/config';
 
-export const provider = new JsonRpcProvider({ url: RPC });
+// Free RPC endpoints rate-limit (FastNEAR returns 429 under load), so fail over between providers.
+// NEAR_RPC_URLS (comma-separated) overrides the list, e.g. with a paid key in production.
+export const RPC_URLS = (process.env.NEAR_RPC_URLS?.split(',').map((u) => u.trim()).filter(Boolean)) ??
+  [RPC, NETWORK === 'mainnet' ? 'https://rpc.mainnet.near.org' : 'https://rpc.testnet.near.org'];
+export const provider = new FailoverRpcProvider(RPC_URLS.map((url) => new JsonRpcProvider({ url })));
+
+/** Raw JSON-RPC with the same failover (for methods near-api-js doesn't wrap the way we need). */
+export async function rpc<T = unknown>(method: string, params: unknown): Promise<T> {
+  let last: unknown;
+  for (const url of RPC_URLS) {
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 'kf', method, params }) });
+      const j = await r.json();
+      if (j.result !== undefined) return j.result as T;
+      last = j.error;
+    } catch (e) { last = e; }
+  }
+  throw new Error(`RPC ${method} failed: ${JSON.stringify(last)?.slice(0, 200)}`);
+}
 
 function account(idVar: string, keyVar: string) {
   const id = process.env[idVar], key = process.env[keyVar];

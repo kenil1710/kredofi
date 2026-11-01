@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { KREDOFI_CONTRACT } from '@/lib/config';
 import { call, isTestnetAccount, rateLimited, relayerAccount, scorerAccount, viewPool } from '@/server/near';
 import { checkPinned, loadSubmitted, runScorer } from '@/server/scorer';
+import { recordSoon } from '@/server/ledger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
     const r = await call(scorerAccount(), KREDOFI_CONTRACT, 'dev_submit_release', { borrower, output });
     if (r.hash) txs.push(r.hash);
     if (!r.ok) return NextResponse.json({ error: r.error, txs }, { status: 409 });
+    txs.forEach((h, i) => recordSoon(h, i === txs.length - 1 ? scorerAccount().accountId : relayerAccount().accountId));
     return NextResponse.json({ txs });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Default failed.', txs }, { status: 502 });

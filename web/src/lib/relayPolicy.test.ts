@@ -13,13 +13,15 @@ test('allowed calls', () => {
   assert.equal(checkDelegate(call(cfg.usdc, 'ft_transfer_call', { receiver_id: cfg.kredofi, amount: '104000000', msg: 'repay' }), cfg), null);
   assert.equal(checkDelegate(call(cfg.usdc, 'ft_transfer_call', { receiver_id: cfg.kredofi, amount: '5', msg: 'deposit' }), cfg), null);
   assert.equal(checkDelegate(call(cfg.usdc, 'storage_deposit', {}, 1_250_000_000_000_000_000_000n), cfg), null);
+  assert.equal(checkDelegate(call(cfg.kredofi, 'withdraw', { shares: '400000000' }), cfg), null);
+  assert.match(checkDelegate(call(cfg.kredofi, 'withdraw', { shares: 'all' }), cfg)!, /Invalid shares/);
 });
 
 test('refused: not a demo account, wrong contract, wrong method', () => {
   assert.match(checkDelegate(call(cfg.kredofi, 'borrow', { amount: '1' }, 1n, 1n, 'kency.testnet'), cfg)!, /demo accounts/);
   assert.match(checkDelegate(call(cfg.kredofi, 'borrow', { amount: '1' }, 1n, 1n, 'demo123.evil.testnet'), cfg)!, /demo accounts/);
   assert.match(checkDelegate(call('wrap.testnet', 'near_deposit', {}), cfg)!, /only calls KredoFi/);
-  for (const m of ['withdraw', 'mark_default', 'set_grace_ns', 'withdraw_treasury', 'dev_submit_score']) {
+  for (const m of ['mark_default', 'set_grace_ns', 'withdraw_treasury', 'treasury_to_reserve', 'dev_submit_score', 'migrate']) {
     assert.match(checkDelegate(call(cfg.kredofi, m, {}), cfg)!, /does not call/, m);
   }
   assert.match(checkDelegate(call(cfg.usdc, 'ft_transfer', { receiver_id: 'x.testnet', amount: '1' }), cfg)!, /does not call/);
