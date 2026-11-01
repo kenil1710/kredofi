@@ -58,8 +58,11 @@ KredoFi: private, income-based stablecoin loans on NEAR. Bank data is scored ins
 ## Commands
 
 ```bash
-# contracts
+# contracts: unit tests inside each contract
 cd contracts/kredofi && cargo near build non-reproducible-wasm && cargo test
+cd contracts/mock-usdc && cargo near build non-reproducible-wasm && cargo test
+# full suite from the repo root (unit + near-workspaces sandbox tests in tests/; rebuilds both wasm files)
+cargo test --workspace
 # scorer: build and run locally (keys from the shell, never typed into files)
 cd scorer && ./build.sh
 echo '{"op":"score","profile":{...}}' | wasmtime run -S http --env PLAID_CLIENT_ID="$PLAID_CLIENT_ID" --env PLAID_SECRET="$PLAID_SECRET" --env SEAL_KEY="$SEAL_KEY" --env NEAR_SENDER_ID=test.testnet out/kredofi_scorer.wasm

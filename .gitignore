@@ -1,0 +1,33 @@
+# Rust / NEAR build outputs
+target/
+**/target/
+*.wasm
+!docs/**/*.wasm
+scorer/out/
+contracts/**/res/
+
+# Node / Next.js
+node_modules/
+web/.next/
+web/out/
+web/.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets (names only live in .env.example)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+**/credentials/*.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

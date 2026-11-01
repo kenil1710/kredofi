@@ -1,0 +1,22 @@
+[workspace]
+resolver = "3"
+members = ["contracts/kredofi", "contracts/mock-usdc", "tests"]
+# scorer/ is a separate wasm32-wasip2 crate, built on its own.
+exclude = ["scorer"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.93"
+repository = "https://github.com/kenil1710/kredofi"
+
+[workspace.dependencies]
+near-sdk = "=5.29.1"
+near-contract-standards = "=5.29.1"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true

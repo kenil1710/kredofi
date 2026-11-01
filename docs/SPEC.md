@@ -103,8 +103,8 @@ Interest per loan term (flat): A 2%, B 3%, C 4%.
 
 | Method | Rules |
 |---|---|
-| deposit | Via `usdc.ft_transfer_call(pool, amount, msg: "deposit")`. Mint shares at current share price. |
-| `withdraw(shares)` | Burn shares, pay `shares * price`, limited by `cash`. State first, then `ft_transfer` with rollback callback. |
+| deposit | Via `usdc.ft_transfer_call(pool, amount, msg: "deposit")`. Mint shares at current share price (rounded down). Rejected (tokens refunded) if it would mint 0 shares, or if the pool has shares but zero value. |
+| `withdraw(shares)` | Requires exactly 1 yoctoNEAR attached (full-access key). Burn shares, pay `shares * price`, limited by `cash`. State first, then `ft_transfer` with rollback callback. `lender_withdraw` is emitted only in the callback, after the transfer succeeds. |
 
 Cross-chain deposits: NEAR Intents 1Click delivers USDC to the **lender's own NEAR account**, then the lender deposits with `ft_transfer_call` (so the pool knows who deposited). One-step deposit only if 1Click can attach a message to a contract recipient (to check).
 
@@ -117,7 +117,7 @@ Cross-chain deposits: NEAR Intents 1Click delivers USDC to the **lender's own NE
 
 ### Owner
 
-`seed_reserve` (via `ft_transfer_call` msg `"seed_reserve"`), `set_scorer_version(version)` (emits `scorer_version_changed`, public on-chain), parameter setters. **No method lets the owner move lender funds or the reserve out.** No contract upgrade method in the hackathon build.
+`seed_reserve` (via `ft_transfer_call` msg `"seed_reserve"`), `set_scorer_version(version)` (emits `scorer_version_changed`, public on-chain), parameter setters. `min_hold_ns` is set at init to `loan_term_ns / 2`. **No method lets the owner move lender funds or the reserve out.** No contract upgrade method in the hackathon build.
 
 ### Views
 
@@ -265,6 +265,7 @@ Because `ft_transfer_call` needs 1 yocto, and repay and deposit go to the USDC c
 4. The relayer only relays delegates whose `receiver_id` is the KredoFi contract or `mock-usdc`, with method allowlist `borrow`, `ft_transfer_call`, `storage_deposit` (on testnet, scoring runs in Dev mode through `dev_submit_score` by the `dev_scorer` backend, so demo accounts never call `request_score`), and at most 20 relays per demo account per hour. This gives the same safety as a function-call key, enforced by the relayer.
 5. "Connect wallet" stays available. Demo accounts and wallet accounts use the same contract methods; the contract does not know which is which.
 6. Mainnet never uses demo accounts.
+7. Test USDC: the `mock-usdc` owner (the only account that can `mint`) is the relayer account. When the relayer creates a demo account it also mints 10 test USDC to it (enough to repay interest). Wallet users get a "Get 500 test USDC" button served by the relayer API, once per account. No contract change needed.
 
 Build after the core loop works (score, borrow, repay, default), but before any optional extra. Estimated half a day.
 
