@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["contracts/kredofi", "contracts/mock-usdc", "tests"]
+members = ["contracts/kredofi", "contracts/mock-usdc", "tests", "tests/mock-outlayer"]
 # scorer/ is a separate wasm32-wasip2 crate, built on its own.
 exclude = ["scorer"]
 

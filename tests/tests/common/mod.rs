@@ -18,6 +18,7 @@ pub struct Wasm {
     pub kredofi: Vec<u8>,
     pub kredofi_abi: PathBuf,
     pub mock_usdc: Vec<u8>,
+    pub mock_outlayer: Vec<u8>,
 }
 
 fn build(manifest: &str) -> PathBuf {
@@ -41,7 +42,9 @@ pub fn wasm() -> &'static Wasm {
     WASM.get_or_init(|| {
         let usdc_path = build("contracts/mock-usdc/Cargo.toml");
         let kredofi_path = build("contracts/kredofi/Cargo.toml");
+        let outlayer_path = build("tests/mock-outlayer/Cargo.toml");
         Wasm {
+            mock_outlayer: std::fs::read(&outlayer_path).unwrap(),
             kredofi: std::fs::read(&kredofi_path).unwrap(),
             kredofi_abi: kredofi_path.with_file_name("kredofi_abi.json"),
             mock_usdc: std::fs::read(&usdc_path).unwrap(),
@@ -57,6 +60,10 @@ pub struct Env {
     pub minter: Account,
     pub alice: Account,
     pub bob: Account,
+    /// `dev_scorer` in Dev mode.
+    pub scorer: Account,
+    /// Mock OutLayer (`config.outlayer`).
+    pub outlayer: Contract,
 }
 
 pub async fn sub(worker: &Worker<Sandbox>, name: &str) -> anyhow::Result<Account> {
@@ -81,15 +88,17 @@ pub async fn deploy_token(worker: &Worker<Sandbox>, name: &str, minter: &Account
     Ok(token)
 }
 
-pub fn config(owner: &Account, usdc: &Contract) -> Value {
+pub const SCORER_VERSION: &str = "f45185a0f45185a0f45185a0f45185a0f45185a0f45185a0f45185a0f45185a0";
+
+pub fn config(owner: &Account, usdc: &Contract, scorer: &Account, outlayer: &Contract) -> Value {
     json!({
         "owner": owner.id(),
         "usdc": usdc.id(),
         "scorer_mode": "Dev",
-        "dev_scorer": owner.id(),
-        "outlayer": "outlayer.test.near",
+        "dev_scorer": scorer.id(),
+        "outlayer": outlayer.id(),
         "scorer_project": "owner/kredofi-scorer",
-        "scorer_version": "0000000000000000000000000000000000000000000000000000000000000000",
+        "scorer_version": SCORER_VERSION,
         "secrets_profile": "kredofi",
         "secrets_account": owner.id(),
         "partner_pubkey": PARTNER_PUBKEY,
@@ -104,17 +113,35 @@ pub fn config(owner: &Account, usdc: &Contract) -> Value {
 /// Sandbox with mock USDC and KredoFi deployed; alice and bob hold $10,000 each,
 /// the owner holds $1,000 for the reserve seed.
 pub async fn setup() -> anyhow::Result<Env> {
+    setup_with(|_| {}).await
+}
+
+/// OutLayer mode, pointed at the mock OutLayer.
+pub async fn setup_outlayer() -> anyhow::Result<Env> {
+    setup_with(|c| {
+        c["scorer_mode"] = json!("OutLayer");
+        c["dev_scorer"] = Value::Null;
+    })
+    .await
+}
+
+/// Like `setup`, with the init config adjusted by `tweak`.
+pub async fn setup_with(tweak: impl FnOnce(&mut Value)) -> anyhow::Result<Env> {
     let worker = near_workspaces::sandbox().await?;
     let owner = sub(&worker, "owner").await?;
     let minter = sub(&worker, "minter").await?;
     let alice = sub(&worker, "alice").await?;
     let bob = sub(&worker, "bob").await?;
+    let scorer = sub(&worker, "scorer").await?;
     let usdc = deploy_token(&worker, "usdc", &minter).await?;
+    let outlayer = sub(&worker, "outlayer").await?.deploy(&wasm().mock_outlayer).await?.into_result()?;
 
     let pool_acc = sub(&worker, "kredofi").await?;
+    let mut cfg = config(&owner, &usdc, &scorer, &outlayer);
+    tweak(&mut cfg);
     let pool = pool_acc.deploy(&wasm().kredofi).await?.into_result()?;
     pool.call("new")
-        .args_json(json!({ "config": config(&owner, &usdc) }))
+        .args_json(json!({ "config": cfg }))
         .transact()
         .await?
         .into_result()?;
@@ -126,7 +153,7 @@ pub async fn setup() -> anyhow::Result<Env> {
     mint(&minter, &usdc, bob.id(), 10_000 * USDC).await?;
     mint(&minter, &usdc, owner.id(), 1_000 * USDC).await?;
 
-    Ok(Env { worker, usdc, pool, owner, minter, alice, bob })
+    Ok(Env { worker, usdc, pool, owner, minter, alice, bob, scorer, outlayer })
 }
 
 pub async fn register(payer: &Account, token: &Contract, id: &near_workspaces::AccountId) -> anyhow::Result<()> {

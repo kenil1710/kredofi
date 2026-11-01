@@ -207,7 +207,15 @@ async fn owner_cannot_move_lender_funds_or_reserve() -> anyhow::Result<()> {
             public_calls.insert(f["name"].as_str().unwrap().to_string());
         }
     }
-    let allowed: BTreeSet<String> = ["ft_on_transfer", "withdraw"].iter().map(|s| s.to_string()).collect();
+    // None of these move lender funds or the reserve: request_score forwards only the
+    // borrower's own attached NEAR to OutLayer; the others write scores or config.
+    let allowed: BTreeSet<String> = [
+        "ft_on_transfer",
+        "withdraw",
+        "request_score",
+        "dev_submit_score",
+        "set_scorer_version",
+    ].iter().map(|s| s.to_string()).collect();
     assert_eq!(public_calls, allowed, "public change methods changed; review rule 10");
 
     let env = setup().await?;
@@ -232,7 +240,7 @@ async fn owner_cannot_move_lender_funds_or_reserve() -> anyhow::Result<()> {
     // Re-initialising to take over config is impossible.
     let out = env.owner
         .call(env.pool.id(), "new")
-        .args_json(json!({ "config": config(&env.owner, &env.usdc) }))
+        .args_json(json!({ "config": config(&env.owner, &env.usdc, &env.scorer, &env.outlayer) }))
         .transact()
         .await?;
     assert!(out.is_failure());

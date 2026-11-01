@@ -1,7 +1,8 @@
 //! KredoFi: private, income-based stablecoin loans on NEAR.
 //!
-//! Day 1 scope (docs/PLAN.md): config, lending pool, lender deposit and withdraw,
-//! reserve seeding, share math. Scores and loans arrive on days 2 and 3.
+//! Built so far (docs/PLAN.md): config, lending pool, lender deposit and withdraw,
+//! reserve seeding, share math (day 1); scores, expiry, fingerprints, limits (day 2).
+//! Loans arrive on day 3.
 //!
 //! Money rules (SPEC 3, 7):
 //! - Pool value = `cash + outstanding`. The reserve is separate and is not lender money.
@@ -11,6 +12,9 @@
 
 mod events;
 mod math;
+mod score;
+
+pub use score::*;
 
 use near_sdk::json_types::{U64, U128};
 use near_sdk::serde_json::json;
@@ -35,6 +39,8 @@ pub const MSG_SEED_RESERVE: &str = "seed_reserve";
 #[near]
 enum StorageKey {
     Lenders,
+    Borrowers,
+    Fingerprints,
 }
 
 #[near(serializers = [borsh, json])]
@@ -160,6 +166,11 @@ pub struct Contract {
     pool: Pool,
     /// Lender shares.
     lenders: LookupMap<AccountId, u128>,
+    borrowers: LookupMap<AccountId, Borrower>,
+    /// One bank identity, one borrower (rule 6).
+    fingerprints: LookupMap<[u8; 32], AccountId>,
+    /// Per band, indexed by `Band::index()` (A, B, C, D).
+    stats: [BandStats; 4],
 }
 
 #[near]
@@ -170,6 +181,9 @@ impl Contract {
             config: validate_config(config),
             pool: Pool::default(),
             lenders: LookupMap::new(StorageKey::Lenders),
+            borrowers: LookupMap::new(StorageKey::Borrowers),
+            fingerprints: LookupMap::new(StorageKey::Fingerprints),
+            stats: Default::default(),
         }
     }
 
@@ -362,7 +376,10 @@ fn validate_config(c: ConfigInput) -> Config {
     require!(c.max_borrower_share_bps > 0, "max_borrower_share_bps must be positive");
     require!(c.loan_term_ns.0 > 0, "loan_term_ns must be positive");
     require!(c.score_ttl_ns.0 > 0, "score_ttl_ns must be positive");
-    require!(!c.scorer_version.is_empty(), "scorer_version must be set");
+    require!(
+        is_sha256_hex(&c.scorer_version),
+        "scorer_version must be a 64-char lowercase hex SHA-256"
+    );
     if c.scorer_mode == ScorerMode::Dev {
         require!(c.dev_scorer.is_some(), "Dev mode needs a dev_scorer account");
     }
@@ -389,7 +406,7 @@ fn validate_config(c: ConfigInput) -> Config {
     }
 }
 
-fn hex_encode(bytes: &[u8]) -> String {
+pub(crate) fn hex_encode(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut s = String::with_capacity(bytes.len() * 2);
     for b in bytes {
@@ -399,7 +416,7 @@ fn hex_encode(bytes: &[u8]) -> String {
     s
 }
 
-fn hex_decode(s: &str) -> Option<Vec<u8>> {
+pub(crate) fn hex_decode(s: &str) -> Option<Vec<u8>> {
     if !s.len().is_multiple_of(2) {
         return None;
     }
@@ -411,3 +428,5 @@ fn hex_decode(s: &str) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod score_tests;

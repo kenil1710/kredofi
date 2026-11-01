@@ -7,25 +7,26 @@ use near_sdk::{PromiseResult, RuntimeFeesConfig, testing_env};
 
 const USDC: u128 = 1_000_000; // 6 decimals: $1
 
-fn acc(s: &str) -> AccountId {
+pub fn acc(s: &str) -> AccountId {
     s.parse().unwrap()
 }
-fn owner() -> AccountId {
+pub fn owner() -> AccountId {
     acc("owner.near")
 }
-fn usdc() -> AccountId {
+pub fn usdc() -> AccountId {
     acc("usdc.near")
 }
-fn pool_id() -> AccountId {
+pub fn pool_id() -> AccountId {
     acc("kredofi.near")
 }
-fn alice() -> AccountId {
+pub fn alice() -> AccountId {
     acc("alice.near")
 }
-fn bob() -> AccountId {
+pub fn bob() -> AccountId {
     acc("bob.near")
 }
 
+pub const VERSION: &str = "f45185a0f45185a0f45185a0f45185a0f45185a0f45185a0f45185a0f45185a0";
 const PARTNER: &str = "0101010101010101010101010101010101010101010101010101010101010101";
 
 pub fn config_input() -> ConfigInput {
@@ -36,7 +37,7 @@ pub fn config_input() -> ConfigInput {
         dev_scorer: Some(acc("scorer.near")),
         outlayer: acc("outlayer.near"),
         scorer_project: "owner.near/kredofi-scorer".into(),
-        scorer_version: "abc123".into(),
+        scorer_version: VERSION.into(),
         secrets_profile: "kredofi".into(),
         secrets_account: owner(),
         partner_pubkey: PARTNER.into(),
@@ -48,7 +49,7 @@ pub fn config_input() -> ConfigInput {
     }
 }
 
-fn ctx(predecessor: AccountId) -> VMContextBuilder {
+pub fn ctx(predecessor: AccountId) -> VMContextBuilder {
     let mut b = VMContextBuilder::new();
     b.current_account_id(pool_id())
         .predecessor_account_id(predecessor.clone())
@@ -56,11 +57,11 @@ fn ctx(predecessor: AccountId) -> VMContextBuilder {
     b
 }
 
-fn set(predecessor: AccountId) {
+pub fn set(predecessor: AccountId) {
     testing_env!(ctx(predecessor).build());
 }
 
-fn set_yocto(predecessor: AccountId) {
+pub fn set_yocto(predecessor: AccountId) {
     testing_env!(
         ctx(predecessor)
             .attached_deposit(NearToken::from_yoctonear(1))
@@ -68,7 +69,7 @@ fn set_yocto(predecessor: AccountId) {
     );
 }
 
-fn set_callback(result: PromiseResult) {
+pub fn set_callback(result: PromiseResult) {
     testing_env!(
         ctx(pool_id()).build(),
         near_sdk::test_vm_config(),
@@ -78,17 +79,17 @@ fn set_callback(result: PromiseResult) {
     );
 }
 
-fn new_contract() -> Contract {
+pub fn new_contract() -> Contract {
     set(owner());
     Contract::new(config_input())
 }
 
-fn deposit(c: &mut Contract, lender: AccountId, amount: u128) {
+pub fn deposit(c: &mut Contract, lender: AccountId, amount: u128) {
     set(usdc());
     let _ = c.ft_on_transfer(lender, U128(amount), MSG_DEPOSIT.into());
 }
 
-fn events_named(name: &str) -> Vec<String> {
+pub fn events_named(name: &str) -> Vec<String> {
     get_logs()
         .into_iter()
         .filter(|l| {
