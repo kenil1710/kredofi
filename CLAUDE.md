@@ -85,6 +85,10 @@ node scripts/dev_scorer.mjs score <borrower> <input.json> [reply_pubkey]   # or:
 node --test scripts/seal.test.mjs   # JS <-> Rust seal compatibility
 # web (Next.js 16): lib unit tests, typecheck, production build; component sheet at /dev/components
 cd web && npm install && npm test && npx tsc --noEmit && npx next build && npx next start
+# web/.env.local (git-ignored) holds the server secrets for the testnet API routes (Plaid keys, SEAL_KEY,
+# dev scorer and relayer keys); it is generated from .env and ~/.near-credentials, never printed. /api/score
+# runs the pinned demo scorer with wasmtime, so the server needs wasmtime installed.
+# Passbook at /borrow; in `next dev`, /borrow?as=<testnet account> renders any account read-only (not in prod builds).
 ```
 
 ## Never

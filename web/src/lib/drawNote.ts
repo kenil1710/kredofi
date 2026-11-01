@@ -165,11 +165,13 @@ export function drawNote(
   ctx.fillStyle = '#1F4A3D'; ctx.font = `700 40px ${D}`; ctx.textAlign = 'right'; ctx.fillText(String(AMT), 1004, 116); ctx.textAlign = 'left';
   const lab = `600 11px ${B}`;
   ctx.fillStyle = '#4E635B'; ctx.font = lab; spaced('PAY TO', 96, 176, 2, 'left');
-  ctx.fillStyle = '#10302A'; ctx.font = `italic 400 32px ${D}`; ctx.fillText(NM, 96, 210);
+  // maxWidth keeps long names and amounts clear of the security thread at x = 598.
+  const TEXT_W = 490;
+  ctx.fillStyle = '#10302A'; ctx.font = `italic 400 32px ${D}`; ctx.fillText(NM, 96, 210, TEXT_W);
   ctx.fillStyle = '#4E635B'; ctx.font = lab; spaced('THE SUM OF', 96, 256, 2, 'left');
-  ctx.fillStyle = '#10302A'; ctx.font = `400 27px ${D}`; ctx.fillText(WD, 96, 290);
+  ctx.fillStyle = '#10302A'; ctx.font = `400 27px ${D}`; ctx.fillText(WD, 96, 290, TEXT_W);
   ctx.fillStyle = '#4E635B'; ctx.font = lab; spaced('REPAY BY', 96, 336, 2, 'left');
-  ctx.fillStyle = '#10302A'; ctx.font = `400 27px ${D}`; ctx.fillText(RP, 96, 370);
+  ctx.fillStyle = '#10302A'; ctx.font = `400 27px ${D}`; ctx.fillText(RP, 96, 370, TEXT_W);
   ctx.strokeStyle = '#10302A'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(96, 420); ctx.lineTo(420, 420); ctx.stroke();
   ctx.fillStyle = '#4E635B'; ctx.font = `400 12px ${B}`; ctx.fillText(PROOF, 96, 440);
   const og2 = ctx.createLinearGradient(850, 380 + ovi.y * 60, 1010, 470 - ovi.y * 60);
