@@ -2,14 +2,14 @@
 // App top bar + the testnet banner (passbook reference; DESIGN 3 and 7.1: banner never hidden).
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useWallet } from '@/lib/near/wallet';
+import { useAccount } from '@/lib/near/account';
 import { NETWORK } from '@/lib/config';
 
 const LINKS = [['/borrow', 'Borrow'], ['/lend', 'Lend'], ['/ledger', 'Public ledger']] as const;
 
 export function AppChrome() {
   const path = usePathname();
-  const { accountId, connect, disconnect } = useWallet();
+  const { accountId, kind, connectWallet, signOut } = useAccount();
   return (
     <>
       <header className="banner">
@@ -21,9 +21,11 @@ export function AppChrome() {
             ))}
           </nav>
           {accountId ? (
-            <button type="button" className="chip" onClick={disconnect} title="Sign out">{accountId}</button>
+            kind === 'wallet'
+              ? <button type="button" className="chip" onClick={signOut} title="Sign out">{accountId}</button>
+              : <span className="chip" title="Demo account: its key lives only in this browser">{accountId.split('.')[0]}</span>
           ) : (
-            <button type="button" className="chip" onClick={connect}>Connect wallet</button>
+            <button type="button" className="chip" onClick={connectWallet}>Connect wallet</button>
           )}
         </div>
       </header>

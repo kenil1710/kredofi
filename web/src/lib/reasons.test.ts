@@ -38,3 +38,27 @@ test('profiles match gen_borrowers.py and carry a per-account identity', () => {
   assert.equal(profileFor('max', 'x', now).override_accounts[0].transactions.length, 24);
   // Same counts as scripts/gen_borrowers.py (30 / 20 / 24).
 });
+
+import { checkCustom, customProfile } from './borrowers.ts';
+
+test('build-your-own inputs are range-checked (SPEC 8b)', () => {
+  assert.equal(checkCustom({ salary: 4000, months: 6, spending: 1800, fees: 0, balance: 6000 }), null);
+  assert.match(checkCustom({ salary: 9000, months: 6, spending: 0, fees: 0, balance: 0 })!, /salary/);
+  assert.match(checkCustom({ salary: 1000, months: 7, spending: 0, fees: 0, balance: 0 })!, /months/);
+  assert.match(checkCustom({ salary: 1000, months: 6, spending: 0, fees: 0, balance: 30001 })!, /balance/);
+  assert.match(checkCustom({ salary: 1000.5, months: 6, spending: 0, fees: 0, balance: 0 })!, /whole number/);
+  assert.match(checkCustom({ salary: 0, months: 6, spending: 0, fees: 0, balance: 100 })!, /income or some spending/);
+  assert.match(checkCustom(null)!, /salary/);
+});
+
+test('custom profile shape', () => {
+  const now = new Date(Date.UTC(2026, 10, 2));
+  const p = customProfile({ salary: 1200, months: 4, spending: 1500, fees: 2, balance: 200 }, 'ab12', now);
+  const a = p.override_accounts[0];
+  assert.equal(a.identity.names[0], 'Test Borrower ab12');
+  const pay = a.transactions.filter((t) => t.amount < 0);
+  assert.deepEqual(pay.map((t) => t.date_posted.slice(0, 7)), ['2026-07', '2026-08', '2026-09', '2026-10'], 'salary in the latest 4 months');
+  assert.equal(a.transactions.filter((t) => t.description === 'OVERDRAFT FEE').length, 2);
+  assert.equal(a.transactions.filter((t) => t.description === 'MONTHLY SPENDING').length, 6);
+  assert.ok(a.transactions.every((t) => Math.abs(t.amount) <= 8000));
+});

@@ -7,13 +7,14 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types --no-warnings src/lib/format.test.ts src/lib/tx.test.ts src/lib/seal.test.ts src/lib/reasons.test.ts"
+    "test": "node --test --experimental-strip-types --no-warnings src/lib/format.test.ts src/lib/tx.test.ts src/lib/seal.test.ts src/lib/reasons.test.ts src/lib/relayPolicy.test.ts"
   },
   "dependencies": {
     "@hot-labs/near-connect": "0.11.4",
     "@noble/ciphers": "2.4.0",
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
+    "borsh": "2.0.0",
     "near-api-js": "7.4.0",
     "next": "16.4.3",
     "react": "19.3.1",

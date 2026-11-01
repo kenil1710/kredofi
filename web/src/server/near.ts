@@ -45,3 +45,34 @@ export function rateLimited(key: string, ms: number): boolean {
   last.set(key, now);
   return false;
 }
+
+const windows = new Map<string, number[]>();
+/** At most `max` events per `ms` window for `key` (in memory). Returns true when over the limit. */
+export function overQuota(key: string, max: number, ms: number): boolean {
+  const now = Date.now(), list = (windows.get(key) ?? []).filter((t) => now - t < ms);
+  if (list.length >= max) { windows.set(key, list); return true; }
+  list.push(now); windows.set(key, list);
+  return false;
+}
+
+export function clientIp(req: Request): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || 'local';
+}
+
+/** Register `accountId` with test USDC (relayer pays storage) and top it up to `topUp` base units. */
+export async function fundTestUsdc(accountId: string, topUp: bigint): Promise<string[]> {
+  const relayer = relayerAccount();
+  const txs: string[] = [];
+  if ((await viewUsdc('storage_balance_of', { account_id: accountId })) === null) {
+    const r = await call(relayer, USDC_CONTRACT, 'storage_deposit', { account_id: accountId, registration_only: true }, 30n, 12_500_000_000_000_000_000_000n);
+    if (!r.ok) throw new Error(r.error);
+    if (r.hash) txs.push(r.hash);
+  }
+  const bal = BigInt(await viewUsdc<string>('ft_balance_of', { account_id: accountId }));
+  if (bal < topUp) {
+    const r = await call(relayer, USDC_CONTRACT, 'mint', { account_id: accountId, amount: (topUp - bal).toString() });
+    if (!r.ok) throw new Error(r.error);
+    if (r.hash) txs.push(r.hash);
+  }
+  return txs;
+}

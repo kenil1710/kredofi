@@ -10,9 +10,10 @@ import { GuillocheStrip } from './GuillocheStrip';
 import { EnclavePanel, DECOR_ROWS, DEV_PHASES, type EnclaveStep } from './EnclavePanel';
 import { TxButton, TxStatus } from './TxButton';
 import { HashLink } from './HashLink';
-import { useWallet, functionCall } from '@/lib/near/wallet';
+import { functionCall } from '@/lib/near/wallet';
+import { useAccount } from '@/lib/near/account';
 import { useTx } from '@/lib/useTx';
-import { BORROWERS, type BorrowerKey } from '@/lib/borrowers';
+import { BORROWERS, CUSTOM_LIMITS, checkCustom, type BorrowerKey, type CustomInputs } from '@/lib/borrowers';
 import { getBorrower, getConfig, getPool, usdcBalance, type BorrowerView, type ConfigView, type PoolView } from '@/lib/chain';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
 import { absoluteDate, amountInWords, parseUsd, usd } from '@/lib/format';
@@ -20,7 +21,24 @@ import { serialFromFingerprint } from '@/lib/drawNote';
 import { newKeypair, openSealed } from '@/lib/seal';
 import { PART_KEYS, PART_NAMES, reason, whatWouldChange, type Parts } from '@/lib/reasons';
 
-type Session = { who?: BorrowerKey; replySecret?: string; output?: Record<string, unknown>; scoreHash?: string };
+type Who = BorrowerKey | 'custom' | 'plaid';
+type Source = { borrower: Who; custom?: CustomInputs; publicToken?: string };
+type Session = { who?: Who; replySecret?: string; output?: Record<string, unknown>; scoreHash?: string };
+const whoName = (w?: Who) => (w === 'custom' ? 'your test borrower' : w === 'plaid' ? 'the sandbox bank user' : w ? BORROWERS[w].name.split(' ')[0] : '');
+
+// Plaid Link (SPEC 8c), loaded only when the judge asks for it.
+type PlaidHandler = { open: () => void; destroy: () => void };
+declare global { interface Window { Plaid?: { create: (o: { token: string; onSuccess: (publicToken: string) => void; onExit: (err: unknown) => void }) => PlaidHandler } } }
+function loadPlaid(): Promise<NonNullable<Window['Plaid']>> {
+  if (window.Plaid) return Promise.resolve(window.Plaid);
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+    s.onload = () => (window.Plaid ? res(window.Plaid) : rej(new Error('Plaid Link did not load.')));
+    s.onerror = () => rej(new Error('Plaid Link did not load. Check your connection and try again.'));
+    document.head.appendChild(s);
+  });
+}
 const KEY = (a: string) => `kredofi:passbook:${a}`;
 const loadSession = (a: string): Session => { try { return JSON.parse(localStorage.getItem(KEY(a)) ?? '{}'); } catch { return {}; } };
 const saveSession = (a: string, s: Session) => { try { localStorage.setItem(KEY(a), JSON.stringify(s)); } catch { /* private mode */ } };
@@ -48,14 +66,17 @@ function Entry({ when, sub, title, children }: { when: string; sub?: string; tit
 }
 
 export function Passbook() {
-  const wallet = useWallet();
+  const account = useAccount();
   // Development only: ?as=<account> renders any testnet account's passbook read-only, for visual
   // checks without a wallet. Compiled out of production builds; signing still needs a wallet.
   const [viewAs, setViewAs] = useState<string | null>(null);
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') setViewAs(new URLSearchParams(location.search).get('as'));
   }, []);
-  const acct = wallet.accountId ?? viewAs;
+  const acct = account.accountId ?? viewAs;
+  const [custom, setCustom] = useState<CustomInputs>({ salary: 1200, months: 4, spending: 1500, fees: 2, balance: 200 });
+  const [startError, setStartError] = useState<string | null>(null);
+  const [starting, setStarting] = useState<string | null>(null);
   const [b, setB] = useState<BorrowerView | null | undefined>(undefined);
   const [pool, setPool] = useState<PoolView | null>(null);
   const [cfg, setCfg] = useState<ConfigView | null>(null);
@@ -89,24 +110,26 @@ export function Passbook() {
   const updateSession = (patch: Session) => { if (!acct) return; const s = { ...loadSession(acct), ...patch }; saveSession(acct, s); setSess(s); };
 
   // ---------------------------------------------------------------- scoring (testnet Dev mode)
-  const score = useCallback(async (who: BorrowerKey) => {
-    if (!acct) return;
+  const score = useCallback(async (src: Source, forAccount?: string) => {
+    const acctId = forAccount ?? acct;
+    if (!acctId) return;
+    const who = src.borrower;
     const kp = newKeypair();
     updateSession({ who, replySecret: kp.secret, output: undefined, scoreHash: undefined });
     const started = Date.now();
     setScoring({ step: 'sent', elapsed: 0 });
     const timer = setInterval(() => setScoring((s) => (s && s.step === 'sent' ? { ...s, elapsed: Math.round((Date.now() - started) / 1000) } : s)), 1000);
     try {
-      const f = await fetch('/api/faucet', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acct }) });
-      if (!f.ok && f.status !== 429) throw new Error((await f.json()).error ?? 'Could not set up test USDC.');
-      const r = await fetch('/api/score', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acct, borrower: who, replyPubkey: kp.public }) });
+      const f = account.kind === 'demo' ? null : await fetch('/api/faucet', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId }) });
+      if (f && !f.ok && f.status !== 429) throw new Error((await f.json()).error ?? 'Could not set up test USDC.');
+      const r = await fetch('/api/score', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId, borrower: who, custom: src.custom, publicToken: src.publicToken, replyPubkey: kp.public }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'Scoring failed.');
       clearInterval(timer);
       updateSession({ who, replySecret: kp.secret, output: j.output, scoreHash: j.hash });
       setScoring({ step: 'reading', elapsed: Math.round((Date.now() - started) / 1000), hash: j.hash });
       for (let i = 0; i < 10; i++) {
-        const bb = await getBorrower(acct);
+        const bb = await getBorrower(acctId);
         if (bb?.score && bb.score.fingerprint === j.output.fingerprint) { setB(bb); break; }
         await new Promise((res) => setTimeout(res, 1000));
       }
@@ -118,11 +141,40 @@ export function Passbook() {
       setScoring((s) => ({ step: 'failed', elapsed: s?.elapsed ?? 0, error: e instanceof Error ? e.message : 'Scoring failed.' }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [acct, refresh]);
+  }, [acct, refresh, account.kind]);
 
-  // Pick before connecting: score as soon as the wallet signs in.
-  useEffect(() => { if (acct && pendingWho) { const w = pendingWho; setPendingWho(null); score(w); } }, [acct, pendingWho, score]);
-  const pick = (who: BorrowerKey) => { if (!acct) { setPendingWho(who); wallet.connect(); } else score(who); };
+  // No account yet: create a no-wallet demo account first (SPEC 8a), then score.
+  const ensureAccount = async (): Promise<string | null> => {
+    if (acct) return acct;
+    setStarting('Creating your demo account. The relayer pays its network fees…');
+    try { return await account.createDemo(); }
+    catch (e) { setStartError(e instanceof Error ? e.message : 'Could not create a demo account.'); return null; }
+    finally { setStarting(null); }
+  };
+  const pick = async (src: Source) => {
+    setStartError(null);
+    const a = await ensureAccount();
+    if (a) score(src, a);
+  };
+  const connectBank = async () => {
+    setStartError(null);
+    const a = await ensureAccount();
+    if (!a) return;
+    try {
+      setStarting('Opening Plaid Link…');
+      const [Plaid, r] = await Promise.all([loadPlaid(), fetch('/api/plaid/link', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: a }) })]);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? 'Plaid Link is not available right now.');
+      setStarting(null);
+      const h = Plaid.create({
+        token: j.linkToken,
+        onSuccess: (publicToken) => { h.destroy(); score({ borrower: 'plaid', publicToken }, a); },
+        onExit: () => h.destroy(),
+      });
+      h.open();
+    } catch (e) { setStarting(null); setStartError(e instanceof Error ? e.message : 'Plaid Link failed.'); }
+  };
+  void pendingWho; void setPendingWho;
 
   // ---------------------------------------------------------------- derived
   const parts: Parts | null = useMemo(() => {
@@ -160,19 +212,30 @@ export function Passbook() {
 
   // ---------------------------------------------------------------- transactions (wallet)
   const borrow = () => amount !== null && !amountError && borrowTx.run(async () => {
-    const out = await wallet.signAndSend(KREDOFI_CONTRACT, [functionCall('borrow', { amount: amount.toString() }, 40, 1n)]);
+    const out = await account.signAndSend(KREDOFI_CONTRACT, [functionCall('borrow', { amount: amount.toString() }, 40, 1n)]);
     await refresh(); return out;
   });
   const repay = () => repayTx.run(async () => {
-    const out = await wallet.signAndSend(USDC_CONTRACT, [functionCall('ft_transfer_call', { receiver_id: KREDOFI_CONTRACT, amount: due.toString(), msg: 'repay' }, 40, 1n)]);
+    const out = await account.signAndSend(USDC_CONTRACT, [functionCall('ft_transfer_call', { receiver_id: KREDOFI_CONTRACT, amount: due.toString(), msg: 'repay' }, 40, 1n)]);
     await refresh(); setPress((p) => p + 1); return out;
   });
+  // Demo accounts can't sign mark_default (the relayer allowlist is borrow / repay only), so the
+  // relayer does the permissionless default steps for them (/api/default).
+  const viaRelayer = async () => {
+    const r = await fetch('/api/default', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ borrower: acct }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error ?? 'The default could not be recorded.');
+    await refresh(); setPress((p) => p + 1);
+    return { transaction: { hash: j.txs?.[0] }, status: { SuccessValue: '' } };
+  };
   const markDefault = () => defaultTx.run(async () => {
-    const out = await wallet.signAndSend(KREDOFI_CONTRACT, [functionCall('mark_default', { borrower: acct }, 30)]);
+    if (account.kind !== 'wallet') return viaRelayer();
+    const out = await account.signAndSend(KREDOFI_CONTRACT, [functionCall('mark_default', { borrower: acct }, 30)]);
     await refresh(); setPress((p) => p + 1); return out;
   });
   const release = () => releaseTx.run(async () => {
-    const out = b?.pending_request ? undefined : await wallet.signAndSend(KREDOFI_CONTRACT, [functionCall('request_identity_release', { borrower: acct }, 30)]);
+    if (account.kind !== 'wallet') return viaRelayer();
+    const out = b?.pending_request ? undefined : await account.signAndSend(KREDOFI_CONTRACT, [functionCall('request_identity_release', { borrower: acct }, 30)]);
     setReleaseMsg('Sealed name sent to the scorer for re-sealing to the recovery partner…');
     const r = await fetch('/api/release', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ borrower: acct }) });
     const j = await r.json();
@@ -197,7 +260,7 @@ export function Passbook() {
         <div className="title">
           <h1>Your passbook</h1>
           <p>{acct && who
-            ? `You are ${BORROWERS[who].name.split(' ')[0]}, a test borrower. Every step lands here as an entry, read from the chain.`
+            ? `You are ${whoName(who)}. Every step lands here as an entry, read from the chain.`
             : 'Pick a test borrower. Each step lands here as an entry, like a bank passbook. Your bank data never appears on this page or on-chain.'}</p>
         </div>
 
@@ -210,22 +273,55 @@ export function Passbook() {
                   <h3>{BORROWERS[k].name.split(' ')[0]}</h3>
                   <p>{BORROWERS[k].story}</p>
                   <p className="expect">{BORROWERS[k].expect}</p>
-                  <button type="button" className={`btn ${i === 0 ? 'btn-violet' : 'btn-line'}`} onClick={() => pick(k)}>
-                    {acct ? `Use ${BORROWERS[k].name.split(' ')[0]}` : `Connect wallet and use ${BORROWERS[k].name.split(' ')[0]}`}
+                  <button type="button" className={`btn ${i === 0 ? 'btn-violet' : 'btn-line'}`} onClick={() => pick({ borrower: k })} disabled={!!starting}>
+                    Use {BORROWERS[k].name.split(' ')[0]}
                   </button>
                 </article>
               ))}
             </div>
-            <p className="acct">{acct ? `Signed in as ${acct}. We register it with test USDC and pay the scoring fees.` : 'You need a NEAR testnet wallet for now. A no-wallet demo account is coming next.'}</p>
+            <div className="pick pick-2">
+              <article className="who">
+                <GuillocheStrip />
+                <h3>Build your own borrower</h3>
+                <p>Set six months of history and see which rules move the band. The real scorer reads it from a sandbox bank.</p>
+                {([['salary', 'Monthly salary', 100, '$'], ['months', 'Months with income, of the last 6', 1, ''], ['spending', 'Monthly spending', 100, '$'], ['fees', 'Overdraft or returned-payment fees', 1, ''], ['balance', 'Current balance', 500, '$']] as [keyof CustomInputs, string, number, string][]).map(([k, label, step, pre]) => (
+                  <label key={k} className="slider">
+                    <span>{label} <b className="num">{pre}{custom[k].toLocaleString('en-US')}</b></span>
+                    <input type="range" min={CUSTOM_LIMITS[k][0]} max={CUSTOM_LIMITS[k][1]} step={step} value={custom[k]}
+                      onChange={(e) => setCustom((c) => ({ ...c, [k]: Number(e.target.value) }))} />
+                  </label>
+                ))}
+                {checkCustom(custom) && <p className="hint err">{checkCustom(custom)}</p>}
+                <button type="button" className="btn btn-line" disabled={!!starting || !!checkCustom(custom)} onClick={() => pick({ borrower: 'custom', custom })}>Score this borrower</button>
+              </article>
+              <article className="who">
+                <GuillocheStrip />
+                <h3>Connect a sandbox bank yourself</h3>
+                <p>Open Plaid Link and log in to a test bank. The scorer fetches that account live.</p>
+                <p className="expect">Test login: username <b>user_good</b>, password <b>pass_good</b>. Pick any bank.</p>
+                <p className="expect">Each bank identity can back only one KredoFi account, so if another judge used it first you&apos;ll be told so.</p>
+                <button type="button" className="btn btn-line" disabled={!!starting} onClick={connectBank}>Connect a sandbox bank</button>
+              </article>
+            </div>
+            {starting && <p className="acct" aria-live="polite">{starting}</p>}
+            {startError && <p className="hint err" role="alert" style={{ marginTop: 12 }}>{startError}</p>}
+            <p className="acct">
+              {acct ? `Signed in as ${acct}. We pay the network and scoring fees.` : <>No wallet needed: we create a demo account and pay its network fees. <button type="button" className="linkbtn" onClick={account.connectWallet}>Connect a wallet instead</button></>}
+            </p>
           </section>
         )}
 
         {acct && b === undefined && <p className="hint" style={{ marginTop: 40 }}><span className="placeholder">Reading your passbook from the chain</span></p>}
 
         <ol className="book" aria-live="polite">
+          {account.kind === 'demo' && acct && (sc || scoring) && (
+            <Entry when={clock(scoredAt || now)} sub={day(scoredAt || now)} title="Demo account">
+              <p>{acct}. Its key lives only in this browser. The relayer pays every network fee and only passes on borrow and repay, so you never see a wallet pop-up.</p>
+            </Entry>
+          )}
           {acct && (sc || scoring) && (
             <Entry when={clock(scoredAt || now)} sub={day(scoredAt || now)} title="Bank connected">
-              <p>First Platypus Bank, checking account. Plaid sandbox, read-only{who ? `, with ${BORROWERS[who].name.split(' ')[0]}'s test history` : ''}. KredoFi never sees a bank login.</p>
+              <p>{who === 'plaid' ? 'Your sandbox bank, connected through Plaid Link' : 'First Platypus Bank, checking account'}. Plaid sandbox, read-only{who && who !== 'plaid' ? `, with ${whoName(who)}'s test history` : ''}. KredoFi never sees a bank login.</p>
             </Entry>
           )}
 
@@ -235,7 +331,7 @@ export function Passbook() {
                 txHash={scoring.hash} failure={scoring.error} rows={who === 'sam' ? DECOR_ROWS.irregular : DECOR_ROWS.steady}
                 note="Testnet: the pinned scorer runs on our server, outside the enclave. On mainnet the same code runs inside Intel TDX through OutLayer." />
               {scoring.step === 'failed' && who && (
-                <p><button type="button" className="btn btn-ink" onClick={() => score(who)}>Check my limit again</button></p>
+                <p><button type="button" className="btn btn-ink" onClick={() => (who === 'plaid' ? connectBank() : score({ borrower: who, custom: who === 'custom' ? custom : undefined }))}>Check my limit again</button></p>
               )}
             </Entry>
           )}
@@ -257,7 +353,7 @@ export function Passbook() {
               {defaulted ? (
                 <p>Band {sc.band} when scored. This account defaulted, so it can&apos;t borrow again.</p>
               ) : sc.expired ? (
-                <p>Your score expired on {absoluteDate(sc.expires_at)}. <button type="button" className="linkbtn" onClick={() => who && score(who)}>Check your limit again</button></p>
+                <p>Your score expired on {absoluteDate(sc.expires_at)}. <button type="button" className="linkbtn" onClick={() => who && (who === 'plaid' ? connectBank() : score({ borrower: who, custom: who === 'custom' ? custom : undefined }))}>Check your limit again</button></p>
               ) : denied ? (
                 <div className="change">
                   <h3>What would change this</h3>

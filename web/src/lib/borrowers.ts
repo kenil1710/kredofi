@@ -49,3 +49,39 @@ export function profileFor(who: BorrowerKey, tag: string, now = new Date()) {
     }],
   };
 }
+
+// ---------------------------------------------------------------- build your own borrower (SPEC 8b)
+
+export type CustomInputs = { salary: number; months: number; spending: number; fees: number; balance: number };
+export const CUSTOM_LIMITS: Record<keyof CustomInputs, [number, number]> = {
+  salary: [0, 8000], months: [0, 6], spending: [0, 8000], fees: [0, 6], balance: [0, 30000],
+};
+
+/** null if the inputs are in range (SPEC 8b), else what to fix. Checked in the browser and again here. */
+export function checkCustom(x: unknown): string | null {
+  const c = x as Partial<CustomInputs>;
+  for (const [k, [lo, hi]] of Object.entries(CUSTOM_LIMITS) as [keyof CustomInputs, [number, number]][]) {
+    const v = c?.[k];
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < lo || v > hi) return `${k} must be a whole number from ${lo} to ${hi}.`;
+  }
+  if ((c.salary === 0 || c.months === 0) && c.spending === 0 && c.fees === 0) return 'Give the borrower some income or some spending.';
+  return null;
+}
+
+/** Plaid custom-user profile from the five inputs: salary in the most recent `months` months, one
+ * spending payment every month, `fees` overdraft fees ($35) in the earliest months. */
+export function customProfile(c: CustomInputs, tag: string, now = new Date()) {
+  const name = `Test Borrower ${tag}`;
+  const transactions = monthsBack(now).flatMap((m, i) => {
+    const out: Tx[] = [];
+    if (c.salary > 0 && i >= 6 - c.months) out.push(tx(m, 0, -c.salary, 'EMPLOYER PAYROLL'));
+    if (c.spending > 0) out.push(tx(m, 3, c.spending, 'MONTHLY SPENDING'));
+    if (i < c.fees) out.push(tx(m, 15, 35, 'OVERDRAFT FEE'));
+    return out;
+  });
+  return {
+    seed: name,
+    roll_dates_forward: true,
+    override_accounts: [{ type: 'depository', subtype: 'checking', starting_balance: c.balance, identity: { names: [name] }, transactions }],
+  };
+}
