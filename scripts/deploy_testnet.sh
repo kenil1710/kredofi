@@ -16,9 +16,9 @@ POOL=kredofi.kency.testnet
 USDC=musdc.kency.testnet
 SCORER=scorer.kency.testnet
 RELAYER=relayer.kency.testnet
-# Demo timing (SPEC 3: minutes in demo): 10 min term (5 min minimum hold), 2 min grace, 30 day score TTL.
-TERM_NS=600000000000
-GRACE_NS=120000000000
+# Demo timing (SPEC 4 Owner): 2 min term (init derives a 1 min minimum hold), 1 min grace, 30 day score TTL.
+TERM_NS=120000000000
+GRACE_NS=60000000000
 TTL_NS=2592000000000000
 # No scorer WASM is pinned yet in Dev mode; set_scorer_version updates this on day 5.
 SCORER_VERSION=0000000000000000000000000000000000000000000000000000000000000000

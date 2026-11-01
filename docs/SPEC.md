@@ -55,7 +55,7 @@ config:
   score_ttl_ns: u64                   // 30 days
   min_hold_ns: u64                    // loan_term_ns / 2; repay before this = no level up
   reserve_share_bps: u16              // 2000 = 20% of interest
-  max_borrower_share_bps: u16         // 1000 = one borrower max 10% of pool value
+  max_borrower_share_bps: u16         // 1000 = one borrower max 10% of pool value (upper bound)
 
 pool:
   cash: u128                          // USDC held for lending
@@ -117,7 +117,22 @@ Cross-chain deposits: NEAR Intents 1Click delivers USDC to the **lender's own NE
 
 ### Owner
 
-`seed_reserve` (via `ft_transfer_call` msg `"seed_reserve"`), `set_scorer_version(version)` (emits `scorer_version_changed`, public on-chain), parameter setters. `min_hold_ns` is set at init to `loan_term_ns / 2`. **No method lets the owner move lender funds or the reserve out.** No contract upgrade method in the hackathon build.
+`seed_reserve` (via `ft_transfer_call` msg `"seed_reserve"`), `set_scorer_version(version)` (emits `scorer_version_changed`, public on-chain), parameter setters.
+
+Parameter setters: `set_loan_term_ns`, `set_min_hold_ns`, `set_grace_ns`, `set_score_ttl_ns`, `set_reserve_share_bps`, `set_max_borrower_share_bps`. Each is owner-only, needs 1 yoctoNEAR, emits `param_changed` (`param`, `old`, `new`, `by`) and only changes a number in `config`; none touches the pool, the reserve or any token. The same bounds apply at init:
+
+| Parameter | Bounds |
+|---|---|
+| `loan_term_ns` | 60 s to 365 days, and >= `min_hold_ns` |
+| `min_hold_ns` | 60 s to `loan_term_ns` (init sets `loan_term_ns / 2`) |
+| `grace_ns` | 60 s to 90 days |
+| `score_ttl_ns` | 60 s to 365 days |
+| `reserve_share_bps` | 0 to 5000 |
+| `max_borrower_share_bps` | 1 to 1000 (can only lower the 10% cap, rule 12) |
+
+To shorten the term below the current hold, lower `min_hold_ns` first. Term changes apply to new loans; `grace_ns` and `min_hold_ns` are read at default and repay time.
+
+Testnet demo timing: loan term 2 minutes, minimum hold 1 minute, grace 1 minute (Riya can level up after 1 minute; Max can be defaulted about 3 minutes after borrowing). `min_hold_ns` is set at init to `loan_term_ns / 2`. **No method lets the owner move lender funds or the reserve out.** No contract upgrade method in the hackathon build.
 
 ### Views
 
@@ -125,7 +140,7 @@ Cross-chain deposits: NEAR Intents 1Click delivers USDC to the **lender's own NE
 
 ### Events (NEP-297, standard `kredofi`, version `1.0.0`)
 
-`score_issued`, `score_failed`, `loan_issued`, `loan_repaid`, `loan_defaulted`, `identity_released`, `lender_deposit`, `lender_withdraw`, `reserve_seeded`, `scorer_version_changed`.
+`score_issued`, `score_failed`, `loan_issued`, `loan_repaid`, `loan_defaulted`, `identity_released`, `lender_deposit`, `lender_withdraw`, `reserve_seeded`, `scorer_version_changed`, `param_changed`.
 
 ---
 

@@ -221,6 +221,13 @@ async fn owner_cannot_move_lender_funds_or_reserve() -> anyhow::Result<()> {
         "mark_default",
         "request_identity_release",
         "dev_submit_release",
+        // Owner setters: bounded numbers in config only, no token or pool access.
+        "set_loan_term_ns",
+        "set_min_hold_ns",
+        "set_grace_ns",
+        "set_score_ttl_ns",
+        "set_reserve_share_bps",
+        "set_max_borrower_share_bps",
     ].iter().map(|s| s.to_string()).collect();
     assert_eq!(public_calls, allowed, "public change methods changed; review rule 10");
 
@@ -268,5 +275,42 @@ async fn config_view_matches_init() -> anyhow::Result<()> {
     assert_eq!(c["min_hold_ns"], "300000000000", "half of the 10-minute demo term");
     let meta: Value = env.usdc.view("ft_metadata").await?.json()?;
     assert_eq!(meta["decimals"], 6);
+    Ok(())
+}
+
+/// Owner setters: public events, bounded, owner-only, and no funds move.
+#[tokio::test]
+async fn owner_setters_change_only_config() -> anyhow::Result<()> {
+    let env = setup().await?;
+    transfer_call(&env.alice, &env.usdc, env.pool.id(), 1_000 * USDC, "deposit").await?.into_result()?;
+    transfer_call(&env.owner, &env.usdc, env.pool.id(), 300 * USDC, "seed_reserve").await?.into_result()?;
+    let before = pool_state(&env.pool).await?;
+
+    let call = |who: &near_workspaces::Account, method: &str, args: Value| {
+        who.call(env.pool.id(), method)
+            .args_json(args)
+            .deposit(NearToken::from_yoctonear(1))
+            .transact()
+    };
+    // Testnet demo timing, in the required order.
+    for (m, v) in [("set_min_hold_ns", "60000000000"), ("set_loan_term_ns", "120000000000"), ("set_grace_ns", "60000000000")] {
+        let out = call(&env.owner, m, json!({ "value": v })).await?;
+        assert!(out.is_success(), "{m}: {out:?}");
+        let ev = events(&out);
+        assert_eq!(ev[0]["event"], "param_changed");
+        assert_eq!(ev[0]["data"][0]["new"], v);
+    }
+    let c: Value = env.pool.view("get_config").await?.json()?;
+    assert_eq!((c["loan_term_ns"].as_str(), c["min_hold_ns"].as_str(), c["grace_ns"].as_str()),
+               (Some("120000000000"), Some("60000000000"), Some("60000000000")));
+
+    assert!(format!("{:?}", call(&env.alice, "set_grace_ns", json!({ "value": "60000000000" })).await?.failures())
+        .contains("Only the owner can change parameters"));
+    assert!(format!("{:?}", call(&env.owner, "set_max_borrower_share_bps", json!({ "value": 5000 })).await?.failures())
+        .contains("rule 12"));
+
+    assert_eq!(pool_state(&env.pool).await?, before);
+    assert_eq!(balance(&env.usdc, env.owner.id()).await?, 700 * USDC);
+    assert_books_balance(&env).await?;
     Ok(())
 }

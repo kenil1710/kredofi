@@ -306,8 +306,8 @@ async fn rule4_null_or_failed_result_changes_nothing_else() -> anyhow::Result<()
 /// Rule 5: scores expire after score_ttl_ns.
 #[tokio::test]
 async fn rule5_score_expires() -> anyhow::Result<()> {
-    // 30-second TTL so the sandbox can pass it quickly.
-    let env = setup_with(|c| c["score_ttl_ns"] = json!("30000000000")).await?;
+    // 60-second TTL (the minimum) so the sandbox can pass it quickly.
+    let env = setup_with(|c| c["score_ttl_ns"] = json!("60000000000")).await?;
     let riya = env.alice.id();
     dev_submit(&env.scorer, &env, riya, output(riya.as_str(), "A", 1000, 1000, 0x11)).await?.into_result()?;
     assert_eq!(limit(&env, riya).await?, 100 * USDC);

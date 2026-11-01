@@ -139,11 +139,11 @@ fn outlayer_mode_without_dev_scorer_is_fine() {
 }
 
 #[test]
-#[should_panic(expected = "bps values must be <= 10000")]
-fn bps_over_100_percent_rejected() {
+#[should_panic(expected = "reserve_share_bps must be <= 5000")]
+fn reserve_share_over_half_rejected() {
     set(owner());
     let mut i = config_input();
-    i.reserve_share_bps = 10_001;
+    i.reserve_share_bps = 5_001;
     Contract::new(i);
 }
 

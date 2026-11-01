@@ -13,9 +13,11 @@
 mod events;
 mod loans;
 mod math;
+mod params;
 mod score;
 
 pub use loans::*;
+pub use params::*;
 pub use score::*;
 
 use near_sdk::json_types::{U64, U128};
@@ -32,7 +34,6 @@ const GAS_FT_TRANSFER: Gas = Gas::from_tgas(10);
 /// could not roll back.
 const GAS_CALLBACK: Gas = Gas::from_tgas(15);
 
-const MAX_BPS: u16 = 10_000;
 
 pub const MSG_DEPOSIT: &str = "deposit";
 pub const MSG_SEED_RESERVE: &str = "seed_reserve";
@@ -373,13 +374,6 @@ impl Contract {
 
 fn validate_config(c: ConfigInput) -> Config {
     require!(
-        c.reserve_share_bps <= MAX_BPS && c.max_borrower_share_bps <= MAX_BPS,
-        "bps values must be <= 10000"
-    );
-    require!(c.max_borrower_share_bps > 0, "max_borrower_share_bps must be positive");
-    require!(c.loan_term_ns.0 > 0, "loan_term_ns must be positive");
-    require!(c.score_ttl_ns.0 > 0, "score_ttl_ns must be positive");
-    require!(
         is_sha256_hex(&c.scorer_version),
         "scorer_version must be a 64-char lowercase hex SHA-256"
     );
@@ -389,7 +383,7 @@ fn validate_config(c: ConfigInput) -> Config {
     let partner_pubkey: [u8; 32] = hex_decode(&c.partner_pubkey)
         .and_then(|v| v.try_into().ok())
         .unwrap_or_else(|| env::panic_str("partner_pubkey must be 32 bytes of hex"));
-    Config {
+    let config = Config {
         owner: c.owner,
         usdc: c.usdc,
         scorer_mode: c.scorer_mode,
@@ -406,7 +400,10 @@ fn validate_config(c: ConfigInput) -> Config {
         min_hold_ns: c.loan_term_ns.0 / 2,
         reserve_share_bps: c.reserve_share_bps,
         max_borrower_share_bps: c.max_borrower_share_bps,
-    }
+    };
+    // Same bounds as the owner setters (params.rs); min_hold = term / 2 must be >= 60 s.
+    check_params(&config);
+    config
 }
 
 pub(crate) fn hex_encode(bytes: &[u8]) -> String {
@@ -435,3 +432,5 @@ mod tests;
 mod score_tests;
 #[cfg(test)]
 mod loan_tests;
+#[cfg(test)]
+mod params_tests;

@@ -1,6 +1,6 @@
 //! Day 3: loans on a real sandbox. The SPEC 8 demo flows (Riya, Sam, Max) as contract
 //! tests, plus rules 7, 11, 12, 13 with real token transfers.
-//! Demo timing: 60 s loan term (30 s minimum hold), 20 s grace.
+//! Timing: 120 s loan term (60 s minimum hold), 60 s grace (the 60 s floor of params.rs).
 
 mod common;
 
@@ -10,8 +10,8 @@ use near_workspaces::result::ExecutionFinalResult;
 use near_workspaces::types::{Gas, NearToken};
 use serde_json::{Value, json};
 
-const TERM_NS: u64 = 60_000_000_000;
-const GRACE_NS: u64 = 20_000_000_000;
+const TERM_NS: u64 = 120_000_000_000;
+const GRACE_NS: u64 = 60_000_000_000;
 
 async fn demo_env() -> anyhow::Result<Env> {
     setup_with(|c| {
