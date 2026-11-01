@@ -266,3 +266,29 @@ pub async fn assert_books_balance(env: &Env) -> anyhow::Result<()> {
     assert_eq!(held, p.cash + p.reserve, "token balance != cash + reserve: {p:?}");
     Ok(())
 }
+
+/// Current sandbox block timestamp (ns).
+pub async fn now(env: &Env) -> anyhow::Result<u64> {
+    Ok(env.worker.view_block().await?.timestamp())
+}
+
+/// Fast-forward the sandbox until block time is strictly after `ts` (ns).
+pub async fn advance_past(env: &Env, ts: u64) -> anyhow::Result<()> {
+    for _ in 0..50 {
+        if now(env).await? > ts {
+            return Ok(());
+        }
+        env.worker.fast_forward(50).await?;
+    }
+    anyhow::bail!("sandbox time did not pass {ts}")
+}
+
+/// New account registered with the token and holding `usd` test USDC.
+pub async fn new_user(env: &Env, name: &str, usd: u128) -> anyhow::Result<Account> {
+    let a = sub(&env.worker, name).await?;
+    register(&env.minter, &env.usdc, a.id()).await?;
+    if usd > 0 {
+        mint(&env.minter, &env.usdc, a.id(), usd * USDC).await?;
+    }
+    Ok(a)
+}

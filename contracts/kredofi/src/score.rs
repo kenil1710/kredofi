@@ -204,6 +204,8 @@ pub struct BorrowerView {
     pub defaults: u32,
     pub blocked: bool,
     pub has_active_loan: bool,
+    /// Current or last loan.
+    pub loan: Option<LoanView>,
     /// Base64, encrypted to the partner key.
     pub released_identity: Option<String>,
     pub limit: U128,
@@ -224,7 +226,7 @@ pub struct StatsView {
 
 #[ext_contract(ext_outlayer)]
 #[allow(dead_code)]
-trait OutLayer {
+pub trait OutLayer {
     #[allow(clippy::too_many_arguments)]
     fn request_execution(
         &mut self,
@@ -276,14 +278,6 @@ impl Contract {
         self.borrowers.insert(borrower.clone(), b);
 
         let c = &self.config;
-        let source = json!({
-            "Project": { "project_id": c.scorer_project, "version_key": c.scorer_version }
-        });
-        let limits = json!({
-            "max_instructions": MAX_INSTRUCTIONS,
-            "max_memory_mb": MAX_MEMORY_MB,
-            "max_execution_seconds": MAX_EXECUTION_SECONDS,
-        });
         let input = json!({
             "op": "score",
             "public_token": public_token,
@@ -298,8 +292,8 @@ impl Contract {
             // payer_account_id = borrower: OutLayer sends the unused deposit straight back
             // to the borrower instead of to this contract (SPEC 4, checked on mainnet day 6).
             .request_execution(
-                source,
-                limits,
+                outlayer_source(c),
+                outlayer_limits(),
                 input,
                 Some(secrets_ref),
                 "Json".into(),
@@ -408,6 +402,7 @@ impl Contract {
             defaults: b.defaults,
             blocked: b.blocked,
             has_active_loan: b.has_active_loan(),
+            loan: b.loan.as_ref().map(LoanView::from),
             released_identity: b.released_identity.as_ref().map(|r| B64.encode(r)),
             limit: U128(self.limit_of(b)),
         })
@@ -493,6 +488,19 @@ impl Contract {
         let cap = math::mul_div(LEVEL_CAP[level - 1], s.band.pct_bps(), 10_000);
         cap.min(s.income_cap)
     }
+}
+
+/// Every OutLayer request pins the scorer version (rule 2).
+pub fn outlayer_source(c: &Config) -> Value {
+    json!({ "Project": { "project_id": c.scorer_project, "version_key": c.scorer_version } })
+}
+
+pub fn outlayer_limits() -> Value {
+    json!({
+        "max_instructions": MAX_INSTRUCTIONS,
+        "max_memory_mb": MAX_MEMORY_MB,
+        "max_execution_seconds": MAX_EXECUTION_SECONDS,
+    })
 }
 
 // ------------------------------------------------------------------ parsing

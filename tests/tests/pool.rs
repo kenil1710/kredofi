@@ -215,6 +215,12 @@ async fn owner_cannot_move_lender_funds_or_reserve() -> anyhow::Result<()> {
         "request_score",
         "dev_submit_score",
         "set_scorer_version",
+        // borrow pays only the caller, within limit, cash and the 10% cap;
+        // mark_default moves reserve INTO pool cash, never out of the contract.
+        "borrow",
+        "mark_default",
+        "request_identity_release",
+        "dev_submit_release",
     ].iter().map(|s| s.to_string()).collect();
     assert_eq!(public_calls, allowed, "public change methods changed; review rule 10");
 

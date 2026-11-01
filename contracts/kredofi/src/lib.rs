@@ -1,8 +1,8 @@
 //! KredoFi: private, income-based stablecoin loans on NEAR.
 //!
 //! Built so far (docs/PLAN.md): config, lending pool, lender deposit and withdraw,
-//! reserve seeding, share math (day 1); scores, expiry, fingerprints, limits (day 2).
-//! Loans arrive on day 3.
+//! reserve seeding, share math (day 1); scores, expiry, fingerprints, limits (day 2);
+//! loans, repayment, defaults, identity release (day 3).
 //!
 //! Money rules (SPEC 3, 7):
 //! - Pool value = `cash + outstanding`. The reserve is separate and is not lender money.
@@ -11,9 +11,11 @@
 //! - There is no owner method that moves lender funds or the reserve (rule 10).
 
 mod events;
+mod loans;
 mod math;
 mod score;
 
+pub use loans::*;
 pub use score::*;
 
 use near_sdk::json_types::{U64, U128};
@@ -190,7 +192,7 @@ impl Contract {
     // ---------------------------------------------------------------- NEP-141 receiver
 
     /// Entry point for USDC sent with `ft_transfer_call`.
-    /// `msg`: `"deposit"` (lender) or `"seed_reserve"` (owner only).
+    /// `msg`: `"deposit"` (lender), `"seed_reserve"` (owner only) or `"repay"` (borrower).
     /// Any panic here makes the token contract refund the full amount to the sender.
     pub fn ft_on_transfer(
         &mut self,
@@ -206,7 +208,8 @@ impl Contract {
         match msg.as_str() {
             MSG_DEPOSIT => self.internal_deposit(sender_id, amount.0),
             MSG_SEED_RESERVE => self.internal_seed_reserve(sender_id, amount.0),
-            _ => env::panic_str("Unknown msg; expected \"deposit\" or \"seed_reserve\""),
+            MSG_REPAY => self.internal_repay(sender_id, amount.0),
+            _ => env::panic_str("Unknown msg; expected \"deposit\", \"seed_reserve\" or \"repay\""),
         }
         // All tokens used.
         PromiseOrValue::Value(U128(0))
@@ -430,3 +433,5 @@ pub(crate) fn hex_decode(s: &str) -> Option<Vec<u8>> {
 mod tests;
 #[cfg(test)]
 mod score_tests;
+#[cfg(test)]
+mod loan_tests;
