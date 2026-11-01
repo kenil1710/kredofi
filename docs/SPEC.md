@@ -182,7 +182,7 @@ Builds (`scorer/build.sh`): the production build (no Cargo features) is the one 
 ### Score steps
 
 1. `public_token` to `/item/public_token/exchange`. The access token never leaves the TEE.
-2. `/transactions/sync` with `days_requested: 730` on item creation; loop on `has_more`; retry once per second until `HISTORICAL_UPDATE_COMPLETE` (max 20).
+2. `/transactions/sync` with `days_requested: 730` on item creation; loop on `has_more`; poll once per second (max 20). The history is complete only when the status is `HISTORICAL_UPDATE_COMPLETE` **and** a page after the first has delivered transactions (sandbox sometimes flags complete before the historical batch arrives), or after 5 quiet polls (a genuinely short history). If the retries run out, the scorer fails (`score_failed`) instead of scoring a partial history.
 3. `/accounts/get` for current balance; `/identity/get` for the owner name (the Item needs products `transactions` and `identity`). Tested Oct 25 in sandbox: returns `accounts[].owners[].names` ("Alberta Bobbeth Charleson", 29 bytes). Plaid custom users (Riya, Sam, Max) need an identity block with a name added in `gen_borrowers.py`, or they may return none.
 4. Compute features over the last 6 full months (Plaid sign: negative = money in).
 5. Score (section 6). Fingerprint = `HMAC-SHA256(SEAL_KEY, institution_id | normalized owner name | account mask)`.

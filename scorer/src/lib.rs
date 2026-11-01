@@ -54,6 +54,59 @@ pub fn error_output(msg: &str) -> Value {
     json!({ "success": false, "error": msg })
 }
 
+// ------------------------------------------------------------------ transaction sync
+
+pub const MAX_SYNC_RETRIES: u32 = 20;
+/// Polls with nothing new after HISTORICAL_UPDATE_COMPLETE before accepting a short history.
+pub const QUIET_POLLS_AFTER_COMPLETE: u32 = 5;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SyncStep {
+    Done,
+    /// Sleep one second and call /transactions/sync again with the latest cursor.
+    Poll,
+    /// Retries exhausted: fail rather than score incomplete history.
+    Fail,
+}
+
+/// When is the Plaid history complete? `HISTORICAL_UPDATE_COMPLETE` alone is not enough: in
+/// sandbox the status sometimes flips to complete before the historical batch is delivered
+/// (Nov 1: 3 of 8 runs got only the first 6 of 30 transactions). So after the status is complete
+/// keep polling until a later page actually adds transactions, or until a few quiet polls show a
+/// genuinely short history.
+#[derive(Clone, Debug, Default)]
+pub struct SyncProgress {
+    checkpoints: u32,
+    quiet_complete: u32,
+    retries: u32,
+}
+
+impl SyncProgress {
+    /// Call once per checkpoint (a page with `has_more == false`), with the transactions added
+    /// since the previous checkpoint.
+    pub fn checkpoint(&mut self, status_complete: bool, added_since_last: usize) -> SyncStep {
+        self.checkpoints += 1;
+        if status_complete {
+            if self.checkpoints > 1 && added_since_last > 0 {
+                return SyncStep::Done;
+            }
+            self.quiet_complete += 1;
+            if self.quiet_complete > QUIET_POLLS_AFTER_COMPLETE {
+                return SyncStep::Done;
+            }
+        }
+        if self.retries >= MAX_SYNC_RETRIES {
+            return SyncStep::Fail;
+        }
+        self.retries += 1;
+        SyncStep::Poll
+    }
+
+    pub fn retries(&self) -> u32 {
+        self.retries
+    }
+}
+
 // ------------------------------------------------------------------ dates
 
 /// (year, month 1-12) from a unix timestamp (UTC).

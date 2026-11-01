@@ -1,0 +1,13 @@
+{
+  "name": "kredofi-scripts",
+  "private": true,
+  "type": "module",
+  "description": "KredoFi testnet scripts: dev_scorer and the SPEC 8 demo",
+  "scripts": {
+    "dev-scorer": "node dev_scorer.mjs",
+    "demo": "node demo.mjs"
+  },
+  "dependencies": {
+    "near-api-js": "7.4.0"
+  }
+}

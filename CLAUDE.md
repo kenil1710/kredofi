@@ -33,6 +33,7 @@ KredoFi: private, income-based stablecoin loans on NEAR. Bank data is scored ins
 - Handle OutLayer results of `null` or error: clear `pending_request`, change nothing else.
 - Pin the scorer version (`version_key` = WASM SHA-256) in every OutLayer request.
 - Attach about 100 Tgas to `request_execution`, not 300. Fee deposit 0.01 NEAR.
+- Signing needs about 0.001 NEAR of balance per prepaid Tgas (refunded after). Demo accounts hold 0.05 NEAR, so demo calls attach 40 Tgas (`tests/tests/gas_budget.rs` keeps them under it).
 - `request_score` requires `env::signer_account_id() == env::predecessor_account_id()`.
 - Checked math on u128. No owner method may move lender funds or the reserve.
 - Emit NEP-297 events listed in SPEC section 4.
@@ -41,7 +42,7 @@ KredoFi: private, income-based stablecoin loans on NEAR. Bank data is scored ins
 
 - Output only: `v`, `caller`, `band`, `score`, `income_cap`, `fingerprint`, `sealed_identity`, optional `reply`. Never raw transactions, balances, names, or tokens. Keep output under 900 bytes.
 - `caller` comes from `NEAR_SENDER_ID`, never from input.
-- Plaid: `days_requested: 730`; loop `/transactions/sync` on `has_more`; retry until `HISTORICAL_UPDATE_COMPLETE` (max 20, 1 s apart).
+- Plaid: `days_requested: 730`; loop `/transactions/sync` on `has_more`; poll 1 s apart (max 20). `HISTORICAL_UPDATE_COMPLETE` alone is not enough: sandbox sometimes flags it before the historical batch arrives (3 of 8 runs, Nov 1), so keep polling until a later page adds transactions (`SyncProgress` in `scorer/src/lib.rs`); never score a timed-out partial history.
 - The `"debug"` input flag is for local `wasmtime` runs only and must be compiled out or rejected in the deployed build.
 - Scoring rules are in SPEC section 6. The unit test must reproduce the demo table (Riya 1000/A, Sam 270/D, Max 1000/A).
 - NEAR AI Cloud: only `Qwen/Qwen3.8-27B` (proven private). The score never depends on AI output.
@@ -75,6 +76,12 @@ set -a; source .env; set +a
 wasmtime run -S http --env PLAID_CLIENT_ID --env PLAID_SECRET --env SEAL_KEY --env NEAR_SENDER_ID=riya.kency.testnet scorer/out/kredofi_scorer_demo.wasm < scorer/out/borrowers/good.json
 # open a sealed reply/release with a secret held in an env var
 (cd scorer && cargo run -q --example open_sealed -- PARTNER_PRIVKEY) < released.b64
+# testnet (Dev mode): one-time owner setup (pin demo scorer build, seed reserve), then the SPEC 8 demo
+cd scripts && npm install && cd ..
+./scripts/testnet_setup.sh
+set -a; source .env; set +a; node scripts/demo.mjs
+node scripts/dev_scorer.mjs score <borrower> <input.json> [reply_pubkey]   # or: release <borrower>
+node --test scripts/seal.test.mjs   # JS <-> Rust seal compatibility
 ```
 
 ## Never

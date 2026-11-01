@@ -30,9 +30,22 @@ fn run() -> Result<serde_json::Value, String> {
             };
             let access_token = plaid.exchange(&public_token)?;
             // Always revoke the bank connection, on success and on every error path.
-            let result = plaid
-                .fetch(&access_token)
-                .and_then(|bank| score_output(&caller, &bank, &seal_key, reply_pubkey.as_ref(), now));
+            let result = plaid.fetch(&access_token).and_then(|bank| {
+                if debug {
+                    // `debug` builds only: transactions per month, including outside the window.
+                    let mut months = std::collections::BTreeMap::<String, (u32, i64)>::new();
+                    for t in &bank.txs {
+                        let e = months.entry(t.date.get(..7).unwrap_or("?").to_string()).or_default();
+                        e.0 += 1;
+                        if t.amount_cents < 0 {
+                            e.1 -= t.amount_cents;
+                        }
+                    }
+                    eprintln!("debug window: {:?}", kredofi_scorer::window(now));
+                    eprintln!("debug months (count, income cents): {months:?}");
+                }
+                score_output(&caller, &bank, &seal_key, reply_pubkey.as_ref(), now)
+            });
             let removed = plaid.remove(&access_token);
             let scored = result?;
             removed.map_err(|e| format!("item/remove failed: {e}"))?;

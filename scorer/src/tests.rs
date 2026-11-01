@@ -325,3 +325,46 @@ fn profile_validation_ranges() {
         assert!(err.contains(want), "expected {want}: {err}");
     }
 }
+
+// --------------------------------------------------- Plaid sync completion (observed Nov 1)
+
+fn run_sync(pages: &[(bool, usize)]) -> (Vec<SyncStep>, u32) {
+    let mut p = SyncProgress::default();
+    let steps = pages.iter().map(|(complete, added)| p.checkpoint(*complete, *added)).collect();
+    (steps, p.retries())
+}
+
+#[test]
+fn sync_normal_initial_then_historical() {
+    // 6 initial, then complete with the 24 historical.
+    let (s, _) = run_sync(&[(false, 6), (true, 24)]);
+    assert_eq!(s, [SyncStep::Poll, SyncStep::Done]);
+}
+
+#[test]
+fn sync_complete_before_historical_batch_keeps_polling() {
+    // The bug seen in 3 of 8 runs: complete with nothing new, history arrives one poll later.
+    let (s, _) = run_sync(&[(false, 6), (true, 0), (true, 24)]);
+    assert_eq!(s, [SyncStep::Poll, SyncStep::Poll, SyncStep::Done]);
+    // Complete already on the first page with only the initial 6.
+    let (s, _) = run_sync(&[(true, 6), (true, 24)]);
+    assert_eq!(s, [SyncStep::Poll, SyncStep::Done]);
+}
+
+#[test]
+fn sync_short_history_accepted_after_quiet_polls() {
+    // Everything arrived at once (or the account is new): accept after 5 quiet polls.
+    let pages: Vec<(bool, usize)> = std::iter::once((true, 30)).chain(std::iter::repeat_n((true, 0), 5)).collect();
+    let (s, retries) = run_sync(&pages);
+    assert_eq!(s.last(), Some(&SyncStep::Done));
+    assert!(s[..s.len() - 1].iter().all(|x| *x == SyncStep::Poll));
+    assert_eq!(retries, 5);
+}
+
+#[test]
+fn sync_never_complete_fails_instead_of_scoring_partial_data() {
+    let pages = vec![(false, 6); MAX_SYNC_RETRIES as usize + 1];
+    let (s, retries) = run_sync(&pages);
+    assert_eq!(s.last(), Some(&SyncStep::Fail));
+    assert_eq!(retries, MAX_SYNC_RETRIES);
+}
