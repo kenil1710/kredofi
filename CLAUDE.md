@@ -52,7 +52,7 @@ KredoFi: private, income-based stablecoin loans on NEAR. Bank data is scored ins
 - Host the scorer WASM at a **commit-pinned** URL: `https://raw.githubusercontent.com/<user>/<repo>/<commit>/scorer.wasm`. Never `/main/` (GitHub caches it and the hash check fails).
 - Verify before deploying: `curl -sL <url> | shasum -a 256` must equal the build hash.
 - `outlayer deploy <name> <url> --hash <sha256>`. Each code change is a new version.
-- Secrets profile `kredofi`; access whitelist = the KredoFi contract account.
+- Secrets profile `kredofi`; access condition = pinned build AND called from the contract: `outlayer secrets access --project <owner>/kredofi-scorer --profile kredofi --access allow-all --via kredofi.near --build <sha256>`. Not `whitelist:kredofi.near`: OutLayer checks a whitelist against the signer (the borrower), which denies every borrower. Each new scorer build needs `secrets access --build <new sha256>`.
 - `outlayer run` often times out in the CLI while the run continues; check with `near transaction view-status <hash> network-config <net>`.
 - OutLayer testnet workers were down during prep; mainnet works. A contract only calls OutLayer on its own network.
 
