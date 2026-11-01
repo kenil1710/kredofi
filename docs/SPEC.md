@@ -318,6 +318,8 @@ The web app turns these into a Plaid custom-user profile (same generator logic a
 
 So judges see a real bank connection, not only prepared people. The pick screen offers "Connect a sandbox bank yourself": the web app creates a Plaid Link token (`/link/token/create`, products `transactions` and `identity`, server-side with the Plaid keys from env), opens the real Plaid Link window, and the judge logs in to a sandbox bank with Plaid's public test login `user_good` / `pass_good`. The resulting `public_token` goes into the normal `{"op":"score","public_token":...}` path, and the TEE fetches that account live. The screen shows the test login next to the button so nobody has to look it up.
 
+**One sandbox login, many judges (testnet only).** Plaid's sandbox returns the same identity for `user_good` to everyone, so under rule 6 only the first judge could ever be scored. The demo scorer build (testnet, Dev mode) therefore scopes the bank identity to the borrower's account before fingerprinting: `fingerprint = HMAC(SEAL_KEY, institution_id#account | owner name | mask)` (`scope_identity_to_account`, `scorer/src/lib.rs`). Every judge gets their own fingerprint; one account keeps a stable one. The production build pinned on OutLayer mainnet does not contain this code (its SHA-256 is unchanged, `87ceab66…`), so mainnet keeps the strict rule: one real bank identity, one borrower, whatever the account. Tests: `mainnet_mode_same_bank_identity_same_fingerprint_for_any_account` and `testnet_mode_scopes_sandbox_identity_per_account`. Testnet uses its own `SEAL_KEY` (never the mainnet one).
+
 ---
 
 ## 9. Known limits (state them in the README)

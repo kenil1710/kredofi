@@ -368,3 +368,34 @@ fn sync_never_complete_fails_instead_of_scoring_partial_data() {
     assert_eq!(s.last(), Some(&SyncStep::Fail));
     assert_eq!(retries, MAX_SYNC_RETRIES);
 }
+
+// --------------------------------------------------- SPEC 8c: identity scope per mode
+
+/// Production / OutLayer mainnet: the same bank identity under two accounts gives the SAME
+/// fingerprint, so the contract's rule 6 refuses the second account.
+#[test]
+fn mainnet_mode_same_bank_identity_same_fingerprint_for_any_account() {
+    let b = bank("Alberta Bobbeth Charleson", 1000, riya_txs(NOV_1_2026));
+    let a1 = score_output("judge1.near", &b, &SEAL_KEY, None, NOV_1_2026).unwrap();
+    let a2 = score_output("judge2.near", &b, &SEAL_KEY, None, NOV_1_2026).unwrap();
+    assert_eq!(a1.output["fingerprint"], a2.output["fingerprint"]);
+}
+
+/// Testnet / Dev builds: user_good's identity is scoped per account, so every judge gets their
+/// own fingerprint, while one account keeps one stable fingerprint across re-scores.
+#[test]
+fn testnet_mode_scopes_sandbox_identity_per_account() {
+    let scoped = |account: &str| {
+        let b = scope_identity_to_account(bank("Alberta Bobbeth Charleson", 1000, riya_txs(NOV_1_2026)), account);
+        score_output(account, &b, &SEAL_KEY, None, NOV_1_2026).unwrap()
+    };
+    let j1 = scoped("judge1.testnet");
+    let j2 = scoped("judge2.testnet");
+    assert_ne!(j1.output["fingerprint"], j2.output["fingerprint"], "two judges, two fingerprints");
+    assert_eq!(j1.output["fingerprint"], scoped("judge1.testnet").output["fingerprint"], "stable per account");
+    // The sealed name is the real one, not the scoped institution.
+    assert_eq!(crypto::open_identity(&SEAL_KEY, j1.output["sealed_identity"].as_str().unwrap()).unwrap(), "Alberta Bobbeth Charleson");
+    // Scoring itself is unchanged.
+    let unscoped = score_output("judge1.testnet", &bank("Alberta Bobbeth Charleson", 1000, riya_txs(NOV_1_2026)), &SEAL_KEY, None, NOV_1_2026).unwrap();
+    assert_eq!(j1.score, unscoped.score);
+}

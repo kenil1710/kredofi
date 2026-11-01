@@ -299,7 +299,7 @@ export function Passbook() {
                 <h3>Connect a sandbox bank yourself</h3>
                 <p>Open Plaid Link and log in to a test bank. The scorer fetches that account live.</p>
                 <p className="expect">Test login: username <b>user_good</b>, password <b>pass_good</b>. Pick any bank.</p>
-                <p className="expect">Each bank identity can back only one KredoFi account, so if another judge used it first you&apos;ll be told so.</p>
+                <p className="expect">On testnet each account gets its own copy of the sandbox identity, so every judge can use the same login.</p>
                 <button type="button" className="btn btn-line" disabled={!!starting} onClick={connectBank}>Connect a sandbox bank</button>
               </article>
             </div>

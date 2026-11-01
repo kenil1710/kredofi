@@ -316,3 +316,19 @@ fn truncate(s: &str, max: usize) -> &str {
 
 #[cfg(test)]
 mod tests;
+
+// ------------------------------------------------------------------ testnet identity scope
+// (Kept at the end of the file on purpose: code above keeps its line numbers, so the production
+// build stays byte-identical to the scorer pinned on mainnet.)
+
+/// Testnet / Dev mode only (SPEC 8c): Plaid's sandbox logins (user_good, ...) return the same
+/// identity for every judge, so under rule 6 only the first judge could ever be scored. Demo builds
+/// scope the bank identity to the borrower's account before fingerprinting:
+/// fingerprint = HMAC(SEAL_KEY, institution_id#account | name | mask). The sealed name is unchanged.
+/// The production build (pinned on OutLayer mainnet) does not contain this function, so mainnet
+/// keeps the strict rule: one real bank identity, one borrower, whatever the account.
+#[cfg(any(test, feature = "demo"))]
+pub fn scope_identity_to_account(mut bank: BankData, account: &str) -> BankData {
+    bank.institution_id = format!("{}#{}", bank.institution_id, account);
+    bank
+}
