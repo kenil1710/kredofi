@@ -14,8 +14,14 @@ const GAS_ON_RELEASE: Gas = Gas::from_tgas(20);
 const MAX_RELEASED_BYTES: usize = 256;
 
 impl Band {
-    /// Flat interest per loan term (SPEC 4): A 2%, B 3%, C 4%. D never borrows.
+    /// Flat interest per loan term, paid by the borrower (SPEC 4): A 4%, B 6%, C 8%.
+    /// D never borrows.
     pub fn interest_bps(self) -> u128 {
+        2 * self.lender_bps()
+    }
+
+    /// The lenders' half (SPEC 4a): A 2%, B 3%, C 4%. The rest goes to the KredoFi treasury.
+    pub fn lender_bps(self) -> u128 {
         match self {
             Band::A => 200,
             Band::B => 300,
@@ -305,11 +311,14 @@ impl Contract {
         let due = math::add(loan.principal, loan.interest);
         require!(amount == due, format!("Repay exactly {due} (principal + interest)"));
 
-        let to_reserve = math::mul_div(loan.interest, self.config.reserve_share_bps as u128, BPS);
-        let to_pool = math::sub(loan.interest, to_reserve);
+        // Lenders get the band's lender rate, rounded up (rounding favours lenders); the
+        // treasury gets the rest. The reserve gets no interest. A loan issued at older terms
+        // simply pays the treasury nothing.
+        let to_pool = ceil_bps(loan.principal, loan.band.lender_bps()).min(loan.interest);
+        let to_treasury = math::sub(loan.interest, to_pool);
         self.pool.outstanding = math::sub(self.pool.outstanding, loan.principal);
         self.pool.cash = math::add(self.pool.cash, math::add(loan.principal, to_pool));
-        self.pool.reserve = math::add(self.pool.reserve, to_reserve);
+        self.pool.treasury = math::add(self.pool.treasury, to_treasury);
 
         // Level up only if all three hold (rule 13).
         let now = env::block_timestamp();
@@ -339,7 +348,7 @@ impl Contract {
                 "borrower": borrower,
                 "principal": U128(principal),
                 "interest": U128(interest),
-                "to_reserve": U128(to_reserve),
+                "to_treasury": U128(to_treasury),
                 "to_pool": U128(to_pool),
                 "level": level,
                 "leveled_up": leveled_up,

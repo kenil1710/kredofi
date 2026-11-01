@@ -17,6 +17,8 @@ pub const PARTNER_PUBKEY: &str =
 pub struct Wasm {
     pub kredofi: Vec<u8>,
     pub kredofi_abi: PathBuf,
+    /// The v1 contract deployed on testnet and mainnet before the fee change (sha256 ca2556e1…).
+    pub kredofi_v1: Vec<u8>,
     pub mock_usdc: Vec<u8>,
     pub mock_outlayer: Vec<u8>,
 }
@@ -45,6 +47,7 @@ pub fn wasm() -> &'static Wasm {
         let outlayer_path = build("tests/mock-outlayer/Cargo.toml");
         Wasm {
             mock_outlayer: std::fs::read(&outlayer_path).unwrap(),
+            kredofi_v1: std::fs::read(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/kredofi_v1.wasm")).expect("tests/fixtures/kredofi_v1.wasm"),
             kredofi: std::fs::read(&kredofi_path).unwrap(),
             kredofi_abi: kredofi_path.with_file_name("kredofi_abi.json"),
             mock_usdc: std::fs::read(&usdc_path).unwrap(),
@@ -105,7 +108,6 @@ pub fn config(owner: &Account, usdc: &Contract, scorer: &Account, outlayer: &Con
         "loan_term_ns": "600000000000",   // 10 minutes (demo)
         "grace_ns": "120000000000",       // 2 minutes (demo)
         "score_ttl_ns": "2592000000000000", // 30 days
-        "reserve_share_bps": 2000,
         "max_borrower_share_bps": 1000,
     })
 }
@@ -223,6 +225,7 @@ pub struct PoolState {
     pub outstanding: u128,
     pub total_shares: u128,
     pub reserve: u128,
+    pub treasury: u128,
     pub pool_value: u128,
 }
 
@@ -233,6 +236,7 @@ pub async fn pool_state(pool: &Contract) -> anyhow::Result<PoolState> {
         outstanding: u(&v, "outstanding"),
         total_shares: u(&v, "total_shares"),
         reserve: u(&v, "reserve"),
+        treasury: u(&v, "treasury"),
         pool_value: u(&v, "pool_value"),
     })
 }
@@ -260,10 +264,11 @@ pub fn events(outcome: &ExecutionFinalResult) -> Vec<Value> {
 
 /// Tokens the contract holds must always equal what it accounts for.
 /// (`outstanding` is with borrowers, so it is not on the contract's balance.)
+/// Cash = lender money, reserve = first loss, treasury = KredoFi's half of interest.
 pub async fn assert_books_balance(env: &Env) -> anyhow::Result<()> {
     let p = pool_state(&env.pool).await?;
     let held = balance(&env.usdc, env.pool.id()).await?;
-    assert_eq!(held, p.cash + p.reserve, "token balance != cash + reserve: {p:?}");
+    assert_eq!(held, p.cash + p.reserve + p.treasury, "token balance != cash + reserve + treasury: {p:?}");
     Ok(())
 }
 

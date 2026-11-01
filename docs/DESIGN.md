@@ -87,7 +87,7 @@ Write like a person who knows lending. Specific, plain, active. One idea per sen
 |---|---|
 | Borrow against your payslip. | Unlock financial freedom |
 | Try it with a test borrower | Get started |
-| Repay $102.00 | Pay now |
+| Repay $104.00 | Pay now |
 | Riya gets $100. Sam doesn't, and he's told why. | Fair, transparent scoring for everyone |
 | That one line is all that leaves. | Privacy-preserving AI credit infrastructure |
 | Not this time | Application denied |
@@ -143,7 +143,7 @@ A small, fixed banner on testnet: "Testnet demo. Test banks and test money only.
 | 3 Score | "Check my limit" | Enclave box with live progress (7.3) | `score_issued` or `score_failed` event |
 | 4 Result | Reads their credit note, or NOT ISSUED | Band, limit, plain reasons, Verify | Always |
 | 5 Borrow | Enters amount (pre-filled with the limit) | Interest, total to repay, due date, consequence of not repaying | `loan_issued` event and USDC received |
-| 6 Repay | "Repay $102.00" | Countdown to due date | `loan_repaid` event; PAID stamp; new limit shown |
+| 6 Repay | "Repay $104.00" | Countdown to due date | `loan_repaid` event; PAID stamp; new limit shown |
 | 6b Default | Nothing (or anyone presses "Mark as defaulted" after grace) | DEFAULT stamp, reserve covered the loss, identity released to partner | `loan_defaulted` event |
 
 **Lender:** Deposit (direct USDC on NEAR, or "From another chain" via NEAR Intents as a 3-step stepper: get deposit address, send, arrives in your account, then deposit) and Withdraw. Always show: pool value, your share, cash available to withdraw now.

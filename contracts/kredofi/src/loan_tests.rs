@@ -98,7 +98,7 @@ fn borrow_writes_loan_and_moves_cash_before_transfer() {
     let p = c.get_pool();
     assert_eq!((p.cash.0, p.outstanding.0, p.pool_value.0), (900 * USDC, 100 * USDC, 1_000 * USDC));
     let l = c.get_borrower(riya()).unwrap().loan.unwrap();
-    assert_eq!((l.principal.0, l.interest.0, l.limit_at_borrow.0), (100 * USDC, 2 * USDC, 100 * USDC));
+    assert_eq!((l.principal.0, l.interest.0, l.limit_at_borrow.0), (100 * USDC, 4 * USDC, 100 * USDC));
     assert_eq!((l.issued_at.0, l.due_at.0, l.state), (DAY, DAY + TERM, LoanState::Active));
     let st = c.get_stats().a;
     assert_eq!((st.loans_issued, st.volume.0), (1, 100 * USDC));
@@ -114,7 +114,7 @@ fn failed_borrow_transfer_rolls_back_exactly() {
     let mut c = pool();
     // A previous repaid loan exists; the rollback must restore it.
     borrow_ok(&mut c, riya(), 60 * USDC, DAY);
-    repay(&mut c, riya(), 61_200_000, 2 * DAY);
+    repay(&mut c, riya(), 62_400_000, 2 * DAY);
     let before_pool = c.get_pool();
     let before_b = c.get_borrower(riya()).unwrap();
     let before_stats = c.get_stats();
@@ -131,11 +131,14 @@ fn failed_borrow_transfer_rolls_back_exactly() {
 
 #[test]
 fn interest_by_band_rounds_up() {
-    assert_eq!(ceil_bps(100 * USDC, Band::A.interest_bps()), 2 * USDC);
-    assert_eq!(ceil_bps(75 * USDC, Band::B.interest_bps()), 2_250_000);
-    assert_eq!(ceil_bps(50 * USDC, Band::C.interest_bps()), 2 * USDC);
-    assert_eq!(ceil_bps(33, Band::A.interest_bps()), 1, "0.66 base units rounds up to 1");
+    // Borrower pays twice the old band rate: A 4%, B 6%, C 8% (Nov 1 fee change).
+    assert_eq!(ceil_bps(100 * USDC, Band::A.interest_bps()), 4 * USDC);
+    assert_eq!(ceil_bps(75 * USDC, Band::B.interest_bps()), 4_500_000);
+    assert_eq!(ceil_bps(50 * USDC, Band::C.interest_bps()), 4 * USDC);
+    assert_eq!(ceil_bps(33, Band::A.interest_bps()), 2, "1.32 base units rounds up to 2");
     assert_eq!(ceil_bps(0, Band::A.interest_bps()), 0);
+    // Lenders' half: the old rates.
+    assert_eq!((Band::A.lender_bps(), Band::B.lender_bps(), Band::C.lender_bps(), Band::D.lender_bps()), (200, 300, 400, 0));
 }
 
 #[test]
@@ -225,43 +228,44 @@ fn borrow_requires_one_yocto() {
 fn repay_splits_interest_between_pool_and_reserve() {
     let mut c = pool();
     borrow_ok(&mut c, riya(), 100 * USDC, DAY);
-    repay(&mut c, riya(), 102 * USDC, DAY + MIN_HOLD);
+    repay(&mut c, riya(), 104 * USDC, DAY + MIN_HOLD);
 
-    // SPEC 4a: pool cash +$101.60, outstanding -$100, reserve +$0.40.
+    // SPEC 4a: borrower repays $104 = $100 principal + $2 lenders + $2 treasury; reserve unchanged.
     let p = c.get_pool();
-    assert_eq!(p.cash.0, 1_001_600_000);
+    assert_eq!(p.cash.0, 1_002 * USDC);
     assert_eq!(p.outstanding.0, 0);
-    assert_eq!(p.reserve.0, 300_400_000);
-    assert_eq!(c.get_lender(alice()).value.0, 1_001_600_000, "share price rose");
+    assert_eq!(p.reserve.0, 300 * USDC, "the reserve gets no interest");
+    assert_eq!(p.treasury.0, 2 * USDC);
+    assert_eq!(c.get_lender(alice()).value.0, 1_002 * USDC, "share price rose by the lenders' $2");
     let l = c.get_borrower(riya()).unwrap().loan.unwrap();
     assert_eq!(l.state, LoanState::Repaid);
     assert_eq!(c.get_stats().a.repaid, 1);
     let ev = events_named("loan_repaid");
     assert_eq!(ev.len(), 1);
-    assert!(ev[0].contains("\"to_reserve\":\"400000\"") && ev[0].contains("\"to_pool\":\"1600000\""));
+    assert!(ev[0].contains("\"to_treasury\":\"2000000\"") && ev[0].contains("\"to_pool\":\"2000000\""));
 }
 
 #[test]
-#[should_panic(expected = "Repay exactly 102000000")]
+#[should_panic(expected = "Repay exactly 104000000")]
 fn partial_repay_rejected() {
-    let mut c = pool();
-    borrow_ok(&mut c, riya(), 100 * USDC, DAY);
-    repay(&mut c, riya(), 101 * USDC, 2 * DAY);
-}
-
-#[test]
-#[should_panic(expected = "Repay exactly 102000000")]
-fn over_repay_rejected() {
     let mut c = pool();
     borrow_ok(&mut c, riya(), 100 * USDC, DAY);
     repay(&mut c, riya(), 103 * USDC, 2 * DAY);
 }
 
 #[test]
+#[should_panic(expected = "Repay exactly 104000000")]
+fn over_repay_rejected() {
+    let mut c = pool();
+    borrow_ok(&mut c, riya(), 100 * USDC, DAY);
+    repay(&mut c, riya(), 105 * USDC, 2 * DAY);
+}
+
+#[test]
 #[should_panic(expected = "No active loan")]
 fn repay_without_loan_rejected() {
     let mut c = pool();
-    repay(&mut c, riya(), 102 * USDC, DAY);
+    repay(&mut c, riya(), 104 * USDC, DAY);
 }
 
 #[test]
@@ -269,8 +273,8 @@ fn repay_without_loan_rejected() {
 fn repay_twice_rejected() {
     let mut c = pool();
     borrow_ok(&mut c, riya(), 100 * USDC, DAY);
-    repay(&mut c, riya(), 102 * USDC, 2 * DAY);
-    repay(&mut c, riya(), 102 * USDC, 3 * DAY);
+    repay(&mut c, riya(), 104 * USDC, 2 * DAY);
+    repay(&mut c, riya(), 104 * USDC, 3 * DAY);
 }
 
 // ------------------------------------------------------------------ rule 13 level-up
@@ -279,7 +283,7 @@ fn repay_twice_rejected() {
 fn level_up_after_full_hold_and_big_enough_loan() {
     let mut c = pool();
     borrow_ok(&mut c, riya(), 100 * USDC, 0);
-    repay(&mut c, riya(), 102 * USDC, MIN_HOLD);
+    repay(&mut c, riya(), 104 * USDC, MIN_HOLD);
     assert_eq!(level(&c, riya()), 2);
     assert_eq!(c.get_limit(riya()).0, 250 * USDC, "SPEC 8: level 2, limit $250");
 }
@@ -288,7 +292,7 @@ fn level_up_after_full_hold_and_big_enough_loan() {
 fn rule13_early_repay_does_not_level_up() {
     let mut c = pool();
     borrow_ok(&mut c, riya(), 100 * USDC, 0);
-    repay(&mut c, riya(), 102 * USDC, MIN_HOLD - 1);
+    repay(&mut c, riya(), 104 * USDC, MIN_HOLD - 1);
     assert_eq!(level(&c, riya()), 1);
     let ev = events_named("loan_repaid");
     assert!(ev[0].contains("\"leveled_up\":false"));
@@ -298,13 +302,13 @@ fn rule13_early_repay_does_not_level_up() {
 fn rule13_small_loan_does_not_level_up() {
     let mut c = pool();
     borrow_ok(&mut c, riya(), 49_999_999, 0); // just under 50% of the $100 limit
-    repay(&mut c, riya(), 49_999_999 + ceil_bps(49_999_999, 200), MIN_HOLD);
+    repay(&mut c, riya(), 49_999_999 + ceil_bps(49_999_999, Band::A.interest_bps()), MIN_HOLD);
     assert_eq!(level(&c, riya()), 1);
 
     // Exactly 50% counts.
     let mut c = pool();
     borrow_ok(&mut c, riya(), 50 * USDC, 0);
-    repay(&mut c, riya(), 51 * USDC, MIN_HOLD);
+    repay(&mut c, riya(), 52 * USDC, MIN_HOLD);
     assert_eq!(level(&c, riya()), 2);
 }
 
@@ -312,7 +316,7 @@ fn rule13_small_loan_does_not_level_up() {
 fn rule13_second_level_up_within_one_term_blocked() {
     let mut c = pool();
     borrow_ok(&mut c, riya(), 100 * USDC, 0);
-    repay(&mut c, riya(), 102 * USDC, MIN_HOLD); // level 2 at t = 15d
+    repay(&mut c, riya(), 104 * USDC, MIN_HOLD); // level 2 at t = 15d
     assert_eq!(level(&c, riya()), 2);
 
     // Re-score so the score stays valid, then a full-size loan held long enough,
@@ -320,13 +324,13 @@ fn rule13_second_level_up_within_one_term_blocked() {
     score_at(&mut c, riya(), "A", 1000, 0x11, MIN_HOLD);
     c.pool.cash += 2_000 * USDC; // keep the 10% cap out of the way
     borrow_ok(&mut c, riya(), 250 * USDC, MIN_HOLD);
-    repay(&mut c, riya(), 255 * USDC, MIN_HOLD + TERM - 1);
+    repay(&mut c, riya(), 260 * USDC, MIN_HOLD + TERM - 1);
     assert_eq!(level(&c, riya()), 2, "second level-up within one term");
 
     // One full term after the last level-up it works.
     score_at(&mut c, riya(), "A", 1000, 0x11, MIN_HOLD + TERM);
     borrow_ok(&mut c, riya(), 250 * USDC, MIN_HOLD + TERM);
-    repay(&mut c, riya(), 255 * USDC, MIN_HOLD + TERM + MIN_HOLD);
+    repay(&mut c, riya(), 260 * USDC, MIN_HOLD + TERM + MIN_HOLD);
     assert_eq!(level(&c, riya()), 3);
 }
 
@@ -336,7 +340,7 @@ fn level_caps_at_four() {
     c.borrowers.get_mut(&riya()).unwrap().level = 4;
     c.pool.cash += 20_000 * USDC;
     borrow_ok(&mut c, riya(), 1_000 * USDC, 0);
-    repay(&mut c, riya(), 1_020 * USDC, MIN_HOLD);
+    repay(&mut c, riya(), 1_040 * USDC, MIN_HOLD);
     assert_eq!(level(&c, riya()), 4);
 }
 
@@ -411,7 +415,7 @@ fn default_only_once() {
 fn repaid_loan_cannot_default() {
     let mut c = pool();
     borrow_ok(&mut c, riya(), 100 * USDC, 0);
-    repay(&mut c, riya(), 102 * USDC, TERM + GRACE); // late but before anyone marked it
+    repay(&mut c, riya(), 104 * USDC, TERM + GRACE); // late but before anyone marked it
     at(alice(), TERM + GRACE + 1);
     c.mark_default(riya());
 }

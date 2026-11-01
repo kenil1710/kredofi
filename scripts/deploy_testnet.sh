@@ -27,7 +27,8 @@ PARTNER_PUBKEY=$(grep '^PARTNER_PUBKEY=' .env | cut -d= -f2)
 [[ ${#PARTNER_PUBKEY} -eq 64 ]] || { echo "PARTNER_PUBKEY missing in .env"; exit 1; }
 
 (cd contracts/mock-usdc && cargo near build non-reproducible-wasm)
-(cd contracts/kredofi && cargo near build non-reproducible-wasm)
+# --no-embed-abi: same binary as deployed on testnet and mainnet (saves ~3 KB of storage).
+(cd contracts/kredofi && cargo near build non-reproducible-wasm --no-embed-abi)
 
 near contract deploy "$USDC" use-file target/near/mock_usdc/mock_usdc.wasm \
   with-init-call new json-args "{\"owner\":\"$RELAYER\"}" \
@@ -41,7 +42,7 @@ CONFIG=$(cat <<JSON
   "scorer_version":"$SCORER_VERSION","secrets_profile":"kredofi","secrets_account":"$OWNER",
   "partner_pubkey":"$PARTNER_PUBKEY",
   "loan_term_ns":"$TERM_NS","grace_ns":"$GRACE_NS","score_ttl_ns":"$TTL_NS",
-  "reserve_share_bps":2000,"max_borrower_share_bps":1000}}
+  "max_borrower_share_bps":1000}}
 JSON
 )
 near contract deploy "$POOL" use-file target/near/kredofi/kredofi.wasm \

@@ -59,8 +59,8 @@ async fn demo_calls_fit_40_tgas() -> anyhow::Result<()> {
     assert!(out.clone().json::<bool>()?, "borrow at 40 Tgas: {out:?}");
     println!("borrow: {:.1} Tgas burnt", burnt_tgas(&out));
 
-    let out = ftc(&env.bob, 102 * USDC, "repay").await?;
-    assert_eq!(out.clone().json::<String>()?, (102 * USDC).to_string(), "repay at 40 Tgas: {out:?}");
+    let out = ftc(&env.bob, 104 * USDC, "repay").await?;
+    assert_eq!(out.clone().json::<String>()?, (104 * USDC).to_string(), "repay at 40 Tgas: {out:?}");
     println!("repay: {:.1} Tgas burnt", burnt_tgas(&out));
 
     let out = env.alice

@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn deposit_after_price_rise_gets_fewer_shares() {
-        // Pool earned interest: 1000 shares now worth $1016 (SPEC 4a: $1.60 per $100 loan to lenders x10).
+        // Pool earned interest: 1000 shares now worth $1016 (SPEC 4a: $2 per $100 band A loan to lenders, 8 loans).
         let shares = shares_for_deposit(1016 * USDC, 1016 * USDC, 1000 * USDC);
         assert_eq!(shares, 1000 * USDC);
         let shares = shares_for_deposit(100 * USDC, 1016 * USDC, 1000 * USDC);

@@ -75,8 +75,8 @@ fn fails_with(out: &ExecutionFinalResult, text: &str) {
 
 // ------------------------------------------------------------------ SPEC 8 flows
 
-/// SPEC 8 step 2: Riya is scored A, borrows $100, repays $102 after the minimum hold,
-/// reaches level 2 with a $250 limit. Lenders earn $1.60, the reserve $0.40.
+/// SPEC 8 step 2: Riya is scored A, borrows $100, repays $104 after the minimum hold,
+/// reaches level 2 with a $250 limit. Lenders earn $2, the treasury $2.
 #[tokio::test]
 async fn riya_borrows_repays_and_levels_up() -> anyhow::Result<()> {
     let env = funded_env().await?;
@@ -89,7 +89,7 @@ async fn riya_borrows_repays_and_levels_up() -> anyhow::Result<()> {
     assert!(out.clone().json::<bool>()?);
     let ev = events(&out);
     assert_eq!(ev[0]["event"], "loan_issued");
-    assert_eq!(ev[0]["data"][0]["interest"], "2000000");
+    assert_eq!(ev[0]["data"][0]["interest"], "4000000");
     assert_eq!(balance(&env.usdc, riya.id()).await?, 110 * USDC);
     let p = pool_state(&env.pool).await?;
     assert_eq!((p.cash, p.outstanding, p.pool_value), (900 * USDC, 100 * USDC, 1_000 * USDC));
@@ -98,22 +98,24 @@ async fn riya_borrows_repays_and_levels_up() -> anyhow::Result<()> {
     let issued_at: u64 = borrower(&env, &riya).await?["loan"]["issued_at"].as_str().unwrap().parse()?;
     advance_past(&env, issued_at + TERM_NS / 2).await?;
 
-    let out = transfer_call(&riya, &env.usdc, env.pool.id(), 102 * USDC, "repay").await?;
-    assert_eq!(out.clone().json::<String>()?, (102 * USDC).to_string(), "all used: {out:?}");
+    let out = transfer_call(&riya, &env.usdc, env.pool.id(), 104 * USDC, "repay").await?;
+    assert_eq!(out.clone().json::<String>()?, (104 * USDC).to_string(), "all used: {out:?}");
     let ev = events(&out);
     assert_eq!(ev[0]["event"], "loan_repaid");
     assert_eq!(ev[0]["data"][0]["leveled_up"], true);
-    assert_eq!(ev[0]["data"][0]["to_reserve"], "400000");
+    assert_eq!(ev[0]["data"][0]["to_pool"], "2000000");
+    assert_eq!(ev[0]["data"][0]["to_treasury"], "2000000");
 
     let b = borrower(&env, &riya).await?;
     assert_eq!(b["level"], 2);
     assert_eq!(b["loan"]["state"], "Repaid");
     assert_eq!(limit(&env, &riya).await?, 250 * USDC);
-    assert_eq!(balance(&env.usdc, riya.id()).await?, 8 * USDC);
+    assert_eq!(balance(&env.usdc, riya.id()).await?, 6 * USDC);
 
     let p = pool_state(&env.pool).await?;
-    assert_eq!((p.cash, p.outstanding, p.reserve), (1_001_600_000, 0, 300_400_000));
-    assert_eq!(lender(&env.pool, env.alice.id()).await?.1, 1_001_600_000, "share price rose");
+    // SPEC 4a: $104 = $100 principal + $2 lenders + $2 treasury; the reserve keeps only its seed.
+    assert_eq!((p.cash, p.outstanding, p.reserve, p.treasury), (1_002 * USDC, 0, 300 * USDC, 2 * USDC));
+    assert_eq!(lender(&env.pool, env.alice.id()).await?.1, 1_002 * USDC, "share price rose by $2");
     assert_books_balance(&env).await?;
 
     let stats: Value = env.pool.view("get_stats").await?.json()?;
@@ -274,7 +276,7 @@ async fn rule13_early_repay_no_level_up() -> anyhow::Result<()> {
     let riya = new_user(&env, "riya", 10).await?;
     score(&env, &riya, "A", 1000, 0x11).await?;
     borrow(&env, &riya, 100 * USDC).await?.into_result()?;
-    let out = transfer_call(&riya, &env.usdc, env.pool.id(), 102 * USDC, "repay").await?;
+    let out = transfer_call(&riya, &env.usdc, env.pool.id(), 104 * USDC, "repay").await?;
     assert_eq!(events(&out)[0]["data"][0]["leveled_up"], false);
     assert_eq!(borrower(&env, &riya).await?["level"], 1);
     assert_eq!(limit(&env, &riya).await?, 100 * USDC);
@@ -288,15 +290,15 @@ async fn wrong_repay_amount_refunded() -> anyhow::Result<()> {
     let riya = new_user(&env, "riya", 10).await?;
     score(&env, &riya, "A", 1000, 0x11).await?;
     borrow(&env, &riya, 100 * USDC).await?.into_result()?;
-    for amount in [100 * USDC, 101 * USDC, 103 * USDC] {
+    for amount in [100 * USDC, 103 * USDC, 105 * USDC] {
         let out = transfer_call(&riya, &env.usdc, env.pool.id(), amount, "repay").await?;
         assert_eq!(out.clone().json::<String>()?, "0", "refunded {amount}");
-        assert!(format!("{:?}", out.failures()).contains("Repay exactly 102000000"));
+        assert!(format!("{:?}", out.failures()).contains("Repay exactly 104000000"));
     }
     assert_eq!(balance(&env.usdc, riya.id()).await?, 110 * USDC);
     assert_eq!(borrower(&env, &riya).await?["loan"]["state"], "Active");
     // Someone without a loan can't "repay" either.
-    let out = transfer_call(&env.bob, &env.usdc, env.pool.id(), 102 * USDC, "repay").await?;
+    let out = transfer_call(&env.bob, &env.usdc, env.pool.id(), 104 * USDC, "repay").await?;
     assert_eq!(out.clone().json::<String>()?, "0");
     assert_books_balance(&env).await?;
     Ok(())

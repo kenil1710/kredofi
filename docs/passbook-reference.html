@@ -198,7 +198,7 @@ var REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
 var clamp=function(x,a,b){ return Math.max(a===undefined?0:a, Math.min(b===undefined?1:b, x)); };
 function rng(seed){ var s=seed; return function(){ s=(s*16807)%2147483647; return (s-1)/2147483646; }; }
 function drawNote(ctx, W, H, ovi, o){
-  o = o || {}; var NM=o.name||'riya.testnet', BD=o.band||'A', AMT=(o.amount===undefined?100:o.amount), WD=o.words||'One hundred US dollars, in USDC', RP=o.repay||'24 November 2026, $102';
+  o = o || {}; var NM=o.name||'riya.testnet', BD=o.band||'A', AMT=(o.amount===undefined?100:o.amount), WD=o.words||'One hundred US dollars, in USDC', RP=o.repay||'24 November 2026, $104';
   var s = W/1100; ctx.save(); ctx.scale(s, s);
   var g = ctx.createLinearGradient(0,0,1100,440);
   g.addColorStop(0,'#E7EEE7'); g.addColorStop(.5,'#EFEDF3'); g.addColorStop(1,'#E6EEE8');
@@ -326,8 +326,8 @@ async function result(p){
     (denied ? '<div class="change"><h3>What would change this</h3><ul><li>Income in at least 5 of 6 months</li><li>No overdraft or returned-payment fees for three months</li><li>Spending below income</li></ul><p style="margin-top:8px">You can check again in 30 days. Nothing about this result is shown to lenders except the band.</p></div>'
             : '<p>Band '+p.band+'. You can borrow up to $'+p.limit+' today. Only the line on the right left the enclave.</p>'));
   var cv=b.querySelector('canvas');
-  paintNote(cv, {name:p.acct+'.testnet', band:p.band, amount:p.limit, words: denied?'Zero US dollars':'One hundred US dollars, in USDC', repay: denied?'Not issued':'24 November 2026, $102', denied:false});
-  if (document.fonts) document.fonts.ready.then(function(){ paintNote(cv, {name:p.acct+'.testnet', band:p.band, amount:p.limit, words: denied?'Zero US dollars':'One hundred US dollars, in USDC', repay: denied?'Not issued':'24 November 2026, $102', denied:false}); });
+  paintNote(cv, {name:p.acct+'.testnet', band:p.band, amount:p.limit, words: denied?'Zero US dollars':'One hundred US dollars, in USDC', repay: denied?'Not issued':'24 November 2026, $104', denied:false});
+  if (document.fonts) document.fonts.ready.then(function(){ paintNote(cv, {name:p.acct+'.testnet', band:p.band, amount:p.limit, words: denied?'Zero US dollars':'One hundred US dollars, in USDC', repay: denied?'Not issued':'24 November 2026, $104', denied:false}); });
   onchain.innerHTML='{\n  "v": 1,\n  "caller": "'+p.acct+'.testnet",\n  <b>"band": "'+p.band+'",</b>\n  "score": '+p.score+',\n  <b>"income_cap": '+(denied?'500000000':'1000000000')+',</b>\n  "fingerprint": "'+p.fp+'",\n  "sealed_identity": "Xk3p…Qw8="\n}';
   var dds=b.querySelectorAll('.tally dd'), tot=b.querySelector('.tot b'), sum=0;
   for (var i=0;i<5;i++){ await countTo(dds[i], p.f[i], 380); sum+=p.f[i]; tot.textContent=sum; }
@@ -339,11 +339,11 @@ function countTo(el, to, ms){ return new Promise(function(res){ if (REDUCE){ el.
 
 function borrowStep(p){
   var b = entry('Borrow', '<div class="form"><div class="field"><label for="amt">Amount</label><div class="money"><input id="amt" value="100.00" inputmode="decimal"><span>USDC</span></div><span class="hint" id="amtHint">Your limit is $100.00</span></div><button class="btn btn-violet" id="bBtn">Borrow $100</button></div>'+
-    '<dl class="terms"><dt>Interest</dt><dd>$2.00 flat</dd><dt>You repay</dt><dd>$102.00 by 24 November 2026</dd><dt>If you don\'t repay</dt><dd class="plain">After a 7-day grace period the loan is marked as defaulted, your name is released to the recovery partner, and you can\'t borrow again.</dd></dl>', 'Now');
+    '<dl class="terms"><dt>Interest</dt><dd>$4.00 flat</dd><dt>You repay</dt><dd>$104.00 by 24 November 2026</dd><dt>If you don\'t repay</dt><dd class="plain">After a 7-day grace period the loan is marked as defaulted, your name is released to the recovery partner, and you can\'t borrow again.</dd></dl>', 'Now');
   var inp=b.querySelector('#amt'), hint=b.querySelector('#amtHint'), btn=b.querySelector('#bBtn');
   inp.addEventListener('input', function(){ var v=parseFloat(inp.value)||0; var ok=v>0&&v<=100; hint.textContent = ok ? 'Your limit is $100.00' : (v>100 ? 'Above your limit of $100.00' : 'Enter an amount'); hint.classList.toggle('err',!ok); btn.disabled=!ok; btn.textContent='Borrow $'+(ok? (v%1?v.toFixed(2):v):'100'); });
   btn.addEventListener('click', async function(){ var v=parseFloat(inp.value)||100; btn.disabled=true; inp.disabled=true; btn.textContent='Sending…'; await wait(1100); btn.textContent='Confirmed';
-    var amt = v.toFixed(2), due=(v*1.02).toFixed(2);
+    var amt = v.toFixed(2), due=(v*1.04).toFixed(2);
     entry('Loan issued', '<p>$'+amt+' USDC arrived in '+whoChip.textContent+'. Repay $'+due+' by 24 November 2026.</p><p class="txline">Transaction <a href="#top">Za9wE…r4k</a></p>');
     await wait(900);
     if (p.acct==='max') defaultStep(p, amt); else repayStep(p, due);
@@ -353,12 +353,12 @@ function repayStep(p, due){
   var b = entry('Repay', '<div class="form"><button class="btn btn-ink" id="rBtn">Repay $'+due+'</button><span class="hint">Due in 26 days. In the demo, a loan term is 5 minutes.</span></div>', 'Next');
   var btn=b.querySelector('#rBtn');
   btn.addEventListener('click', async function(){ btn.disabled=true; btn.textContent='Sending…'; await wait(1100); btn.textContent='Repaid';
-    var e = entry('Repaid on time', '<p>$'+due+' paid. $0.40 of the interest went to the reserve that protects lenders; $1.60 went to lenders.</p><div class="level" aria-label="Limit levels"><div class="on"><i style="height:24px"></i>$100</div><div id="lv2"><i style="height:44px"></i>$250</div><div><i style="height:70px"></i>$500</div><div><i style="height:100px"></i>$1,000</div></div><p>Your next note can be up to <b>$250</b>. Limits only grow after a loan held at least half its term.</p>');
+    var e = entry('Repaid on time', '<p>$'+due+' paid. $2.00 of the interest went to lenders and $2.00 to the KredoFi treasury.</p><div class="level" aria-label="Limit levels"><div class="on"><i style="height:24px"></i>$100</div><div id="lv2"><i style="height:44px"></i>$250</div><div><i style="height:70px"></i>$500</div><div><i style="height:100px"></i>$1,000</div></div><p>Your next note can be up to <b>$250</b>. Limits only grow after a loan held at least half its term.</p>');
     await wait(500); e.querySelector('#lv2').classList.add('on');
   });
 }
 function defaultStep(p, amt){
-  var b = entry('Repay', '<div class="form"><button class="btn btn-ink" disabled>Repay $102.00</button><button class="btn btn-red" id="skip">Max never pays: skip ahead 12 days</button></div><p class="hint">In the demo, time runs in minutes. Max ignores the due date and the 7-day grace period.</p>', 'Next');
+  var b = entry('Repay', '<div class="form"><button class="btn btn-ink" disabled>Repay $104.00</button><button class="btn btn-red" id="skip">Max never pays: skip ahead 12 days</button></div><p class="hint">In the demo, time runs in minutes. Max ignores the due date and the 7-day grace period.</p>', 'Next');
   b.querySelector('#skip').addEventListener('click', async function(){ this.disabled=true;
     entry('Grace period over', '<p>Max missed the due date and the 7-day grace period. Anyone can now mark the loan as defaulted; the contract checks the dates itself.</p>', '+12 days');
     await wait(1100);

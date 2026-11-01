@@ -93,8 +93,8 @@ export default function ComponentSheet() {
               key={`riya-${draw}`}
               drawIn={draw > 1}
               loupe
-              label="Credit note for riya.testnet: 100 US dollars in USDC, band A, repay 102 dollars by 24 November 2026"
-              data={{ name: 'riya.testnet', band: 'A', amount: 100, words: amountInWords(100), repay: '24 November 2026, $102', serial: serialFromFingerprint(RIYA_FP), proof: PROOF }}
+              label="Credit note for riya.testnet: 100 US dollars in USDC, band A, repay 104 dollars by 24 November 2026"
+              data={{ name: 'riya.testnet', band: 'A', amount: 100, words: amountInWords(100), repay: '24 November 2026, $104', serial: serialFromFingerprint(RIYA_FP), proof: PROOF }}
             >
               <Stamp kind="approved" press={press} shakeRef={riyaBox}>BAND A, $100</Stamp>
             </CreditNote>

@@ -5,7 +5,7 @@
 //
 // 1. A lender deposits $1,000 (mock USDC); the pool shows its value.
 // 2. Riya is scored inside the scorer (band A), borrows $100, waits the minimum hold, repays
-//    $102 and reaches level 2 ($250 limit). Her browser key opens the private `reply`.
+//    $104 ($2 to lenders, $2 to the KredoFi treasury) and reaches level 2 ($250 limit). Her browser key opens the private `reply`.
 // 3. Sam is scored band D; borrowing is refused with a plain reason.
 // 4. Fake scores are rejected: on_score is private; only dev_scorer may submit.
 //    (dev_submit_score on mainnet is rejected too: shown on day 6 against the mainnet contract.)
@@ -101,7 +101,7 @@ async function scoreBorrower(name) {
 }
 
 function showPool(p) {
-  say(`   pool: value ${fmtUsd(p.pool_value)} (cash ${fmtUsd(p.cash)}, lent ${fmtUsd(p.outstanding)}), reserve ${fmtUsd(p.reserve)}`);
+  say(`   pool: value ${fmtUsd(p.pool_value)} (cash ${fmtUsd(p.cash)}, lent ${fmtUsd(p.outstanding)}), reserve ${fmtUsd(p.reserve)}, treasury ${fmtUsd(p.treasury ?? '0')}`);
 }
 
 // ------------------------------------------------------------------ run
@@ -152,13 +152,13 @@ if (max?.blocked) {
   say(`   Max owes ${fmtUsd(BigInt(max.loan.principal) + BigInt(max.loan.interest))}, due ${new Date(Number(BigInt(max.loan.due_at) / 1_000_000n)).toISOString().slice(11, 19)} UTC`);
 }
 
-step('2b. Riya waits the minimum hold, then repays $102');
+step('2b. Riya waits the minimum hold, then repays $104');
 await waitUntilNs(BigInt(riya.loan.issued_at) + BigInt(cfg.min_hold_ns), 'the minimum hold');
 const due = BigInt(riya.loan.principal) + BigInt(riya.loan.interest);
 const rr = must('riya repay', await ftCall('riya', due.toString(), 'repay'));
 const rep = ev(rr, 'loan_repaid');
 riya = await borrower(ids.riya);
-say(`   repaid ${fmtUsd(due)}: ${fmtUsd(rep.to_pool)} to lenders, ${fmtUsd(rep.to_reserve)} to the reserve`);
+say(`   repaid ${fmtUsd(due)}: ${fmtUsd(rep.to_pool)} to lenders, ${fmtUsd(rep.to_treasury)} to the KredoFi treasury`);
 say(`   leveled up: ${rep.leveled_up} -> level ${riya.level}, new limit ${fmtUsd(riya.limit)}` +
     (rep.leveled_up ? '' : ' (rule 13: loan under 50% of limit or second level-up within a term)'));
 showPool(await pool());

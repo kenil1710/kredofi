@@ -22,7 +22,6 @@ fn owner_sets_demo_timing_with_events() {
     owner_call(&mut c, |c| c.set_loan_term_ns(U64(120 * S)));
     owner_call(&mut c, |c| c.set_grace_ns(U64(60 * S)));
     owner_call(&mut c, |c| c.set_score_ttl_ns(U64(3600 * S)));
-    owner_call(&mut c, |c| c.set_reserve_share_bps(2500));
     owner_call(&mut c, |c| c.set_max_borrower_share_bps(500));
 
     let v = c.get_config();
@@ -30,7 +29,7 @@ fn owner_sets_demo_timing_with_events() {
         (v.loan_term_ns.0, v.min_hold_ns.0, v.grace_ns.0, v.score_ttl_ns.0),
         (120 * S, 60 * S, 60 * S, 3600 * S)
     );
-    assert_eq!((v.reserve_share_bps, v.max_borrower_share_bps), (2500, 500));
+    assert_eq!(v.max_borrower_share_bps, 500);
     let ev = events_named("param_changed");
     assert_eq!(ev.len(), 1, "one event per call (logs reset per context)");
     assert!(ev[0].contains("\"param\":\"max_borrower_share_bps\"") && ev[0].contains("\"old\":1000") && ev[0].contains("\"new\":500"));
@@ -74,7 +73,6 @@ fn bounds_are_enforced() {
         ("min_hold_ns must be at least 60 s and at most loan_term_ns", Box::new(|c| c.set_min_hold_ns(U64(31 * 24 * 3600 * S)))),
         // Term below the current 15-day hold.
         ("min_hold_ns must be at least 60 s and at most loan_term_ns", Box::new(|c| c.set_loan_term_ns(U64(120 * S)))),
-        ("reserve_share_bps must be <= 5000", Box::new(|c| c.set_reserve_share_bps(5001))),
         ("max_borrower_share_bps must be between 1 and 1000 (rule 12)", Box::new(|c| c.set_max_borrower_share_bps(1001))),
         ("max_borrower_share_bps must be between 1 and 1000 (rule 12)", Box::new(|c| c.set_max_borrower_share_bps(0))),
     ];

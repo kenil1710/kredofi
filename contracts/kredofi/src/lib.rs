@@ -2,19 +2,23 @@
 //!
 //! Built so far (docs/PLAN.md): config, lending pool, lender deposit and withdraw,
 //! reserve seeding, share math (day 1); scores, expiry, fingerprints, limits (day 2);
-//! loans, repayment, defaults, identity release (day 3).
+//! loans, repayment, defaults, identity release (day 3); KredoFi treasury (Nov 1 fee change).
 //!
-//! Money rules (SPEC 3, 7):
-//! - Pool value = `cash + outstanding`. The reserve is separate and is not lender money.
+//! Money rules (SPEC 3, 4a, 7):
+//! - Pool value = `cash + outstanding`: lender money. The reserve (first loss) and the treasury
+//!   (KredoFi's half of interest) are separate balances. Token balance = cash + reserve + treasury.
 //! - State is written before every token transfer; every transfer has a callback that
 //!   rolls the state back if the transfer fails (rule 7).
-//! - There is no owner method that moves lender funds or the reserve (rule 10).
+//! - No owner path to lender funds or the reserve (rule 10): the owner can only withdraw the
+//!   treasury, or move treasury into the reserve (one-way).
 
 mod events;
 mod loans;
 mod math;
+mod migrate;
 mod params;
 mod score;
+mod treasury;
 
 pub use loans::*;
 pub use params::*;
@@ -72,7 +76,6 @@ pub struct ConfigInput {
     pub loan_term_ns: U64,
     pub grace_ns: U64,
     pub score_ttl_ns: U64,
-    pub reserve_share_bps: u16,
     pub max_borrower_share_bps: u16,
 }
 
@@ -94,7 +97,6 @@ pub struct Config {
     pub score_ttl_ns: u64,
     /// Repaying before this (half the loan term) does not raise the level (rule 13).
     pub min_hold_ns: u64,
-    pub reserve_share_bps: u16,
     pub max_borrower_share_bps: u16,
 }
 
@@ -115,7 +117,6 @@ pub struct ConfigView {
     pub grace_ns: U64,
     pub score_ttl_ns: U64,
     pub min_hold_ns: U64,
-    pub reserve_share_bps: u16,
     pub max_borrower_share_bps: u16,
 }
 
@@ -127,8 +128,10 @@ pub struct Pool {
     /// Principal currently lent out.
     pub outstanding: u128,
     pub total_shares: u128,
-    /// First-loss reserve: owner seed + share of interest. Not part of pool value.
+    /// First-loss reserve: owner seed and treasury top-ups. Not part of pool value.
     pub reserve: u128,
+    /// KredoFi treasury: half of every interest payment. Not part of pool value.
+    pub treasury: u128,
 }
 
 impl Pool {
@@ -144,6 +147,7 @@ pub struct PoolView {
     pub outstanding: U128,
     pub total_shares: U128,
     pub reserve: U128,
+    pub treasury: U128,
     /// `cash + outstanding`
     pub pool_value: U128,
 }
@@ -297,7 +301,6 @@ impl Contract {
             grace_ns: U64(c.grace_ns),
             score_ttl_ns: U64(c.score_ttl_ns),
             min_hold_ns: U64(c.min_hold_ns),
-            reserve_share_bps: c.reserve_share_bps,
             max_borrower_share_bps: c.max_borrower_share_bps,
         }
     }
@@ -308,6 +311,7 @@ impl Contract {
             outstanding: U128(self.pool.outstanding),
             total_shares: U128(self.pool.total_shares),
             reserve: U128(self.pool.reserve),
+            treasury: U128(self.pool.treasury),
             pool_value: U128(self.pool.value()),
         }
     }
@@ -398,7 +402,6 @@ fn validate_config(c: ConfigInput) -> Config {
         grace_ns: c.grace_ns.0,
         score_ttl_ns: c.score_ttl_ns.0,
         min_hold_ns: c.loan_term_ns.0 / 2,
-        reserve_share_bps: c.reserve_share_bps,
         max_borrower_share_bps: c.max_borrower_share_bps,
     };
     // Same bounds as the owner setters (params.rs); min_hold = term / 2 must be >= 60 s.
@@ -434,3 +437,5 @@ mod score_tests;
 mod loan_tests;
 #[cfg(test)]
 mod params_tests;
+#[cfg(test)]
+mod treasury_tests;

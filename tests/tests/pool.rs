@@ -226,8 +226,10 @@ async fn owner_cannot_move_lender_funds_or_reserve() -> anyhow::Result<()> {
         "set_min_hold_ns",
         "set_grace_ns",
         "set_score_ttl_ns",
-        "set_reserve_share_bps",
         "set_max_borrower_share_bps",
+        // Owner, treasury only: capped at pool.treasury; never touches cash, outstanding or reserve.
+        "withdraw_treasury",
+        "treasury_to_reserve",
     ].iter().map(|s| s.to_string()).collect();
     assert_eq!(public_calls, allowed, "public change methods changed; review rule 10");
 

@@ -319,7 +319,7 @@ footer a{color:#C7D3CD}
         <div>
           <div class="viewer" id="viewer">
             <div class="note" id="noteWrap">
-              <canvas id="note2d" aria-label="A KredoFi credit note for riya.testnet: 100 US dollars in USDC, band A, repay 102 dollars by 24 November 2026" role="img"></canvas>
+              <canvas id="note2d" aria-label="A KredoFi credit note for riya.testnet: 100 US dollars in USDC, band A, repay 104 dollars by 24 November 2026" role="img"></canvas>
               <div class="ring" style="left:77.2%;top:71.2%;width:15.8%;height:18.8%"></div>
               <div class="ring" style="left:59.3%;top:21.8%;width:19.6%;height:56.6%;border-radius:50%"></div>
               <div class="ring" style="left:7.6%;top:16.2%;width:18.2%;height:6.8%"></div>
@@ -452,7 +452,7 @@ function progressOf(el){
 
 /* ---------- The credit note, drawn once, used three times ---------- */
 function drawNote(ctx, W, H, ovi, o){
-  o = o || {}; var NM=o.name||'riya.testnet', BD=o.band||'A', AMT=(o.amount===undefined?100:o.amount), WD=o.words||'One hundred US dollars, in USDC', RP=o.repay||'24 November 2026, $102';
+  o = o || {}; var NM=o.name||'riya.testnet', BD=o.band||'A', AMT=(o.amount===undefined?100:o.amount), WD=o.words||'One hundred US dollars, in USDC', RP=o.repay||'24 November 2026, $104';
   var s = W/1100; ctx.save(); ctx.scale(s, s);
   var g = ctx.createLinearGradient(0,0,1100,440);
   g.addColorStop(0,'#E7EEE7'); g.addColorStop(.5,'#EFEDF3'); g.addColorStop(1,'#E6EEE8');
@@ -704,8 +704,8 @@ document.querySelectorAll('.cnt').forEach(function(el){ io.observe(el); });
 /* ---------- Live ledger feed ---------- */
 var feed = document.getElementById('feed');
 var EV = [
-  ['Score issued, band A','2 seconds ago','—'],['Loan repaid','just now','$102.00'],['Lender deposit from Base','just now','$250.00'],['Score issued, band D','just now','—'],
-  ['Loan issued, band A','just now','$100.00'],['Reserve covered a default','just now','$100.00'],['Loan repaid, level 2','just now','$255.00'],['Lender deposit','just now','$1,000.00']
+  ['Score issued, band A','2 seconds ago','—'],['Loan repaid','just now','$104.00'],['Lender deposit from Base','just now','$250.00'],['Score issued, band D','just now','—'],
+  ['Loan issued, band A','just now','$100.00'],['Reserve covered a default','just now','$100.00'],['Loan repaid, level 2','just now','$260.00'],['Lender deposit','just now','$1,000.00']
 ];
 var evI = 0, ages=[];
 function addEvent(initial){ var e=EV[evI%EV.length]; evI++;

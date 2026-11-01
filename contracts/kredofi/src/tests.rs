@@ -44,7 +44,6 @@ pub fn config_input() -> ConfigInput {
         loan_term_ns: U64(30 * 24 * 3600 * 1_000_000_000),
         grace_ns: U64(7 * 24 * 3600 * 1_000_000_000),
         score_ttl_ns: U64(30 * 24 * 3600 * 1_000_000_000),
-        reserve_share_bps: 2000,
         max_borrower_share_bps: 1000,
     }
 }
@@ -109,13 +108,13 @@ fn init_stores_config_and_derives_min_hold() {
     assert_eq!(v.scorer_mode, ScorerMode::Dev);
     assert_eq!(v.partner_pubkey, PARTNER);
     assert_eq!(v.min_hold_ns.0, v.loan_term_ns.0 / 2);
-    assert_eq!(v.reserve_share_bps, 2000);
     assert_eq!(v.max_borrower_share_bps, 1000);
     assert_eq!(c.get_pool(), PoolView {
         cash: U128(0),
         outstanding: U128(0),
         total_shares: U128(0),
         reserve: U128(0),
+        treasury: U128(0),
         pool_value: U128(0),
     });
 }
@@ -136,15 +135,6 @@ fn outlayer_mode_without_dev_scorer_is_fine() {
     i.scorer_mode = ScorerMode::OutLayer;
     i.dev_scorer = None;
     assert_eq!(Contract::new(i).get_config().scorer_mode, ScorerMode::OutLayer);
-}
-
-#[test]
-#[should_panic(expected = "reserve_share_bps must be <= 5000")]
-fn reserve_share_over_half_rejected() {
-    set(owner());
-    let mut i = config_input();
-    i.reserve_share_bps = 5_001;
-    Contract::new(i);
 }
 
 #[test]

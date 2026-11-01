@@ -33,7 +33,8 @@ KredoFi: private, income-based stablecoin loans on NEAR. Bank data is scored ins
 - Handle OutLayer results of `null` or error: clear `pending_request`, change nothing else.
 - Pin the scorer version (`version_key` = WASM SHA-256) in every OutLayer request.
 - Attach about 100 Tgas to `request_execution`, not 300. Fee deposit 0.01 NEAR.
-- Signing needs about 0.001 NEAR of balance per prepaid Tgas (refunded after). Demo accounts hold 0.05 NEAR, so demo calls attach 40 Tgas (`tests/tests/gas_budget.rs` keeps them under it).
+- Signing needs about 0.001 NEAR of balance per prepaid Tgas (refunded after). A code deploy also holds its own gas (~7 Tgas per 100 KB of wasm) during the storage check, so a deploy needs free balance >= new storage + 0.001 NEAR x (deploy Tgas + init Tgas). Use 10 Tgas for init/migrate calls.
+- State layout changes need `migrate()` (`#[private] #[init(ignore_state)]`, see `contracts/kredofi/src/migrate.rs`) run in the same transaction as the deploy: `near contract deploy <acct> use-file <wasm> with-init-call migrate json-args '{}' prepaid-gas '10 Tgas' ...`. Test it against the previous deployed binary (`tests/fixtures/`). Demo accounts hold 0.05 NEAR, so demo calls attach 40 Tgas (`tests/tests/gas_budget.rs` keeps them under it).
 - `request_score` requires `env::signer_account_id() == env::predecessor_account_id()`.
 - Checked math on u128. No owner method may move lender funds or the reserve.
 - Emit NEP-297 events listed in SPEC section 4.

@@ -15,8 +15,6 @@ pub const MIN_DURATION_NS: u64 = 60 * SECOND;
 pub const MAX_LOAN_TERM_NS: u64 = 365 * DAY;
 pub const MAX_GRACE_NS: u64 = 90 * DAY;
 pub const MAX_SCORE_TTL_NS: u64 = 365 * DAY;
-/// At most half of the interest may go to the reserve.
-pub const MAX_RESERVE_SHARE_BPS: u16 = 5_000;
 /// Rule 12: one borrower can never exceed 10% of pool value, so this can only be lowered.
 pub const MAX_BORROWER_SHARE_BPS: u16 = 1_000;
 
@@ -30,7 +28,6 @@ pub(crate) fn check_params(c: &Config) {
         c.min_hold_ns >= MIN_DURATION_NS && c.min_hold_ns <= c.loan_term_ns,
         "min_hold_ns must be at least 60 s and at most loan_term_ns"
     );
-    require!(c.reserve_share_bps <= MAX_RESERVE_SHARE_BPS, "reserve_share_bps must be <= 5000");
     require!(
         c.max_borrower_share_bps >= 1 && c.max_borrower_share_bps <= MAX_BORROWER_SHARE_BPS,
         "max_borrower_share_bps must be between 1 and 1000 (rule 12)"
@@ -62,12 +59,6 @@ impl Contract {
     pub fn set_score_ttl_ns(&mut self, value: U64) {
         let old = self.config.score_ttl_ns;
         self.update_param("score_ttl_ns", U64(old), U64(value.0), |c| c.score_ttl_ns = value.0);
-    }
-
-    #[payable]
-    pub fn set_reserve_share_bps(&mut self, value: u16) {
-        let old = self.config.reserve_share_bps;
-        self.update_param("reserve_share_bps", old, value, |c| c.reserve_share_bps = value);
     }
 
     #[payable]

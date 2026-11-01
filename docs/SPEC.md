@@ -10,7 +10,7 @@ This file is the source of truth for what gets built in the hackathon (Nov 1-14,
 
 | Folder | What | Language / target |
 |---|---|---|
-| `contracts/kredofi` | Lending pool, score registry, loans, defaults, reserve | Rust, `near-sdk` 5.x, `cargo near` |
+| `contracts/kredofi` | Lending pool, score registry, loans, defaults, reserve, treasury | Rust, `near-sdk` 5.x, `cargo near` |
 | `contracts/mock-usdc` | 6-decimal NEP-141 token for local and testnet only | Rust |
 | `scorer` | TEE program: Plaid fetch, features, score, sealed identity | Rust, `wasm32-wasip2`, OutLayer project |
 | `web` | Borrower page, lender page, public dashboard | Next.js (see `DESIGN.md`) |
@@ -54,14 +54,14 @@ config:
   grace_ns: u64                       // 7 days prod, minutes in demo
   score_ttl_ns: u64                   // 30 days
   min_hold_ns: u64                    // loan_term_ns / 2; repay before this = no level up
-  reserve_share_bps: u16              // 2000 = 20% of interest
   max_borrower_share_bps: u16         // 1000 = one borrower max 10% of pool value (upper bound)
 
 pool:
   cash: u128                          // USDC held for lending
   outstanding: u128                   // principal currently lent out
   total_shares: u128
-  reserve: u128                       // first-loss: seed + interest share
+  reserve: u128                       // first-loss: seed + owner top-ups from the treasury
+  treasury: u128                      // KredoFi: half of every interest payment
 
 lenders: LookupMap<AccountId, u128>   // shares
 
@@ -79,7 +79,7 @@ fingerprints: LookupMap<[u8; 32], AccountId>   // one bank identity, one borrowe
 stats: per band { scored, loans_issued, repaid, defaulted, volume }
 ```
 
-Pool value = `cash + outstanding`. Share price = pool value / total_shares. Losses not covered by the reserve reduce `outstanding` without returning cash, so they lower the share price.
+Pool value = `cash + outstanding`. Reserve and treasury are separate balances, not lender money; the contract's USDC balance always equals `cash + reserve + treasury`. Share price = pool value / total_shares. Losses not covered by the reserve reduce `outstanding` without returning cash, so they lower the share price.
 
 ---
 
@@ -91,13 +91,13 @@ Pool value = `cash + outstanding`. Share price = pool value / total_shares. Loss
 |---|---|
 | `request_score(public_token, reply_pubkey)` payable | Requires `signer == predecessor` (so OutLayer's `sender_id` is the borrower). Not blocked, no pending request, no active loan. Attached deposit >= 0.01 NEAR (OutLayer fee). Sets `pending_request`. Calls OutLayer `request_execution` with the pinned `scorer_version`, `secrets_ref`, `payer_account_id: borrower`, 100 Tgas, `max_execution_seconds: 30`. Callback: `on_score`. In `Dev` mode it panics; use `dev_submit_score`. |
 | `on_score(borrower)` `#[private]` | OutLayer passes the scorer's stdout JSON object itself (no wrapper; confirmed on mainnet Nov 1, tx `4dgHrA97…`). `null` / error: clear `pending_request`, log, change nothing else. Success: parse output, require `output.caller == borrower`, require `output.v == 1`, require fingerprint unused or owned by this borrower. Store `ScoreRecord`, `sealed_identity`, bump `stats[band].scored`. Never panics after reading the borrower (a panic would undo clearing `pending_request`); every rejection emits `score_failed` with a reason. Refunds: `request_score` passes `payer_account_id = borrower`, so OutLayer sends the unused deposit straight to the borrower (OutLayer docs: "Unused deposit sent to payer_account_id"). Without it OutLayer refunds the calling contract (prep tx `CCWy2xNr…UvR`), and the contract cannot tell how much arrived or when. On-chain check: PLAN day 6. |
-| `borrow(amount)` | Score exists and not expired. Band not D. No active loan. `amount <= limit(borrower)`. `amount <= cash`. `amount <= max_borrower_share_bps * pool value`. Requires exactly 1 yoctoNEAR (full-access key). Interest = `ceil(principal * rate)`, so rounding goes to lenders. Write the loan, move cash to outstanding, **then** `ft_transfer` to borrower with callback `on_borrow_transfer`; on failure restore the previous loan record, pool and stats exactly. `loan_issued` is emitted only after the transfer succeeds. |
-| `repay` | Via `usdc.ft_transfer_call(pool, amount, msg: "repay")`. Full repayment only: `amount == principal + interest`, otherwise return the tokens. Interest split: `reserve_share_bps` to reserve, rest to pool cash. `stats.repaid += 1`. **Level up by 1 (max 4) only if all three hold:** (a) the loan was held at least `min_hold_ns` (half the loan term: 15 days prod, half the demo term in demo), (b) principal was at least 50% of the limit at borrow time, (c) the last level-up was at least `loan_term_ns` ago (a borrower who never levelled up passes (c)). A late repay (after `due_at`, before anyone calls `mark_default`) is accepted. Otherwise the repay succeeds but the level stays. This stops "borrow today, repay tomorrow" farming: the fastest path from $100 to $1,000 takes three full terms (about 3 months) and three real loans. |
+| `borrow(amount)` | Score exists and not expired. Band not D. No active loan. `amount <= limit(borrower)`. `amount <= cash`. `amount <= max_borrower_share_bps * pool value`. Requires exactly 1 yoctoNEAR (full-access key). Interest = `ceil(principal * band rate)` (A 4%, B 6%, C 8%). Write the loan, move cash to outstanding, **then** `ft_transfer` to borrower with callback `on_borrow_transfer`; on failure restore the previous loan record, pool and stats exactly. `loan_issued` is emitted only after the transfer succeeds. |
+| `repay` | Via `usdc.ft_transfer_call(pool, amount, msg: "repay")`. Full repayment only: `amount == principal + interest`, otherwise return the tokens. Interest split: lenders get `ceil(principal * lender rate)` (A 2%, B 3%, C 4%, rounded in the lenders' favour) into pool cash; the treasury gets the rest; the reserve gets none. `loan_repaid` reports `to_pool` and `to_treasury`. `stats.repaid += 1`. **Level up by 1 (max 4) only if all three hold:** (a) the loan was held at least `min_hold_ns` (half the loan term: 15 days prod, half the demo term in demo), (b) principal was at least 50% of the limit at borrow time, (c) the last level-up was at least `loan_term_ns` ago (a borrower who never levelled up passes (c)). A late repay (after `due_at`, before anyone calls `mark_default`) is accepted. Otherwise the repay succeeds but the level stays. This stops "borrow today, repay tomorrow" farming: the fastest path from $100 to $1,000 takes three full terms (about 3 months) and three real loans. |
 
 `limit(borrower) = min(LEVEL_CAP[level] * BAND_PCT[band], income_cap)` with
 `LEVEL_CAP = {1: 100, 2: 250, 3: 500, 4: 1000}` USDC and `BAND_PCT = {A: 100%, B: 75%, C: 50%, D: 0}`.
 
-Interest per loan term (flat): A 2%, B 3%, C 4%.
+Interest per loan term (flat), paid by the borrower: A 4%, B 6%, C 8%. Half (A 2%, B 3%, C 4%) goes to lenders, half to the KredoFi treasury. Band A on $100: repay $104 = $2 lenders + $2 treasury.
 
 ### Lender
 
@@ -117,9 +117,16 @@ Cross-chain deposits: NEAR Intents 1Click delivers USDC to the **lender's own NE
 
 ### Owner
 
-`seed_reserve` (via `ft_transfer_call` msg `"seed_reserve"`), `set_scorer_version(version)` (emits `scorer_version_changed`, public on-chain), parameter setters.
+`seed_reserve` (via `ft_transfer_call` msg `"seed_reserve"`), `set_scorer_version(version)` (emits `scorer_version_changed`, public on-chain), parameter setters, and two treasury methods:
 
-Parameter setters: `set_loan_term_ns`, `set_min_hold_ns`, `set_grace_ns`, `set_score_ttl_ns`, `set_reserve_share_bps`, `set_max_borrower_share_bps`. Each is owner-only, needs 1 yoctoNEAR, emits `param_changed` (`param`, `old`, `new`, `by`) and only changes a number in `config`; none touches the pool, the reserve or any token. The same bounds apply at init:
+| Method | Rules |
+|---|---|
+| `withdraw_treasury(amount)` | Owner only, 1 yoctoNEAR. `amount <= treasury`. Treasury first, then `ft_transfer` to the **owner account** (fixed recipient) with rollback callback `on_treasury_transfer`; `treasury_withdrawn` only after success. |
+| `treasury_to_reserve(amount)` | Owner only, 1 yoctoNEAR. `amount <= treasury`. Moves it into the reserve (accounting only, no transfer). One-way: nothing moves reserve funds back. Emits `treasury_to_reserve`. |
+
+Neither can move pool cash, outstanding principal or reserve funds out: both are capped by the treasury balance.
+
+Parameter setters: `set_loan_term_ns`, `set_min_hold_ns`, `set_grace_ns`, `set_score_ttl_ns`, `set_max_borrower_share_bps`. Each is owner-only, needs 1 yoctoNEAR, emits `param_changed` (`param`, `old`, `new`, `by`) and only changes a number in `config`; none touches the pool, the reserve or any token. The same bounds apply at init:
 
 | Parameter | Bounds |
 |---|---|
@@ -127,12 +134,11 @@ Parameter setters: `set_loan_term_ns`, `set_min_hold_ns`, `set_grace_ns`, `set_s
 | `min_hold_ns` | 60 s to `loan_term_ns` (init sets `loan_term_ns / 2`) |
 | `grace_ns` | 60 s to 90 days |
 | `score_ttl_ns` | 60 s to 365 days |
-| `reserve_share_bps` | 0 to 5000 |
 | `max_borrower_share_bps` | 1 to 1000 (can only lower the 10% cap, rule 12) |
 
 To shorten the term below the current hold, lower `min_hold_ns` first. Term changes apply to new loans; `grace_ns` and `min_hold_ns` are read at default and repay time.
 
-Testnet demo timing: loan term 2 minutes, minimum hold 1 minute, grace 1 minute (Riya can level up after 1 minute; Max can be defaulted about 3 minutes after borrowing). `min_hold_ns` is set at init to `loan_term_ns / 2`. **No method lets the owner move lender funds or the reserve out.** No contract upgrade method in the hackathon build.
+Testnet demo timing: loan term 2 minutes, minimum hold 1 minute, grace 1 minute (Riya can level up after 1 minute; Max can be defaulted about 3 minutes after borrowing). `min_hold_ns` is set at init to `loan_term_ns / 2`. **No method lets the owner move lender funds or the reserve out**; the owner can only withdraw the treasury or move it into the reserve. No contract upgrade method in the hackathon build. `migrate()` is a one-time `#[private]` state migration (v1 to v2, adds the treasury), run in the same transaction as a code deploy; only the contract account's own key can run it, the same key that can deploy code, so it adds no power.
 
 ### Views
 
@@ -140,23 +146,23 @@ Testnet demo timing: loan term 2 minutes, minimum hold 1 minute, grace 1 minute 
 
 ### Events (NEP-297, standard `kredofi`, version `1.0.0`)
 
-`score_issued`, `score_failed`, `loan_issued`, `loan_repaid`, `loan_defaulted`, `identity_released`, `lender_deposit`, `lender_withdraw`, `reserve_seeded`, `scorer_version_changed`, `param_changed`.
+`score_issued`, `score_failed`, `loan_issued`, `loan_repaid`, `loan_defaulted`, `identity_released`, `lender_deposit`, `lender_withdraw`, `reserve_seeded`, `scorer_version_changed`, `param_changed`, `treasury_withdrawn`, `treasury_to_reserve`.
 
 ---
 
 ## 4a. Money flow (one $100 band A loan)
 
-| Step | Borrower | Pool (lenders) | Reserve | KredoFi team |
+| Step | Borrower | Pool (lenders) | Reserve | KredoFi treasury |
 |---|---|---|---|---|
 | Borrow | gets $100 | cash -$100, outstanding +$100 | - | - |
-| Repay $102 | pays $102 | cash +$101.60, outstanding -$100 (share price rises) | +$0.40 | $0 |
+| Repay $104 | pays $104 | cash +$102, outstanding -$100 (share price rises by $2) | $0 | +$2 |
 | Default instead | keeps $100, blocked, name released | loses $100 minus what the reserve covers | pays up to $100 into pool cash | $0 |
 
-- Interest per 30-day term: A 2%, B 3%, C 4%. 80% goes to lenders through the share price, 20% to the reserve.
-- No protocol fee and no team treasury in the hackathon build. The owner cannot withdraw lender money or the reserve (security rule 10). Fees for a real business would be a later, public parameter.
-- The reserve starts with a seed (`seed_reserve`, demo: $300 on testnet) and grows with every repaid loan.
-- Lender yield is not promised. It depends on how much of the pool is lent out. Example: half the pool lent to band A all year gives lenders about 1.6% x 12 x 0.5 = about 9.7% a year before losses. The lender page shows earned-so-far from the share price, never a forecast.
-- Defaults hurt lenders only after the reserve is used up. With no seed, each repaid $100 band A loan adds $0.40, so 250 repaid loans cover one default. That's why the seed exists, and why limits start at $100 and grow only with repayment.
+- Interest per 30-day term, paid by the borrower: A 4%, B 6%, C 8%. Lenders get half (A 2%, B 3%, C 4%) through the share price; the other half goes to the KredoFi treasury. Rounding favours lenders.
+- The treasury is the business revenue. The owner can withdraw it, or move it into the reserve (one-way). The owner cannot withdraw lender money or the reserve (security rule 10).
+- The reserve starts with a seed (`seed_reserve`, demo: $300 on testnet). It gets no share of interest; it grows only when the owner moves treasury into it.
+- Lender yield is not promised. It depends on how much of the pool is lent out. Example: half the pool lent to band A all year gives lenders about 2% x 12 x 0.5 = about 12% a year before losses. The lender page shows earned-so-far from the share price, never a forecast.
+- Defaults hurt lenders only after the reserve is used up. The reserve is the seed plus whatever the owner moves in from the treasury; each repaid $100 band A loan adds $2 to the treasury, so 50 repaid loans can fund the reserve for one default if the owner moves them in. That's why the seed exists, and why limits start at $100 and grow only with repayment.
 
 ---
 
@@ -249,7 +255,7 @@ Unit tests must reproduce this table exactly.
 7. Write state before every token transfer; every transfer has a callback that rolls back on failure.
 8. Checked u128 math. USDC has 6 decimals, NEAR has 24, time is nanoseconds.
 9. `get_borrower` never returns `sealed_identity`; `released_identity` is encrypted to the partner key.
-10. No owner path to lender funds or the reserve.
+10. No owner path to lender funds (pool cash, outstanding principal) or the reserve. The owner can only withdraw the treasury (capped at the treasury balance, to the owner account, with rollback) or move treasury into the reserve (one-way). Tests: an ABI allowlist of public change methods, plus withdraw / top-up attempts above the treasury with lender cash and reserve present.
 11. Borrowers and lenders must be registered with the USDC contract (`storage_deposit`); the web app handles it.
 12. One borrower can never exceed 10% of pool value.
 13. No fast level-up: an early repay (before `min_hold_ns`), a small loan (under 50% of the limit) or a second level-up within one term does not raise the level.

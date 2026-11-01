@@ -51,7 +51,7 @@ export function drawNote(
   const BD = o.band || 'A';
   const AMT = o.amount === undefined ? 100 : o.amount;
   const WD = o.words || 'One hundred US dollars, in USDC';
-  const RP = o.repay || '24 November 2026, $102';
+  const RP = o.repay || '24 November 2026, $104';
   const SER = o.serial || 'KF 9C1E 4A7B';
   const PROOF = o.proof || 'Scored inside Intel TDX, transaction 8u8RsN…fbW';
   const D = `${fonts.display}, Didot, Georgia, serif`;
