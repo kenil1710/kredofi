@@ -46,7 +46,10 @@ export async function POST(req: Request) {
     // 6 s more, then answer; a late `extra` is saved when it arrives and the passbook picks it up.
     const fin = await Promise.race([tail, new Promise<'late'>((res) => setTimeout(() => res('late'), 6000))]);
     const late = fin === 'late';
-    if (late) tail.then((f) => { if (r.ok && typeof f?.extra === 'string') saveExtra(accountId, f.extra).catch(() => {}); });
+    if (late) tail.then((f) => {
+      console.log(`score tail ${borrower}: done at ${Date.now() - t0}ms, extra ${typeof f?.extra === 'string' ? 'yes' : 'no'}`);
+      if (r.ok && typeof f?.extra === 'string') saveExtra(accountId, f.extra).catch(() => {});
+    });
     const extra = late ? undefined : fin?.extra;
     // Server log only: where the time goes (no data).
     console.log(`score timing ${borrower}: ${Object.entries(lap).map(([k, v]) => `${k}=${v}ms`).join(' ')}`);

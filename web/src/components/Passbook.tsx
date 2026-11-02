@@ -22,6 +22,7 @@ import { serialFromFingerprint } from '@/lib/drawNote';
 import { newKeypair, openSealed } from '@/lib/seal';
 import { PART_KEYS, PART_NAMES, reason, whatWouldChange, type Parts } from '@/lib/reasons';
 import { primaryAction } from '@/lib/primaryAction';
+import { usableSummary } from '@/lib/aiSummary';
 import { levelPlan, limitAt, mmss, noLevelUpReason } from '@/lib/levels';
 import { loanHistory, type LoanRecord } from '@/lib/history';
 import type { LedgerEvent } from '@/lib/events';
@@ -528,11 +529,11 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                     : 'Check your limit again'} to see them.</p>
                 )}
               </div>
-              {extra?.summary && (
+              {usableSummary(extra?.summary) && (
                 <div className="change ai-summary">
                   <h3>In plain words</h3>
-                  <p>{extra.summary}</p>
-                  <p className="hint" style={{ marginTop: 6 }}>Written by {extra.summary_by ?? 'Qwen'} on NEAR AI Cloud from your band and rule points only, and sealed so only this browser can read it. On testnet it is generated on our server. The score never depends on it.</p>
+                  <p>{usableSummary(extra?.summary)}</p>
+                  <p className="hint" style={{ marginTop: 6 }}>Written by {extra?.summary_by ?? 'Qwen'} on NEAR AI Cloud from your band and rule points only, and sealed so only this browser can read it. On testnet it is generated on our server. The score never depends on it.</p>
                 </div>
               )}
               {defaulted ? (
