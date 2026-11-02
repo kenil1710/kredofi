@@ -40,11 +40,14 @@ export async function POST(req: Request) {
     const run = startScorer(input, accountId);
     const { extra: _early, ...output } = await run.first; mark('scored');
     const scorer = scorerAccount();
-    const [r, fin] = await Promise.all([
-      call(scorer, KREDOFI_CONTRACT, 'dev_submit_score', { borrower: accountId, output }, 30n, 0n, true).then((x) => { mark('submit'); return x; }),
-      run.done.then((x) => { mark('tail'); return x; }).catch((e) => { console.error(`scorer tail failed after the score: ${e instanceof Error ? e.message : e}`); return null; }),
-    ]);
-    const extra = fin?.extra;
+    const tail = run.done.then((x) => { mark('tail'); return x; }).catch((e) => { console.error(`scorer tail failed after the score: ${e instanceof Error ? e.message : e}`); return null; });
+    const r = await call(scorer, KREDOFI_CONTRACT, 'dev_submit_score', { borrower: accountId, output }, 30n, 0n, true); mark('submit');
+    // Never hold the score back for the tail (bank-connection removal, AI summary): wait at most
+    // 6 s more, then answer; a late `extra` is saved when it arrives and the passbook picks it up.
+    const fin = await Promise.race([tail, new Promise<'late'>((res) => setTimeout(() => res('late'), 6000))]);
+    const late = fin === 'late';
+    if (late) tail.then((f) => { if (r.ok && typeof f?.extra === 'string') saveExtra(accountId, f.extra).catch(() => {}); });
+    const extra = late ? undefined : fin?.extra;
     // Server log only: where the time goes (no data).
     console.log(`score timing ${borrower}: ${Object.entries(lap).map(([k, v]) => `${k}=${v}ms`).join(' ')}`);
     recordSoon(r.hash, scorer.accountId);
@@ -56,7 +59,7 @@ export async function POST(req: Request) {
     }
     await saveSubmitted(accountId, output);
     if (typeof extra === 'string') await saveExtra(accountId, extra);
-    return NextResponse.json({ output, extra: typeof extra === 'string' ? extra : null, hash: r.hash, scorerVersion: version });
+    return NextResponse.json({ output, extra: typeof extra === 'string' ? extra : null, extraPending: late, hash: r.hash, scorerVersion: version });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Scoring failed.' }, { status: 502 });
   }

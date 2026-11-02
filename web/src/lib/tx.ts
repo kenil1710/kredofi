@@ -64,7 +64,9 @@ export function classifyError(err: unknown): { kind: TxErrorKind; message: strin
 /** Outcome of signAndSendTransaction: did it fail on-chain? Returns the panic text if so. */
 export function outcomeFailure(outcome: unknown): string | null {
   const o = outcome as { status?: { Failure?: unknown }; receipts_outcome?: Array<{ outcome?: { status?: { Failure?: unknown } } }> };
-  const f = o?.status?.Failure;
+  // A relayed (meta) transaction succeeds at the top level even when the call it carries fails in a
+  // later receipt (live bug, Nov 2: a refused borrow showed "Confirmed"), so check every receipt.
+  const f = o?.status?.Failure ?? o?.receipts_outcome?.map((r) => r.outcome?.status?.Failure).find(Boolean);
   if (!f) return null;
   const e = (f as { ActionError?: { kind?: { FunctionCallError?: { ExecutionError?: string } } } })?.ActionError?.kind?.FunctionCallError?.ExecutionError;
   return panicMessage(e ?? JSON.stringify(f));

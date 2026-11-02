@@ -51,3 +51,15 @@ test('outcome helpers', () => {
   assert.equal(outcomeHash(bad), 'XYZ');
   assert.equal(panicMessage('Smart contract panicked: Not enough cash in the pool'), 'Not enough cash in the pool');
 });
+
+test('a relayed transaction whose inner call failed is a failure', () => {
+  const meta = {
+    status: { SuccessValue: '' }, transaction: { hash: 'h' },
+    receipts_outcome: [
+      { outcome: { status: { SuccessReceiptId: 'r2' } } },
+      { outcome: { status: { Failure: { ActionError: { kind: { FunctionCallError: { ExecutionError: 'Smart contract panicked: Above the per-borrower share of the pool' } } } } } } },
+    ],
+  };
+  assert.equal(outcomeFailure(meta), 'Above the per-borrower share of the pool');
+  assert.equal(outcomeFailure({ status: { SuccessValue: '' }, receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }] }), null);
+});

@@ -309,3 +309,6 @@ button{font-family:inherit}
 .acctmenu .warn{color:var(--red-ink);line-height:1.45}
 .acctmenu .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .acctmenu .btn{min-height:44px;font-size:14px;padding:0 14px}
+
+/* Touch targets at least 44 px on touch screens (DESIGN 7.8) */
+@media (pointer:coarse){.copy,.hash button{min-height:44px;min-width:44px}}

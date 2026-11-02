@@ -28,7 +28,7 @@ import type { LedgerEvent } from '@/lib/events';
 
 type Who = BorrowerKey | 'custom' | 'plaid';
 type Source = { borrower: Who; custom?: CustomInputs; publicToken?: string };
-type Session = { who?: Who; replySecret?: string; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number };
+type Session = { who?: Who; replySecret?: string; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number; scoringSince?: number; prevIssued?: string };
 type Record_ = { events: LedgerEvent[]; output: Record<string, unknown> | null; extra: string | null; scoreHash: string | null };
 /** Testnet extras, sealed to the borrower (demo scorer build): real fetch counts and the AI summary. */
 type Extra = { receipt?: { plaid_transactions: number; plaid_accounts: number; read_transactions: number; months: number }; summary?: string; summary_by?: string };
@@ -91,7 +91,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   const [cfg, setCfg] = useState<ConfigView | null>(null);
   const [usdcBal, setUsdcBal] = useState<bigint | null>(null);
   const [sess, setSess] = useState<Session>({});
-  const [scoring, setScoring] = useState<{ step: EnclaveStep; elapsed: number; error?: string; hash?: string } | null>(null);
+  const [scoring, setScoring] = useState<{ step: EnclaveStep; elapsed: number; error?: string; hash?: string; resumed?: boolean } | null>(null);
   const [pendingWho, setPendingWho] = useState<BorrowerKey | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [press, setPress] = useState(0);
@@ -100,6 +100,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   const [releaseMsg, setReleaseMsg] = useState<string | null>(null);
   const [record, setRecord] = useState<Record_ | null>(null);
   const scoringBox = useRef<HTMLLIElement>(null);
+  const scoringLive = useRef(false);
   const seen = useRef<{ acct: string | null; height: number }>({ acct: null, height: 0 });
   const resultBox = useRef<HTMLDivElement>(null);
   const loanBox = useRef<HTMLDivElement>(null);
@@ -129,7 +130,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
 
   // Tick once a second while something time-based is on screen (scoring timer, loan countdown).
   const ticking = !!scoring && scoring.step !== 'sealed' && scoring.step !== 'failed' || !!b?.has_active_loan;
-  useEffect(() => { if (!ticking) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [ticking]);
+  useEffect(() => { if (!ticking) return; setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [ticking]);
 
   // Keyed by the account the action is for: a demo account created a moment ago is not in `acct` yet,
   // and saving under the old (empty) id lost the reply key and the output.
@@ -145,7 +146,9 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     if (!acctId) return;
     const who = src.borrower;
     const kp = newKeypair();
-    updateSession({ who, replySecret: kp.secret, output: undefined, extra: undefined, scoreHash: undefined, scoredIn: undefined }, acctId);
+    // `scoringSince` lets a reload mid-scoring pick the result up (the server keeps going).
+    updateSession({ who, replySecret: kp.secret, output: undefined, extra: undefined, scoreHash: undefined, scoredIn: undefined, scoringSince: Date.now(), prevIssued: b?.score?.issued_at ?? '0' }, acctId);
+    scoringLive.current = true;
     const started = Date.now();
     setScoring({ step: 'sent', elapsed: 0 });
     setTimeout(() => scoringBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
@@ -157,7 +160,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'Scoring failed.');
       clearInterval(timer);
-      updateSession({ who, replySecret: kp.secret, output: j.output, extra: j.extra, scoreHash: j.hash, scoredIn: Math.round((Date.now() - started) / 1000) }, acctId);
+      updateSession({ who, replySecret: kp.secret, output: j.output, extra: j.extra, scoreHash: j.hash, scoredIn: Math.round((Date.now() - started) / 1000), scoringSince: undefined }, acctId);
       setScoring({ step: 'reading', elapsed: Math.round((Date.now() - started) / 1000), hash: j.hash });
       for (let i = 0; i < 30; i++) {
         const { value: bb, height } = await getBorrowerAt(acctId);
@@ -167,12 +170,16 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       setScoring((s) => (s ? { ...s, step: 'sealed' } : s));
       setPress((p) => p + 1);
       await refresh();
+      // The receipt and AI summary can arrive after the score (the server stops waiting after 6 s).
+      if (j.extraPending) for (let i = 0; i < 12; i++) { await new Promise((res) => setTimeout(res, 4000)); await refresh().catch(() => {}); }
     } catch (e) {
       clearInterval(timer);
+      updateSession({ scoringSince: undefined }, acctId);
       setScoring((s) => ({ step: 'failed', elapsed: s?.elapsed ?? 0, error: e instanceof Error ? e.message : 'Scoring failed.' }));
     }
+    finally { scoringLive.current = false; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [acct, refresh, account.kind]);
+  }, [acct, refresh, account.kind, b]);
 
   // No account yet: create a no-wallet demo account first (SPEC 8a), then score.
   const ensureAccount = async (quiet = false): Promise<string | null> => {
@@ -222,7 +229,28 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     const ok = (o?: Record<string, unknown> | null) => !!o && (!sc || o.fingerprint === sc.fingerprint);
     return ok(sess.output) ? sess.output! : ok(record?.output) ? record!.output! : null;
   }, [sess.output, record, sc]);
-  const sealedExtra = output && output === sess.output ? sess.extra : output && output === record?.output ? record?.extra : null;
+  const sealedExtra = (output && output === sess.output ? sess.extra : null) ?? (output && record?.output?.fingerprint === output.fingerprint ? record?.extra : null);
+  // A reload (or a second tab) while a score was running: show it as running, follow the chain until
+  // the new score lands, and give up after 150 s (the server's scorer stops at 60 s).
+  useEffect(() => {
+    if (!acct || !sess.scoringSince || scoringLive.current || b === undefined) return;
+    const since = sess.scoringSince;
+    if (b?.score && b.score.issued_at !== sess.prevIssued) {
+      updateSession({ scoringSince: undefined });
+      setScoring((s) => (s?.resumed ? { ...s, step: 'sealed' } : s));
+      setPress((x) => x + 1);
+      return;
+    }
+    if (Date.now() - since > 150_000) {
+      updateSession({ scoringSince: undefined });
+      setScoring({ step: 'failed', elapsed: Math.round((Date.now() - since) / 1000), error: 'This scoring did not finish. Nothing changed on-chain. Check your limit again.' });
+      return;
+    }
+    setScoring({ step: 'sent', elapsed: Math.round((Date.now() - since) / 1000), resumed: true });
+    const t = setTimeout(() => refresh().catch(() => {}), 2000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acct, sess.scoringSince, b]);
   const extra: Extra | null = useMemo(() => {
     if (!sess.replySecret || typeof sealedExtra !== 'string') return null;
     try { return JSON.parse(openSealed(sess.replySecret, sealedExtra)) as Extra; } catch { return null; }
@@ -239,9 +267,15 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   const termMs = cfg ? msOf(cfg.loan_term_ns) : 0;
   const graceMs = cfg ? msOf(cfg.grace_ns) : 0;
   const denied = sc?.band === 'D';
-  const amount = amountText === '' ? limit : parseUsd(amountText);
+  // What the contract will actually lend now: the limit, the pool's cash, and at most
+  // max_borrower_share_bps of the pool's value to one borrower (rule 12; it refused a live borrow).
+  const shareCap = pool && cfg ? (BigInt(pool.pool_value) * BigInt(cfg.max_borrower_share_bps)) / 10_000n : null;
+  const cashNow = pool ? BigInt(pool.cash) : null;
+  const borrowable = [limit, shareCap, cashNow].reduce<bigint>((m, x) => (x !== null && x < m ? x : m), limit);
+  const borrowableRounded = (borrowable / 10_000n) * 10_000n; // whole cents, rounded down
+  const amount = amountText === '' ? borrowableRounded : parseUsd(amountText);
   const interest = amount !== null && sc ? ceilBps(amount, INTEREST_BPS[sc.band]) : 0n;
-  const amountError = amount === null ? 'Enter an amount in dollars' : amount <= 0n ? 'Enter an amount' : amount > limit ? `Above your limit of ${usd(limit)}` : pool && amount > BigInt(pool.cash) ? 'The pool has no cash to lend right now.' : null;
+  const amountError = amount === null ? 'Enter an amount in dollars' : amount <= 0n ? 'Enter an amount' : amount > limit ? `Above your limit of ${usd(limit)}` : cashNow !== null && amount > cashNow ? `The pool has ${usd(cashNow)} free to lend right now.` : shareCap !== null && amount > shareCap ? `The pool lends one borrower at most 10% of its value: ${usd(shareCap)} right now.` : null;
   const due = loan ? ns(loan.principal) + ns(loan.interest) : 0n;
   const dueMs = loan ? msOf(loan.due_at) : 0;
   const shortBy = loan?.state === 'Active' && usdcBal !== null && usdcBal < due ? due - usdcBal : 0n;
@@ -600,10 +634,10 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
               <div className="form" id="pa-borrow">
                 <div className="field">
                   <label htmlFor="amt">Amount</label>
-                  <div className="money"><input id="amt" inputMode="decimal" value={amountText === '' ? (Number(limit) / 1e6).toFixed(2) : amountText}
+                  <div className="money"><input id="amt" inputMode="decimal" value={amountText === '' ? (Number(borrowableRounded) / 1e6).toFixed(2) : amountText}
                     onChange={(e) => setAmountText(e.target.value)} aria-describedby="amtHint" /><span>USDC</span></div>
                   <span className={`hint${amountError ? ' err' : ''}`} id="amtHint">
-                    {amountError ?? <>Your limit is {usd(limit)}. <button type="button" className="linkbtn" onClick={() => setAmountText('')}>Use my limit</button></>}
+                    {amountError ?? <>Your limit is {usd(limit)}{borrowableRounded < limit ? `; the pool can lend you ${usd(borrowableRounded)} right now (at most 10% of its value to one borrower)` : ''}. <button type="button" className="linkbtn" onClick={() => setAmountText('')}>{borrowableRounded < limit ? 'Use the most I can' : 'Use my limit'}</button></>}
                   </span>
                 </div>
                 <TxButton tx={borrowTx.state} label={`Borrow ${amount !== null ? usd(amount) : ''}`} onClick={borrow} disabled={!!amountError} />
