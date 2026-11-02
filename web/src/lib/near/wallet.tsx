@@ -22,6 +22,8 @@ type WalletCtx = {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   signAndSend: (receiverId: string, actions: FunctionCall[]) => Promise<unknown>;
+  /** NEP-413 signed message from the connected wallet. */
+  signMessage: (p: { message: string; recipient: string; nonce: Uint8Array }) => Promise<{ publicKey: string; signature: string }>;
 };
 
 const Ctx = createContext<WalletCtx | null>(null);
@@ -74,7 +76,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return wallet.signAndSendTransaction({ network: NETWORK, receiverId, actions });
   }, [getConnector]);
 
-  const value = useMemo(() => ({ accountId, ready, connect, disconnect, signAndSend }), [accountId, ready, connect, disconnect, signAndSend]);
+  const signMessage = useCallback(async (p: { message: string; recipient: string; nonce: Uint8Array }) => {
+    const c = await getConnector();
+    const wallet = await c.wallet();
+    const out = await wallet.signMessage({ ...p, network: NETWORK, signerId: accountId ?? undefined });
+    return { publicKey: String(out.publicKey), signature: String(out.signature) };
+  }, [getConnector, accountId]);
+
+  const value = useMemo(() => ({ accountId, ready, connect, disconnect, signAndSend, signMessage }), [accountId, ready, connect, disconnect, signAndSend, signMessage]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

@@ -157,7 +157,9 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     try {
       const f = account.kind === 'demo' ? null : await fetch('/api/faucet', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId }) });
       if (f && !f.ok && f.status !== 429) throw new Error((await f.json()).error ?? 'Could not set up test USDC.');
-      const r = await fetch('/api/score', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId, borrower: who, custom: src.custom, publicToken: src.publicToken, replyPubkey: kp.public }) });
+      // Prove this browser controls the account (signed one-time challenge), then score.
+      const proof = await account.proveScore(acctId, kp.public);
+      const r = await fetch('/api/score', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId, borrower: who, custom: src.custom, publicToken: src.publicToken, replyPubkey: kp.public, proof }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'Scoring failed.');
       clearInterval(timer);

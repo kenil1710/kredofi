@@ -5,6 +5,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { functionCall, useWallet } from './wallet';
 import { RPC } from '../config';
+import { b64, fromB64, scoreMessage } from '../ownership';
 
 type Action = ReturnType<typeof functionCall>;
 type Demo = { accountId: string; secretKey: string };
@@ -13,6 +14,8 @@ type AccountCtx = {
   kind: 'wallet' | 'demo' | null;
   signAndSend: (receiverId: string, actions: Action[]) => Promise<unknown>;
   createDemo: () => Promise<string>;
+  /** Proof for /api/score that this browser controls `accountId` (NEP-413 signed challenge). */
+  proveScore: (accountId: string, replyPubkey: string) => Promise<{ nonce: string; publicKey: string; signature: string }>;
   /** Forget this slot's demo account (its key stays nowhere), so the next start creates a fresh one. */
   resetDemo: () => void;
   /** 'scenarios' = the separate demo account used by /scenarios (prepared borrowers). */
@@ -54,6 +57,27 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
     setDemo(null);
   }, [slot]);
 
+  const proveScore = useCallback(async (accountId: string, replyPubkey: string) => {
+    const r = await fetch('/api/score/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error ?? 'Could not get a score challenge.');
+    const nonce = fromB64(j.nonce), message = scoreMessage(accountId, replyPubkey);
+    // Read the demo key fresh: a demo account created a moment ago isn't in this render's state yet.
+    const d = loadDemo(slot);
+    if (d && d.accountId === accountId) {
+      const { KeyPair, KeyPairSigner } = await import('near-api-js');
+      const signer = new KeyPairSigner(KeyPair.fromString(d.secretKey as `ed25519:${string}`));
+      const out = await signer.signNep413Message(accountId, { message, recipient: j.recipient, nonce });
+      const sig = out.signature instanceof Uint8Array ? b64(out.signature) : String(out.signature);
+      return { nonce: j.nonce as string, publicKey: out.publicKey.toString(), signature: sig };
+    }
+    if (!slot && wallet.accountId === accountId) {
+      const out = await wallet.signMessage({ message, recipient: j.recipient, nonce });
+      return { nonce: j.nonce as string, ...out };
+    }
+    throw new Error('This browser does not hold the key for this account.');
+  }, [slot, wallet]);
+
   const relay = useCallback(async (d: Demo, receiverId: string, acts: Action[]) => {
     const { Account, JsonRpcProvider, actions, encodeSignedDelegate } = await import('near-api-js');
     const account = new Account(d.accountId, new JsonRpcProvider({ url: RPC }), d.secretKey as `ed25519:${string}`);
@@ -86,12 +110,13 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
         return out;
       },
       createDemo,
+      proveScore,
       resetDemo,
       slot,
       connectWallet: wallet.connect,
       signOut: async () => { if (kind === 'wallet') await wallet.disconnect(); },
     };
-  }, [wallet, demo, createDemo, resetDemo, relay, slot]);
+  }, [wallet, demo, createDemo, proveScore, resetDemo, relay, slot]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

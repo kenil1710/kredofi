@@ -10,13 +10,34 @@ import { KREDOFI_CONTRACT } from '@/lib/config';
 import { call, clientIp, isTestnetAccount, overQuota, rateLimited, scorerAccount } from '@/server/near';
 import { checkPinned, saveExtra, saveSubmitted, startScorer } from '@/server/scorer';
 import { recordSoon } from '@/server/ledger';
+import { consumeChallenge } from '@/server/challenge';
+import { fromB64, verifyScoreSignature } from '@/lib/ownership';
+import { rpc } from '@/server/near';
+
+/** The signed challenge is for this account and request, and the key is one of its full-access keys. */
+async function provesOwnership(accountId: string, replyPubkey: string, proof: { nonce?: unknown; publicKey?: unknown; signature?: unknown } | undefined): Promise<true | string> {
+  const nonce = proof?.nonce, publicKey = proof?.publicKey, signature = proof?.signature;
+  if (typeof nonce !== 'string' || typeof publicKey !== 'string' || typeof signature !== 'string') return 'Sign the score request with your account first.';
+  let n: Uint8Array;
+  try { n = fromB64(nonce); } catch { return 'Invalid challenge.'; }
+  if (!verifyScoreSignature({ accountId, replyPubkey, recipient: KREDOFI_CONTRACT, nonce: n, publicKey, signature })) return 'The signature does not match this score request.';
+  if (!consumeChallenge(accountId, nonce)) return 'This challenge expired or was already used. Try again.';
+  // A demo account created a moment ago may not be visible yet: retry briefly.
+  for (let i = 0; i < 4; i++) {
+    const key = await rpc<{ permission?: unknown }>('query', { request_type: 'view_access_key', finality: 'optimistic', account_id: accountId, public_key: publicKey }).catch(() => null);
+    if (key?.permission === 'FullAccess') return true;
+    if (key?.permission) return 'Use a full-access key of this account.';
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return 'This key does not belong to the account.';
+}
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
-  const { accountId, borrower, replyPubkey, custom, publicToken } = body as { accountId?: unknown; borrower?: unknown; replyPubkey?: unknown; custom?: unknown; publicToken?: unknown };
+  const { accountId, borrower, replyPubkey, custom, publicToken, proof } = body as { accountId?: unknown; borrower?: unknown; replyPubkey?: unknown; custom?: unknown; publicToken?: unknown; proof?: { nonce?: unknown; publicKey?: unknown; signature?: unknown } };
   if (!isTestnetAccount(accountId)) return NextResponse.json({ error: 'Use a NEAR testnet account.' }, { status: 400 });
   if (!['riya', 'sam', 'max', 'custom', 'plaid'].includes(borrower as string)) return NextResponse.json({ error: 'Pick a test borrower.' }, { status: 400 });
   if (borrower === 'custom') { const bad = checkCustom(custom); if (bad) return NextResponse.json({ error: bad }, { status: 400 }); }
@@ -26,6 +47,9 @@ export async function POST(req: Request) {
   if (typeof replyPubkey !== 'string' || !/^[0-9a-f]{64}$/.test(replyPubkey)) return NextResponse.json({ error: 'Missing reply key.' }, { status: 400 });
   // Per network too: each score costs the scorer and the contract a little testnet NEAR.
   if (overQuota(`score-ip:${clientIp(req)}`, 15, 3_600_000)) return NextResponse.json({ error: 'Fifteen scores per hour from one network. Try again later.' }, { status: 429 });
+  // Only the account itself may ask for its score (on mainnet the contract checks the signer).
+  const owned = await provesOwnership(accountId, replyPubkey, proof);
+  if (owned !== true) return NextResponse.json({ error: owned }, { status: 403 });
   if (rateLimited(`score:${accountId}`, 30_000)) return NextResponse.json({ error: 'A score was just requested for this account. Wait 30 seconds and try again.' }, { status: 429 });
 
   const t0 = Date.now(), lap: Record<string, number> = {};
