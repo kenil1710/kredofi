@@ -48,7 +48,7 @@ html.lenis,html.lenis body{height:auto}
 @keyframes lpgrain{0%{transform:translate(0,0)}20%{transform:translate(-3%,2%)}40%{transform:translate(2%,-4%)}60%{transform:translate(-4%,-1%)}80%{transform:translate(3%,3%)}100%{transform:translate(0,0)}}
 .lp .hero-copy{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;pointer-events:none}
 .lp .hero-copy .wrap{width:100%}
-.lp .hero-inner{max-width:780px;display:flex;flex-direction:column;gap:28px;pointer-events:auto;padding-top:40px}
+.lp .hero-inner{max-width:min(920px,100%);display:flex;flex-direction:column;gap:28px;pointer-events:auto;padding-top:40px}
 .lp .hero-inner h1{font-size:clamp(58px,8.2vw,128px);line-height:.9;max-width:none}
 .lp .hero-inner h1 .ln{display:block;overflow:hidden;padding-bottom:.06em}
 .lp .hero-inner h1 .ln span{display:inline-block;white-space:nowrap}

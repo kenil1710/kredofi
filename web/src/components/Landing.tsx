@@ -204,17 +204,35 @@ export function Landing() {
       const note = new THREE.Mesh(nGeo, nMat); g.add(note);
       document.fonts?.ready.then(() => { if (!alive) return; nctx.clearRect(0, 0, 2048, 1006); drawNote(nctx, 2048, 1006, { x: 0.5, y: 0.4 }, {}, FONTS); ntex.needsUpdate = true; });
 
-      let narrow = false, mx = 0, my = 0, tmx = 0, tmy = 0;
-      const size = () => { const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); narrow = w < 900; };
+      let narrow = false, mx = 0, my = 0, tmx = 0, tmy = 0, shiftW = 0, fitScale = 1;
+      // Keep the cube clear of the title at any width: measure the title's right edge and move the
+      // camera (and so the cube) right of it, shrinking the cube if the space left is too small.
+      // The note keeps its screen place (it is moved back by the same amount).
+      const fitHero = () => {
+        shiftW = 0; fitScale = 1;
+        const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h || narrow) return;
+        const spans = document.querySelectorAll('.hero-inner h1 .ln span');
+        let right = 0; spans.forEach((el) => { right = Math.max(right, el.getBoundingClientRect().right - canvas.getBoundingClientRect().left); });
+        if (!right) return;
+        const halfW = Math.tan((camera.fov * Math.PI) / 360) * 7.2 * (w / h), perPx = (2 * halfW) / w;
+        const cubeHalf = 1.4 / perPx, gap = Math.max(28, w * 0.02);
+        const center0 = w * (0.5 + 1.85 / (2 * halfW));
+        fitScale = Math.min(1, Math.max(0.55, (w - 24 - right - gap) / (2 * cubeHalf)));
+        const center = Math.max(center0, right + gap + cubeHalf * fitScale);
+        shiftW = (center - center0) * perPx;
+      };
+      const size = () => { const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); narrow = w < 900; fitHero(); };
       size();
+      document.fonts?.ready.then(() => { if (alive) fitHero(); });
       const onMouse = (e: MouseEvent) => { tmx = e.clientX / window.innerWidth - 0.5; tmy = e.clientY / window.innerHeight - 0.5; };
       window.addEventListener('resize', size); window.addEventListener('mousemove', onMouse);
       gl = {
         render(p, dt, clock) {
           mx = lerp(mx, tmx, 0.05); my = lerp(my, tmy, 0.05);
           const dive = easeIO(clamp((p - 0.06) / 0.42));
-          const sx = narrow ? 0.2 : -1.85, sy = narrow ? 2.1 : 0;
+          const sx = narrow ? 0.2 : -1.85 - shiftW, sy = narrow ? 2.1 : 0;
           const cx = lerp(sx, 0, dive), cy = lerp(sy, 0, dive), cz = lerp(narrow ? 8.6 : 7.2, 1.05, dive);
+          g.scale.setScalar(lerp(fitScale, 1, dive));
           camera.position.set(cx + mx * 0.35 * (1 - dive), cy - my * 0.25 * (1 - dive), cz); camera.lookAt(cx, cy, 0);
           glassMat.uniforms.uT.value = clock;
           box.rotation.y = 0.6 + clock * 0.08 * (1 - dive) - dive * 0.6; box.rotation.x = 0.35 * (1 - dive);
@@ -232,7 +250,7 @@ export function Landing() {
           }
           pGeo.attributes.position.needsUpdate = true; pMat.opacity = 0.85 * (1 - clamp((p - 0.3) / 0.12));
           const away = ease3(clamp((p - 0.03) / 0.22));
-          const nx = narrow ? 0.55 : 0.2, ny = narrow ? -1.05 : -1.15;
+          const nx = narrow ? 0.55 : 0.2 - shiftW * (1 - dive), ny = narrow ? -1.05 : -1.15;
           note.position.set(nx + away * 2.6, ny + Math.sin(clock * 0.9) * 0.06 - away * 1.4, (narrow ? 1.35 : 0.75) + away * 1.2);
           note.rotation.set(-0.22 + my * 0.2 - away * 0.6, (narrow ? -0.55 : -0.25) + mx * 0.3 + away * 0.9, 0.1 + Math.sin(clock * 0.6) * 0.02);
           nMat.opacity = 1 - away; note.visible = away < 0.99;

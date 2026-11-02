@@ -1,7 +1,9 @@
 'use client';
 // A button that sends a transaction (DESIGN 7.3): disabled while busy, with the phase as its
 // label, so nothing is submitted twice. Status line below: tx link, or what failed and what to do.
+import { useEffect, useState } from 'react';
 import type { TxState } from '@/lib/tx';
+import { useAccount } from '@/lib/near/account';
 import { HashLink } from './HashLink';
 
 export function TxButton({
@@ -21,9 +23,18 @@ export function TxButton({
   disabled?: boolean;
   big?: boolean;
 }) {
+  // Demo accounts sign in the browser and the relayer sends: nothing for the user to sign, so say what
+  // is happening ("Sending…", then "Confirming on NEAR…"). Wallets keep "Waiting for signature…".
+  const relayed = useAccount().kind !== 'wallet';
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (tx.phase !== 'signing') { setSlow(false); return; }
+    const t = setTimeout(() => setSlow(true), 1200);
+    return () => clearTimeout(t);
+  }, [tx.phase]);
   const text =
-    tx.phase === 'signing' ? 'Waiting for signature…' :
-    tx.phase === 'sent' ? 'Sending…' :
+    tx.phase === 'signing' ? (relayed ? (slow ? 'Confirming on NEAR…' : 'Sending…') : 'Waiting for signature…') :
+    tx.phase === 'sent' ? (relayed ? 'Confirming on NEAR…' : 'Sending…') :
     tx.phase === 'confirmed' ? (doneLabel ?? label) :
     tx.phase === 'failed' && tx.error?.kind !== 'rejected' ? `Try again: ${label}` :
     label;
