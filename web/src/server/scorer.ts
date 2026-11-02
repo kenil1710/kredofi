@@ -58,8 +58,8 @@ type Out = Record<string, unknown>;
 export function startScorer(input: object, sender?: string, onExtra?: (sealed: string) => void): { first: Promise<Out>; done: Promise<Out> } {
   for (const k of ['PLAID_CLIENT_ID', 'PLAID_SECRET', 'SEAL_KEY']) if (!process.env[k]) throw new Error(`${k} not configured`);
   const args = ['run', '-S', 'http', '--env', 'PLAID_CLIENT_ID', '--env', 'PLAID_SECRET', '--env', 'SEAL_KEY'];
-  // Optional, testnet demo build only: the sealed AI summary (SPEC 5 step 7). Passed by name.
-  if (process.env.NEARAI_KEY) args.push('--env', 'NEARAI_KEY');
+  // The AI summary is no longer made inside the scoring run (it could delay the score): the browser
+  // asks /api/summary for it after the score shows. So NEARAI_KEY is not passed to the scorer.
   if (sender) args.push('--env', `NEAR_SENDER_ID=${sender}`);
   args.push(...(compiled ? ['--allow-precompiled', compiled.path] : [wasmPath()]));
   let resolveFirst!: (v: Out) => void, rejectFirst!: (e: Error) => void;

@@ -31,7 +31,7 @@ You can't borrow on-chain without locking up more collateral than you borrow, an
 | Pinned scorer (SHA-256) | demo build `ac8e2a9c…` (same scoring logic, plus sandbox profiles, the AI summary and the fetch receipt) | production build `7048cc92…`, [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm); both built reproducibly on x86_64 Linux ([VERIFY.md](VERIFY.md)) |
 | Bank data | Plaid sandbox (public test logins) | Plaid sandbox (no production access yet) |
 | Money | mock USDC (`musdc.kency.testnet`), test NEAR | real USDC contract configured; no loans made yet |
-| AI summary | NEAR AI Cloud, generated on our server, sealed to your browser | not in the production build |
+| AI summary | NEAR AI Cloud, asked for by your browser after the score (band + rule results only, `web/src/app/api/summary/route.ts`) | not in the production build |
 | Web app | live (Hugging Face Space) | not deployed |
 
 Mainnet proof, all on `kredofi.near` (Nov 1, 2026):
@@ -68,7 +68,7 @@ Rules (SPEC 6): income level (250 points), steady income (250), on-time payments
 | Feature | Where |
 |---|---|
 | TEE (OutLayer, Intel TDX) with a pinned WASM version and encrypted secrets | `contracts/kredofi/src/score.rs` (`request_score`, `on_score`), `scorer/` |
-| Private AI (NEAR AI Cloud, `Qwen/Qwen3.8-27B`, thinking off) | `scorer/src/lib.rs` (`demo::summary_request`), testnet only |
+| Private AI (NEAR AI Cloud, `Qwen/Qwen3.8-27B`, thinking off) | `web/src/lib/aiSummary.ts` (`summaryRequest`, tested), testnet only |
 | Stablecoins (NEP-141 `ft_transfer_call` for deposit and repay) | `contracts/kredofi/src/lib.rs`, `contracts/mock-usdc` |
 | NEAR Intents 1Click (USDC from Base, Ethereum, Arbitrum, Solana; dry-run quotes only) | `web/src/lib/intents.ts`, `web/src/app/api/intents/quote/route.ts` |
 | Meta transactions (the relayer pays all gas for demo accounts) | `web/src/app/api/relay/route.ts`, `web/src/lib/near/account.tsx` |

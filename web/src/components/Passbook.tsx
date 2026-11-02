@@ -33,7 +33,7 @@ import type { LedgerEvent } from '@/lib/events';
 
 type Who = BorrowerKey | 'custom' | 'plaid';
 type Source = { borrower: Who; custom?: CustomInputs; publicToken?: string };
-type Session = { who?: Who; replySecret?: string; replySecrets?: string[]; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number; scoringSince?: number; prevIssued?: string };
+type Session = { who?: Who; replySecret?: string; replySecrets?: string[]; summary?: string; summaryFor?: string; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number; scoringSince?: number; prevIssued?: string };
 type Record_ = { events: LedgerEvent[]; output: Record<string, unknown> | null; extra: string | null; scoreHash: string | null };
 /** Testnet extras, sealed to the borrower (demo scorer build): real fetch counts and the AI summary. */
 type Extra = { receipt?: { plaid_transactions: number; plaid_accounts: number; read_transactions: number; months: number }; summary?: string; summary_by?: string };
@@ -131,7 +131,10 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     setB(bAt.value); setUsdcBal(BigInt(u)); if (rec) setRecord(rec);
   }, [acct]);
 
-  useEffect(() => { setSess(acct ? loadSession(acct) : {}); setB(undefined); setRecord(null); refresh().catch(() => setB(null)); }, [acct, refresh]);
+  // A demo account this page just created has no passbook yet: show it as empty right away instead of
+  // "Reading your passbook…" (that swap blanked the page behind Plaid Link, Nov 2 recording).
+  const freshAcct = useRef<string | null>(null);
+  useEffect(() => { setSess(acct ? loadSession(acct) : {}); setB(acct && acct === freshAcct.current ? null : undefined); setRecord(null); refresh().catch(() => setB(null)); }, [acct, refresh]);
 
   // Tick once a second while something time-based is on screen (scoring timer, loan countdown).
   const ticking = !!scoring && scoring.step !== 'sealed' && scoring.step !== 'failed' || !!b?.has_active_loan;
@@ -198,7 +201,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   const ensureAccount = async (quiet = false): Promise<string | null> => {
     if (acct) return acct;
     if (!quiet) setStarting('Creating your demo account. The relayer pays its network fees…');
-    try { return await account.createDemo(); }
+    try { const id = await account.createDemo(); if (id !== acct) freshAcct.current = id; return id; }
     catch (e) { setStartError(e instanceof Error ? e.message : 'Could not create a demo account.'); return null; }
     finally { if (!quiet) setStarting(null); }
   };
@@ -209,8 +212,22 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   };
   // Plaid Link opens right away; a new demo account is created in parallel while the visitor logs
   // in to the bank (it used to be created first, adding its whole creation time before Link).
+  // A Plaid login whose demo account could not be created yet (e.g. the hourly limit): kept, so
+  // "Try again" doesn't need Plaid again (a public token lasts 30 minutes).
+  const heldToken = useRef<{ token: string; at: number } | null>(null);
+  const scoreWithToken = async (publicToken: string, accountReady?: Promise<string | null>) => {
+    setStarting('Setting up your demo account…');
+    let a = await (accountReady ?? ensureAccount(true));
+    if (!a) { setStartError(null); a = await ensureAccount(true); } // one retry
+    setStarting(null);
+    if (!a) { heldToken.current = { token: publicToken, at: Date.now() }; return; }
+    heldToken.current = null;
+    score({ borrower: 'plaid', publicToken }, a);
+  };
   const connectBank = async () => {
     setStartError(null);
+    const held = heldToken.current;
+    if (held && Date.now() - held.at < 25 * 60_000) { await scoreWithToken(held.token); return; }
     const accountReady = ensureAccount(true);
     try {
       setStarting('Opening Plaid Link…');
@@ -220,15 +237,10 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       setStarting(null);
       const h = Plaid.create({
         token: j.linkToken,
-        onSuccess: async (publicToken) => {
-          h.destroy();
-          setStarting('Setting up your demo account…');
-          const a = await accountReady;
-          setStarting(null);
-          if (a) score({ borrower: 'plaid', publicToken }, a);
-        },
-        onExit: () => h.destroy(),
+        onSuccess: (publicToken) => { h.destroy(); void scoreWithToken(publicToken, accountReady); },
+        onExit: () => { h.destroy(); setStarting(null); },
       });
+      setStarting('Finish logging in to your bank in the Plaid window…');
       h.open();
     } catch (e) { setStarting(null); setStartError(e instanceof Error ? e.message : 'Plaid Link failed.'); }
   };
@@ -289,6 +301,34 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     return openWithAny(secrets, reply, (s, r) => JSON.parse(openSealed(s, r)).parts as Parts);
   }, [secrets, output]);
   const [unlockMsg, setUnlockMsg] = useState<string | null>(null);
+  // Plain-English summary: its own request after the score shows (up to ~30 s, one retry). It never
+  // blocks or delays the score, and on failure nothing is shown. Kept per fingerprint in the session.
+  const [summary, setSummary] = useState<{ fp: string; text: string | null; loading: boolean } | null>(null);
+  const fp = output?.fingerprint as string | undefined;
+  const band = output?.band as string | undefined;
+  useEffect(() => {
+    if (!acct || !fp || !band || !parts) return;
+    if (sess.summaryFor === fp) { setSummary({ fp, text: sess.summary ?? null, loading: false }); return; }
+    let alive = true;
+    setSummary({ fp, text: null, loading: true });
+    (async () => {
+      let text: string | null = null;
+      for (let attempt = 0; attempt < 2 && alive && !text; attempt++) {
+        try {
+          const r = await fetch('/api/summary', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acct, band, parts }), signal: AbortSignal.timeout(30_000) });
+          if (r.status === 200) text = usableSummary((await r.json()).summary);
+          else if (r.status === 204 || r.status === 400) break;
+        } catch { /* timeout or network: one retry */ }
+      }
+      if (!alive) return;
+      setSummary({ fp, text, loading: false });
+      if (text) updateSession({ summary: text, summaryFor: fp }, acct);
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acct, fp, band, parts]);
+  const summaryText = usableSummary(extra?.summary) ?? (summary?.fp === fp ? summary?.text ?? null : null);
+  const summaryLoading = !summaryText && summary?.fp === fp && !!summary?.loading;
   const unlockWithWallet = async () => {
     if (!acct) return;
     setUnlockMsg('Waiting for your wallet…');
@@ -572,12 +612,14 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                   )
                 )}
               </div>
-              {usableSummary(extra?.summary) && (
+              {summaryText ? (
                 <div className="change ai-summary">
                   <h3>In plain words</h3>
-                  <p>{usableSummary(extra?.summary)}</p>
-                  <p className="hint" style={{ marginTop: 6 }}>Written by {extra?.summary_by ?? 'Qwen'} on NEAR AI Cloud from your band and rule points only, and sealed so only this browser can read it. On testnet it is generated on our server. The score never depends on it.</p>
+                  <p>{summaryText}</p>
+                  <p className="hint" style={{ marginTop: 6 }}>Written by Qwen/Qwen3.8-27B on NEAR AI Cloud from your band and rule results only (no bank data), after your score was set. On testnet our server asks for it and keeps nothing. The score never depends on it.</p>
                 </div>
+              ) : summaryLoading && (
+                <p className="hint ai-wait" aria-live="polite"><span className="placeholder">Writing a plain-English summary…</span></p>
               )}
               {defaulted ? (
                 <p>Band {sc.band} when scored. This account defaulted, so it can&apos;t borrow again.</p>
