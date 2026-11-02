@@ -254,3 +254,14 @@ button{font-family:inherit}
 .verify dt{color:var(--muted)}
 .verify dd{margin:0;overflow-wrap:anywhere}
 .verify code{font-family:var(--body);font-size:13px;background:rgba(8,19,15,.6);padding:8px 10px;display:block;overflow-wrap:anywhere;border:1px solid var(--line-night)}
+
+/* Phone sticky action bar (DESIGN 7.8): the borrower's current primary action */
+.actionbar{display:none}
+@media (max-width:700px){
+  .actionbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;gap:12px;align-items:center;justify-content:space-between;background:rgba(238,241,233,.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line-paper);color:var(--ink);padding:10px var(--gut-r) calc(10px + env(safe-area-inset-bottom,0px)) var(--gut-l);transition:transform var(--t-slow) var(--ease-out);box-shadow:0 -10px 24px rgba(16,48,42,.08)}
+  .actionbar.away{transform:translateY(110%)}
+  .actionbar p{font-size:13.5px;line-height:1.35;color:var(--ink-soft);min-width:0;flex:1}
+  .actionbar .btn{flex:0 0 auto;min-height:48px;padding:0 18px;max-width:62%}
+  .layout.has-bar{padding-bottom:calc(120px + 72px + env(safe-area-inset-bottom,0px))}
+}
+@media (prefers-reduced-motion: reduce){.actionbar{transition:none}}

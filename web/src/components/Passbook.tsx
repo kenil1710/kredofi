@@ -20,6 +20,7 @@ import { absoluteDate, amountInWords, parseUsd, usd } from '@/lib/format';
 import { serialFromFingerprint } from '@/lib/drawNote';
 import { newKeypair, openSealed } from '@/lib/seal';
 import { PART_KEYS, PART_NAMES, reason, whatWouldChange, type Parts } from '@/lib/reasons';
+import { primaryAction } from '@/lib/primaryAction';
 
 type Who = BorrowerKey | 'custom' | 'plaid';
 type Source = { borrower: Who; custom?: CustomInputs; publicToken?: string };
@@ -198,6 +199,7 @@ export function Passbook() {
   const canDefault = loan?.state === 'Active' && now > dueMs + graceMs;
   const scoredAt = sc ? msOf(sc.issued_at) : 0;
   const showPick = !scoring && b !== undefined && !sc && !b?.blocked;
+  const showBorrow = !!sc && !denied && !sc.expired && !b?.has_active_loan && !b?.blocked && limit > 0n;
 
   const defaulted = !!b?.blocked && loan?.state === 'Defaulted';
   // A defaulted borrower's note shows the loan he took, stamped DEFAULT (his limit is now 0 for good).
@@ -251,11 +253,42 @@ export function Passbook() {
     await refresh();
   };
 
+  // ---------------------------------------------------------------- phone action bar (DESIGN 7.8)
+  const retry = () => who && (who === 'plaid' ? connectBank() : score({ borrower: who, custom: who === 'custom' ? custom : undefined }));
+  const primary = primaryAction({
+    scoringBusy: !!scoring && scoring.step !== 'sealed' && scoring.step !== 'failed',
+    scoringFailed: scoring?.step === 'failed' && !!who,
+    picking: showPick && !starting,
+    canBorrow: showBorrow,
+    loanActive: loan?.state === 'Active',
+    canDefault, isMax: who === 'max',
+    releasePending: defaulted && !b?.released_identity,
+  });
+  const firstKey = Object.keys(BORROWERS)[0] as BorrowerKey;
+  const bar = primary === 'start' ? { text: 'No wallet needed. Or pick another borrower above.', button: <button type="button" className="btn btn-violet" onClick={() => pick({ borrower: firstKey })}>Use {BORROWERS[firstKey].name.split(' ')[0]}</button> }
+    : primary === 'retry' ? { text: scoring?.error ?? 'Scoring failed. Nothing changed on-chain.', button: <button type="button" className="btn btn-ink" onClick={retry}>Check my limit again</button> }
+    : primary === 'borrow' ? { text: amountError ?? `Band ${sc?.band}, limit ${usd(limit)}`, button: <TxButton tx={borrowTx.state} label={`Borrow ${amount !== null ? usd(amount) : ''}`} onClick={borrow} disabled={!!amountError} /> }
+    : primary === 'repay' ? { text: shortBy > 0n ? `You need ${usd(shortBy)} more test USDC` : now < dueMs ? `Due in ${span(dueMs - now)}` : 'Overdue', button: <TxButton tx={repayTx.state} label={`Repay ${usd(due)}`} doneLabel="Repaid" onClick={repay} variant="ink" disabled={shortBy > 0n} /> }
+    : primary === 'default' ? { text: 'Grace period over. Anyone can mark it.', button: <TxButton tx={defaultTx.state} label="Mark as defaulted" onClick={markDefault} variant="red" /> }
+    : primary === 'release' ? { text: 'Defaulted. The name is still sealed.', button: <TxButton tx={releaseTx.state} label="Release the name" onClick={release} variant="red" /> }
+    : null;
+  // Hide the bar while the same action is on screen in the passbook, so it never shows twice.
+  const [inlineVisible, setInlineVisible] = useState(false);
+  useEffect(() => {
+    setInlineVisible(false);
+    const el = primary && document.getElementById(`pa-${primary === 'default' ? 'repay' : primary}`);
+    if (!el) return;
+    // below the sticky banner and above the bar itself; mostly on screen counts as visible
+    const io = new IntersectionObserver(([e]) => setInlineVisible(e.intersectionRatio >= 0.5), { rootMargin: '-100px 0px -96px 0px', threshold: [0, 0.5, 1] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [primary]);
+
   // ---------------------------------------------------------------- render
   const outputJson = sess.output ? JSON.stringify({ ...sess.output, reply: sess.output.reply ? `${String(sess.output.reply).slice(0, 12)}…` : undefined, sealed_identity: `${String(sess.output.sealed_identity).slice(0, 12)}…` }, null, 2) : null;
 
   return (
-    <main className="wrap layout" id="top">
+    <main className={`wrap layout${bar ? ' has-bar' : ''}`} id="top">
       <div>
         <div className="title">
           <h1>Your passbook</h1>
@@ -266,7 +299,7 @@ export function Passbook() {
 
         {showPick && (
           <section aria-label="Pick a test borrower">
-            <div className="pick">
+            <div className="pick" id="pa-start">
               {(Object.keys(BORROWERS) as BorrowerKey[]).map((k, i) => (
                 <article key={k} className="who">
                   <GuillocheStrip />
@@ -331,7 +364,7 @@ export function Passbook() {
                 txHash={scoring.hash} failure={scoring.error} rows={who === 'sam' ? DECOR_ROWS.irregular : DECOR_ROWS.steady}
                 note="Testnet: the pinned scorer runs on our server, outside the enclave. On mainnet the same code runs inside Intel TDX through OutLayer." />
               {scoring.step === 'failed' && who && (
-                <p><button type="button" className="btn btn-ink" onClick={() => (who === 'plaid' ? connectBank() : score({ borrower: who, custom: who === 'custom' ? custom : undefined }))}>Check my limit again</button></p>
+                <p id="pa-retry"><button type="button" className="btn btn-ink" onClick={retry}>Check my limit again</button></p>
               )}
             </Entry>
           )}
@@ -378,6 +411,7 @@ export function Passbook() {
               </div>
               {!b.released_identity && (
                 <>
+                  <span id="pa-release" />
                   <TxButton tx={releaseTx.state} label="Release the name to the recovery partner" onClick={release} variant="red" />
                   {releaseMsg && <p className="hint">{releaseMsg}</p>}
                   <TxStatus tx={releaseTx.state} />
@@ -397,7 +431,7 @@ export function Passbook() {
               {shortBy > 0n ? (
                 <p className="hint err">You need {usd(shortBy)} more test USDC to repay. <button type="button" className="linkbtn" onClick={faucet}>Get test USDC</button>{faucetMsg && ` ${faucetMsg}`}</p>
               ) : null}
-              <div className="form">
+              <div className="form" id="pa-repay">
                 <TxButton tx={repayTx.state} label={`Repay ${usd(due)}`} doneLabel="Repaid" onClick={repay} variant="ink" disabled={shortBy > 0n} />
                 {canDefault && <TxButton tx={defaultTx.state} label="Mark as defaulted" onClick={markDefault} variant="red" />}
               </div>
@@ -422,9 +456,9 @@ export function Passbook() {
             </Entry>
           )}
 
-          {sc && !denied && !sc.expired && !b?.has_active_loan && !b?.blocked && limit > 0n && (
+          {showBorrow && sc && (
             <Entry when="Now" title="Borrow">
-              <div className="form">
+              <div className="form" id="pa-borrow">
                 <div className="field">
                   <label htmlFor="amt">Amount</label>
                   <div className="money"><input id="amt" inputMode="decimal" value={amountText === '' ? (Number(limit) / 1e6).toFixed(2) : amountText}
@@ -474,6 +508,13 @@ export function Passbook() {
         </div>
         {acct && usdcBal !== null && <div className="card"><p>Test USDC in {acct}: <b>{usd(usdcBal)}</b></p></div>}
       </aside>
+
+      {bar && (
+        <div className={`actionbar${inlineVisible ? ' away' : ''}`} role="region" aria-label="Next step" aria-hidden={inlineVisible || undefined} inert={inlineVisible || undefined}>
+          <p aria-live="polite">{bar.text}</p>
+          {bar.button}
+        </div>
+      )}
     </main>
   );
 }
