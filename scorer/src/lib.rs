@@ -435,6 +435,24 @@ pub mod demo {
             next >= 2
         })
     }
+    /// Called at every sync checkpoint (demo builds). Returns true to finish early (complete, all
+    /// months present, stable). While Plaid says complete but the window is NOT covered, it pauses
+    /// 3 s so the normal rule's 5 "quiet" polls span about 20 s: on a fast host those 5 polls took
+    /// only ~6.5 s and the sandbox's historical batch hadn't arrived, so Riya was scored on 6 of her
+    /// 30 transactions (band C instead of A, live Nov 2). A genuinely short history still finishes,
+    /// just later.
+    pub fn checkpoint_done<'a>(status_complete: bool, txs: impl Iterator<Item = &'a Value>) -> bool {
+        if !status_complete {
+            STABLE.with(|c| c.set((0, 0)));
+            return false;
+        }
+        if covers_window(txs) {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        false
+    }
+
     /// Every month of the scoring window has at least one transaction.
     pub fn covers_window_at<'a>(txs: impl Iterator<Item = &'a Value>, now_unix: u64) -> bool {
         let months: std::collections::BTreeSet<&str> = txs.filter_map(|t| t["date"].as_str()).filter_map(|d| d.get(..7)).collect();

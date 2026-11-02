@@ -146,7 +146,7 @@ impl Plaid {
                 }
             }
             cursor = r["next_cursor"].as_str().unwrap_or("").to_string();
-            let status = r["transactions_update_status"].as_str().unwrap_or("").to_string(); #[cfg(feature = "demo")] if status == "HISTORICAL_UPDATE_COMPLETE" && r["has_more"].as_bool() != Some(true) && kredofi_scorer::demo::covers_window(by_id.values()) { return Ok((by_id.into_values().collect(), status, progress.retries())); }
+            let status = r["transactions_update_status"].as_str().unwrap_or("").to_string(); #[cfg(feature = "demo")] if r["has_more"].as_bool() != Some(true) && kredofi_scorer::demo::checkpoint_done(status == "HISTORICAL_UPDATE_COMPLETE", by_id.values()) { return Ok((by_id.into_values().collect(), status, progress.retries())); }
             #[cfg(feature = "debug")]
             if std::env::var("KREDOFI_TRACE").is_ok() {
                 eprintln!("trace page: added {added} has_more {} status {status}", r["has_more"]);
