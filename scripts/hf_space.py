@@ -133,7 +133,7 @@ def main():
         mainnet_seal = read_env(ROOT / ".env").get("SEAL_KEY")
         if not web.get("SEAL_KEY") or web.get("SEAL_KEY") == mainnet_seal:
             die("web/.env.local SEAL_KEY is missing or equals the mainnet SEAL_KEY; refusing")
-        missing = [k for k in SECRET_KEYS if not web.get(k) and k != "NEARAI_KEY"]
+        missing = [k for k in SECRET_KEYS if not web.get(k) and k not in ("NEARAI_KEY", "NEAR_RPC_URLS")]  # both optional
         if missing:
             die(f"missing in web/.env.local: {', '.join(missing)}")
         h = api()
