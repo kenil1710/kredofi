@@ -107,6 +107,7 @@ Interest per loan term (flat), paid by the borrower: A 4%, B 6%, C 8%. Half (A 2
 | `withdraw(shares)` | Requires exactly 1 yoctoNEAR attached (full-access key). Burn shares, pay `shares * price`, limited by `cash`. State first, then `ft_transfer` with rollback callback. `lender_withdraw` is emitted only in the callback, after the transfer succeeds. |
 
 Cross-chain deposits: NEAR Intents 1Click delivers USDC to the **lender's own NEAR account**, then the lender deposits with `ft_transfer_call` (so the pool knows who deposited). One-step deposit only if 1Click can attach a message to a contract recipient (to check).
+Built so far (`/lend`, "From another chain"): step 1 is a real 1Click quote (`POST https://1click.chaindefuser.com/v0/quote`, Base, Ethereum, Arbitrum or Solana USDC into native USDC on NEAR), built entirely by the server (`/api/intents/quote`, `web/src/lib/intents.ts`) and **always `dry: true`**: 1Click then issues no deposit address, so no money can move through the page, and a quote that comes back live or for anything other than what was asked is refused. 1Click has no testnet and refuses `.testnet` recipients, so testnet quotes go to a stand-in mainnet recipient (`kredofi.near`), shown as such, and test USDC from the faucet stands in for the arrival step. A live (non-dry) deposit needs the human's yes.
 
 ### Default and recovery
 

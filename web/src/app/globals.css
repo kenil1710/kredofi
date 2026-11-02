@@ -265,3 +265,16 @@ button{font-family:inherit}
   .layout.has-bar{padding-bottom:calc(120px + 72px + env(safe-area-inset-bottom,0px))}
 }
 @media (prefers-reduced-motion: reduce){.actionbar{transition:none}}
+
+/* Intents stepper (DESIGN 3 Lender: "From another chain") */
+.steps{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column}
+.steps li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:14px;padding:12px 0;border-top:1px solid var(--line-night);opacity:.55}
+.steps li.now,.steps li.done{opacity:1}
+.steps li.skip{opacity:.7}
+.steps li > b{width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(230,234,225,.4);margin-top:5px}
+.steps li.now > b{border-color:var(--mint);box-shadow:inset 0 0 0 3px var(--deep);background:var(--mint)}
+.steps li.done > b{background:var(--mint);border-color:var(--mint)}
+.steps li.skip > b{border-style:dashed}
+.steps h3{font-family:var(--body);font-size:15px;font-weight:600;letter-spacing:0;margin-bottom:4px}
+.steps .terms{font-size:14px;margin:4px 0 8px}
+.intents .filters button{min-height:44px}

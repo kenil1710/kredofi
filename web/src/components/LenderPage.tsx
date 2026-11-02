@@ -9,6 +9,7 @@ import { TxButton, TxStatus } from './TxButton';
 import { view, getPool, usdcBalance, type PoolView } from '@/lib/chain';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
 import { parseUsd, usd } from '@/lib/format';
+import { IntentsPanel } from './IntentsPanel';
 
 type Lender = { shares: string; value: string };
 
@@ -100,6 +101,8 @@ export function LenderPage() {
             {msg && <p className="hint" aria-live="polite">{msg}</p>}
           </div>
         ) : null}
+
+        <IntentsPanel accountId={acct} balance={bal} onGetTestUsdc={start} busy={busy} />
 
         {acct && (
           <div className="panel">
