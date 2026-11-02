@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { checkCustom, customProfile, profileFor, type BorrowerKey, type CustomInputs } from '@/lib/borrowers';
 import { KREDOFI_CONTRACT } from '@/lib/config';
-import { call, isTestnetAccount, rateLimited, scorerAccount } from '@/server/near';
+import { call, clientIp, isTestnetAccount, overQuota, rateLimited, scorerAccount } from '@/server/near';
 import { checkPinned, saveExtra, saveSubmitted, startScorer } from '@/server/scorer';
 import { recordSoon } from '@/server/ledger';
 
@@ -24,6 +24,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Connect the sandbox bank first.' }, { status: 400 });
   }
   if (typeof replyPubkey !== 'string' || !/^[0-9a-f]{64}$/.test(replyPubkey)) return NextResponse.json({ error: 'Missing reply key.' }, { status: 400 });
+  // Per network too: each score costs the scorer and the contract a little testnet NEAR.
+  if (overQuota(`score-ip:${clientIp(req)}`, 15, 3_600_000)) return NextResponse.json({ error: 'Fifteen scores per hour from one network. Try again later.' }, { status: 429 });
   if (rateLimited(`score:${accountId}`, 30_000)) return NextResponse.json({ error: 'A score was just requested for this account. Wait 30 seconds and try again.' }, { status: 429 });
 
   const t0 = Date.now(), lap: Record<string, number> = {};

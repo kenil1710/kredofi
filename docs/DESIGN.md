@@ -69,7 +69,7 @@ All screens share the fixed top bar from the reference (hides on scroll down, tu
 | Screen | Ground | What it shows |
 |---|---|---|
 | **Landing** | night + paper | Exactly the reference: loader, 3D hero, fly-into-the-enclave, statement, how to check a note, Riya vs Sam, score yourself, lend, proof, call to action |
-| **Pick a test borrower** | night | Three borrower cheques (Riya, Sam, Max) with one-line stories, plus "Build your own borrower" (the score-yourself sliders, SPEC 8b). Then "Continue without a wallet" or "Connect wallet" |
+| **Pick a test borrower** (now `/scenarios`, footer link only; the passbook starts with Connect your bank) | night | Three borrower cheques (Riya, Sam, Max) with one-line stories, plus "Build your own borrower" (the score-yourself sliders, SPEC 8b). Then "Continue without a wallet" or "Connect wallet" |
 | **Borrower passbook** | paper, enclave panel on night | Entries stack like a passbook: account, bank connected, scoring (small live enclave + honest phases, 7.3), result (the CreditNote for this borrower + tally + stamp), borrow, repay, level-up. Sam sees NOT ISSUED with reasons and what would change them. Max sees the default chain |
 | **What left the enclave** | paper | Two columns: blurred "stayed inside" rows vs the exact on-chain JSON; loupe on the note; Verify panel |
 | **Lender** | deep | Ledger table with double rule (pool, lent out, reserve, lost by lenders), deposit (NEAR or other chain via Intents with the animated chain diagram), withdraw |
@@ -124,7 +124,7 @@ The look is sections 1-6. This section is how it behaves. A judge should underst
 
 Most judges have no NEAR testnet wallet and no bank in Plaid's sandbox. Remove both walls.
 
-1. **Landing:** the reference page. Every "Try it" button leads to Pick a test borrower.
+1. **Landing:** the reference page. Every "Check my limit" button leads to the passbook, whose start is **Connect your bank (sandbox)** (real Plaid Link). Prepared borrowers live on `/scenarios`, linked only from the footer (decided Nov 2).
 2. **Pick a test borrower:** three rows, Riya (steady salary), Sam (irregular income), Max (looks good, will default). One click picks a Plaid sandbox profile. No bank login needed.
 3. **No-wallet demo account:** "Continue without a wallet" creates a throwaway testnet account whose key lives only in the browser. A relayer pays every gas fee through **meta transactions** and only relays calls to the KredoFi and mock USDC contracts (SPEC 8a explains why a function-call key alone cannot repay). "Connect wallet" stays available for anyone who has one.
 4. Score, then borrow, then repay or default, all on one passbook page (section 3).

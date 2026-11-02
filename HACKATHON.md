@@ -175,7 +175,7 @@ The official text above is unchanged. Re-read the live copy at https://nearhacka
 | Tracks | `privacy`, `realworld`, `defi` |
 | Payout account | Kency's own mainnet named account, typed by Kency into the form. Never used in any script or CLI command, never committed. |
 | Repo | Private while building is allowed; must be public before 2026-11-14T23:59:00Z |
-| Website | `kredofi.xyz` (bought Oct 26). Point it to Vercel on PLAN day 11; until then use the `.vercel.app` URL |
+| Website | Live demo at https://kenil1710-kredofi.hf.space (Hugging Face Space, Nov 2). `kredofi.xyz` (bought Oct 26) should redirect there (docs/DEPLOY_HF.md). |
 
 ### NEAR features we use (name each in the README with the file that uses it)
 

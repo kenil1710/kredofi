@@ -1,5 +1,7 @@
 # Deploying the testnet app to kredofi.xyz (Fly.io)
 
+> **Superseded (Nov 2):** the live demo runs on a Hugging Face Space instead ([DEPLOY_HF.md](DEPLOY_HF.md)); Fly needs a card. This guide still works if that changes.
+
 What goes live: the Next.js app (passbook, lender page, public ledger) plus its API routes, which
 run the **pinned demo scorer with wasmtime** (testnet Dev mode), relay no-wallet meta transactions
 and serve the ledger. Testnet only: no mainnet key is ever on this server.
