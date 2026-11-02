@@ -46,7 +46,7 @@ KredoFi: private, income-based stablecoin loans on NEAR. Bank data is scored ins
 - Plaid: `days_requested: 730`; loop `/transactions/sync` on `has_more`; poll 1 s apart (max 20). `HISTORICAL_UPDATE_COMPLETE` alone is not enough: sandbox sometimes flags it before the historical batch arrives (3 of 8 runs, Nov 1), so keep polling until a later page adds transactions (`SyncProgress` in `scorer/src/lib.rs`); never score a timed-out partial history.
 - The `"debug"` input flag is for local `wasmtime` runs only and must be compiled out or rejected in the deployed build.
 - Scoring rules are in SPEC section 6. The unit test must reproduce the demo table (Riya 1000/A, Sam 270/D, Max 1000/A).
-- NEAR AI Cloud: only `Qwen/Qwen3.8-27B` (proven private). The score never depends on AI output.
+- NEAR AI Cloud only: Qwen with a NEAR AI fallback. `Qwen/Qwen3.8-27B` first; if it hasn't answered in 8 s, `Qwen/Qwen3.6-35B-A3B-FP8` (also hosted by NEAR AI Cloud, ~1 s). Never a model NEAR AI only passes on to another company (e.g. Gemini, Claude). Same input for both: band + rule results in words, no numbers (`web/src/lib/aiSummary.ts`). The score never depends on AI output.
 
 ## OutLayer deployment
 

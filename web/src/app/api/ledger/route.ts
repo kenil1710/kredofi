@@ -4,17 +4,19 @@
 import { NextResponse } from 'next/server';
 import { allEvents, lastChange } from '@/server/ledger';
 import { viewPool } from '@/server/near';
+import { seededStats } from '@/lib/seeded';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type Answer = { events: unknown[]; stats: unknown; pool: unknown; config: unknown; updatedAt: number };
+type Answer = { events: unknown[]; stats: unknown; seeded: unknown; pool: unknown; config: unknown; updatedAt: number };
 let last: Answer | null = null;
 let inflight: Promise<Answer> | null = null;
 
 async function build(): Promise<Answer> {
   const [events, stats, pool, config] = await Promise.all([allEvents(), viewPool('get_stats'), viewPool('get_pool'), viewPool('get_config')]);
-  return { events: events.slice(0, 200), stats, pool, config, updatedAt: Date.now() };
+  // Seeded demo numbers come from every indexed event (not just the 200 sent); SPEC 8d.
+  return { events: events.slice(0, 200), stats, seeded: seededStats(events), pool, config, updatedAt: Date.now() };
 }
 
 export async function GET() {

@@ -13,8 +13,12 @@ export function usableSummary(text: unknown): string | null {
 
 // The summary request (testnet): sent by the browser after the score shows, from the band and the
 // five rule results it decrypted. No bank data, and no numbers in the prompt (each rule is described
-// in words), so the model has none to get wrong. Model: Qwen/Qwen3.8-27B on NEAR AI Cloud (private).
+// in words), so the model has none to get wrong. Models: Qwen/Qwen3.8-27B on NEAR AI Cloud first; if it
+// hasn't answered in 8 s, Qwen/Qwen3.6-35B-A3B-FP8, also hosted by NEAR AI Cloud (tested Nov 2: ~1 s).
 export const SUMMARY_MODEL = 'Qwen/Qwen3.8-27B';
+export const SUMMARY_FALLBACK = 'Qwen/Qwen3.6-35B-A3B-FP8';
+/** [model, timeout ms] in the order tried. */
+export const SUMMARY_PLAN: [string, number][] = [[SUMMARY_MODEL, 8_000], [SUMMARY_FALLBACK, 15_000]];
 export type RuleParts = { income: number; stability: number; payment: number; cash_flow: number; buffer: number };
 const RULES: [keyof RuleParts, string, number][] = [
   ['income', 'income level', 250], ['stability', 'steady income', 250], ['payment', 'on-time payments', 250],
@@ -34,10 +38,10 @@ export function checkParts(band: unknown, parts: unknown): { band: 'A' | 'B' | '
   return { band: band as 'A' | 'B' | 'C' | 'D', parts: out };
 }
 
-export function summaryRequest(band: string, parts: RuleParts) {
+export function summaryRequest(band: string, parts: RuleParts, model = SUMMARY_MODEL) {
   const facts = `Band ${band}. ` + RULES.map(([k, name, max]) => `${name}: ${level(parts[k], max)}`).join('; ') + '.';
   return {
-    model: SUMMARY_MODEL,
+    model,
     messages: [
       { role: 'system', content: '/no_think You explain a credit result to the borrower in exactly two short, plain, kind sentences: why this band, and the one change that would help most. Do not write any numbers or number words; only the band letter. No advice beyond the rules given.' },
       { role: 'user', content: facts },

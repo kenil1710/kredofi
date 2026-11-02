@@ -68,7 +68,7 @@ Rules (SPEC 6): income level (250 points), steady income (250), on-time payments
 | Feature | Where |
 |---|---|
 | TEE (OutLayer, Intel TDX) with a pinned WASM version and encrypted secrets | `contracts/kredofi/src/score.rs` (`request_score`, `on_score`), `scorer/` |
-| Private AI (NEAR AI Cloud, `Qwen/Qwen3.8-27B`, thinking off) | `web/src/lib/aiSummary.ts` (`summaryRequest`, tested), testnet only |
+| Private AI: Qwen with a NEAR AI fallback (NEAR AI Cloud, `Qwen/Qwen3.8-27B`, after 8 s `Qwen/Qwen3.6-35B-A3B-FP8`, thinking off) | `web/src/lib/aiSummary.ts` (`summaryRequest`, tested), testnet only |
 | Stablecoins (NEP-141 `ft_transfer_call` for deposit and repay) | `contracts/kredofi/src/lib.rs`, `contracts/mock-usdc` |
 | NEAR Intents 1Click (USDC from Base, Ethereum, Arbitrum, Solana; dry-run quotes only) | `web/src/lib/intents.ts`, `web/src/app/api/intents/quote/route.ts` |
 | Meta transactions (the relayer pays all gas for demo accounts) | `web/src/app/api/relay/route.ts`, `web/src/lib/near/account.tsx` |

@@ -382,3 +382,8 @@ button{font-family:inherit}
 .levelup-bar::after{content:"";position:absolute;inset:0;transform-origin:left;transform:scaleX(var(--p,0));background:var(--violet-ink);transition:transform 1s linear}
 .next-step{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin:6px 0 10px}
 @media (prefers-reduced-motion: reduce){.levelup-bar::after{transition:none}}
+
+/* Seeded demo activity on the public ledger (SPEC 8d) */
+.seedtag{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border:1px solid currentColor;opacity:.85;vertical-align:1px;white-space:nowrap}
+.bandt caption{caption-side:top;text-align:left;font-size:13px;padding:14px 0 6px;color:inherit}
+.seeded-note{margin-bottom:6px}

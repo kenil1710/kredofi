@@ -24,6 +24,9 @@ test('the summary request carries only the band and rule results in words', asyn
   assert.equal(user, 'Band B. income level: some points; steady income: full marks; on-time payments: full marks; money left over after spending: most points; savings buffer: no points.');
   assert.doesNotMatch(user, /\d/);
   assert.equal(req.model, 'Qwen/Qwen3.8-27B');
+  const { SUMMARY_PLAN } = await import('./aiSummary.ts');
+  assert.deepEqual(SUMMARY_PLAN, [['Qwen/Qwen3.8-27B', 8000], ['Qwen/Qwen3.6-35B-A3B-FP8', 15000]]);
+  assert.equal(summaryRequest(ok.band, ok.parts, 'Qwen/Qwen3.6-35B-A3B-FP8').model, 'Qwen/Qwen3.6-35B-A3B-FP8');
   assert.equal(checkParts('E', ok.parts), null);
   assert.equal(checkParts('A', { ...ok.parts, buffer: 101 }), null);
   assert.equal(checkParts('A', { ...ok.parts, payment: '250' }), null);

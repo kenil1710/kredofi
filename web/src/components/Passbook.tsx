@@ -33,7 +33,7 @@ import type { LedgerEvent } from '@/lib/events';
 
 type Who = BorrowerKey | 'custom' | 'plaid';
 type Source = { borrower: Who; custom?: CustomInputs; publicToken?: string };
-type Session = { who?: Who; replySecret?: string; replySecrets?: string[]; summary?: string; summaryFor?: string; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number; scoringSince?: number; prevIssued?: string };
+type Session = { who?: Who; replySecret?: string; replySecrets?: string[]; summary?: string; summaryBy?: string; summaryFor?: string; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number; scoringSince?: number; prevIssued?: string };
 type Record_ = { events: LedgerEvent[]; output: Record<string, unknown> | null; extra: string | null; scoreHash: string | null };
 /** Testnet extras, sealed to the borrower (demo scorer build): real fetch counts and the AI summary. */
 type Extra = { receipt?: { plaid_transactions: number; plaid_accounts: number; read_transactions: number; months: number }; summary?: string; summary_by?: string };
@@ -303,26 +303,26 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   const [unlockMsg, setUnlockMsg] = useState<string | null>(null);
   // Plain-English summary: its own request after the score shows (up to ~30 s, one retry). It never
   // blocks or delays the score, and on failure nothing is shown. Kept per fingerprint in the session.
-  const [summary, setSummary] = useState<{ fp: string; text: string | null; loading: boolean } | null>(null);
+  const [summary, setSummary] = useState<{ fp: string; text: string | null; by?: string; loading: boolean } | null>(null);
   const fp = output?.fingerprint as string | undefined;
   const band = output?.band as string | undefined;
   useEffect(() => {
     if (!acct || !fp || !band || !parts) return;
-    if (sess.summaryFor === fp) { setSummary({ fp, text: sess.summary ?? null, loading: false }); return; }
+    if (sess.summaryFor === fp) { setSummary({ fp, text: sess.summary ?? null, by: sess.summaryBy, loading: false }); return; }
     let alive = true;
     setSummary({ fp, text: null, loading: true });
     (async () => {
-      let text: string | null = null;
+      let text: string | null = null, by: string | undefined;
       for (let attempt = 0; attempt < 2 && alive && !text; attempt++) {
         try {
           const r = await fetch('/api/summary', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acct, band, parts }), signal: AbortSignal.timeout(30_000) });
-          if (r.status === 200) text = usableSummary((await r.json()).summary);
+          if (r.status === 200) { const jj = await r.json(); text = usableSummary(jj.summary); by = typeof jj.by === 'string' ? jj.by : undefined; }
           else if (r.status === 204 || r.status === 400) break;
         } catch { /* timeout or network: one retry */ }
       }
       if (!alive) return;
-      setSummary({ fp, text, loading: false });
-      if (text) updateSession({ summary: text, summaryFor: fp }, acct);
+      setSummary({ fp, text, by, loading: false });
+      if (text) updateSession({ summary: text, summaryBy: by, summaryFor: fp }, acct);
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -616,7 +616,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 <div className="change ai-summary">
                   <h3>In plain words</h3>
                   <p>{summaryText}</p>
-                  <p className="hint" style={{ marginTop: 6 }}>Written by Qwen/Qwen3.8-27B on NEAR AI Cloud from your band and rule results only (no bank data), after your score was set. On testnet our server asks for it and keeps nothing. The score never depends on it.</p>
+                  <p className="hint" style={{ marginTop: 6 }}>Written by {summary?.by ?? 'Qwen'} on NEAR AI Cloud (Qwen with a NEAR AI fallback) from your band and rule results only (no bank data), after your score was set. On testnet our server asks for it and keeps nothing. The score never depends on it.</p>
                 </div>
               ) : summaryLoading && (
                 <p className="hint ai-wait" aria-live="polite"><span className="placeholder">Writing a plain-English summary…</span></p>

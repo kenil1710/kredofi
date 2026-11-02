@@ -10,7 +10,14 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const NET = 'testnet';
 export const RPC = process.env.NEAR_RPC || 'https://test.rpc.fastnear.com';
-export const POOL = 'kredofi.kency.testnet';
+// Two testnet contracts (SPEC 8d): app.kency.testnet = the live demo judges use (seeded history),
+// kredofi.kency.testnet = our tests. Scripts default to the test contract; only the seeding script
+// may touch the demo contract, others need ALLOW_DEMO_CONTRACT=1.
+export const DEMO_CONTRACT = 'app.kency.testnet';
+export const POOL = process.env.KREDOFI_CONTRACT || 'kredofi.kency.testnet';
+if (POOL === DEMO_CONTRACT && process.env.ALLOW_DEMO_CONTRACT !== '1' && !/seed_ledger\.mjs$/.test(process.argv[1] ?? '')) {
+  throw new Error(`${DEMO_CONTRACT} is the judges' demo contract: tests run on kredofi.kency.testnet (set ALLOW_DEMO_CONTRACT=1 to override)`);
+}
 export const USDC_ID = 'musdc.kency.testnet';
 export const SCORER = 'scorer.kency.testnet';
 export const RELAYER = 'relayer.kency.testnet';

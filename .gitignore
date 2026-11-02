@@ -35,3 +35,4 @@ __pycache__/
 web/.data/
 build/
 scorer/target-docker/
+scripts/.seed/
