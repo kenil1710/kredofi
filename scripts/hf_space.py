@@ -7,11 +7,12 @@ Run with uv (no install needed):
   uv run --with huggingface_hub==0.36.0 python scripts/hf_space.py secrets --space <user>/kredofi
   uv run --with huggingface_hub==0.36.0 python scripts/hf_space.py push    --space <user>/kredofi
 
-stage   builds build/hf-space/ from git-tracked web files + the pinned demo scorer + deploy/hf/,
-        then scans every staged byte for every secret value in .env and web/.env.local. Fails on any hit.
+stage   builds the committed web/ to a minified Next.js standalone server and stages only that, the
+        pinned demo scorer WASM and a run-only Dockerfile (no source, no source maps), then scans every
+        staged byte for every secret value in .env and web/.env.local. Fails on any hit.
 create  creates the public Docker Space (exists_ok).
 secrets sets the Space secrets from web/.env.local (testnet keys). Refuses the mainnet SEAL_KEY.
-push    stage + scan, then uploads build/hf-space/ to the Space (replacing its files).
+push    stage + scan, upload (replacing every file), then squash the Space history to one commit.
 
 The HF token is read from HF_TOKEN (environment or .env). No value is ever printed.
 """
@@ -56,17 +57,38 @@ def pinned_version():
     return json.loads(bytes(res["result"]["result"]))["scorer_version"]
 
 
+BUILD = ROOT / "build" / "hf-build"
+
+
 def stage():
-    if STAGE.exists():
-        shutil.rmtree(STAGE)
-    STAGE.mkdir(parents=True)
-    # Only files git tracks under web/ (never .env.local, node_modules, .next, .data), minus tests.
-    files = subprocess.run(["git", "ls-files", "web"], cwd=ROOT, check=True, capture_output=True, text=True).stdout.split()
-    files = [f for f in files if not f.endswith(".test.ts") and "/.env" not in f and not Path(f).name.startswith(".env")]
-    for f in files:
-        dst = STAGE / f
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT / f, dst)
+    """Compiled output only: build the committed web/ (never the working copy, never .env.local) to
+    Next.js standalone, then stage the minified server, static assets, the pinned scorer WASM and a
+    run-only Dockerfile. Refuses if any source file, source map or secret value is in the result."""
+    for d in (STAGE, BUILD):
+        if d.exists():
+            shutil.rmtree(d)
+    BUILD.mkdir(parents=True)
+    arch = subprocess.run(["git", "archive", "HEAD", "web"], cwd=ROOT, check=True, capture_output=True).stdout
+    subprocess.run(["tar", "-x", "-C", str(BUILD)], input=arch, check=True)
+    web = BUILD / "web"
+    env = {**os.environ, "NEXT_TELEMETRY_DISABLED": "1"}
+    for k in [k for k in env if k.startswith(("PLAID", "SEAL", "NEARAI", "RELAYER", "DEV_SCORER", "HF_"))]:
+        env.pop(k)  # the build never needs a secret
+    subprocess.run(["npm", "ci", "--no-audit", "--no-fund"], cwd=web, check=True, env=env, stdout=subprocess.DEVNULL)
+    subprocess.run(["npx", "next", "build"], cwd=web, check=True, env=env, stdout=subprocess.DEVNULL)
+    app = STAGE / "app"
+    shutil.copytree(web / ".next" / "standalone", app)
+    shutil.copytree(web / ".next" / "static", app / ".next" / "static")
+    if (web / "public").exists():
+        shutil.copytree(web / "public", app / "public")
+    shutil.rmtree(app / "node_modules" / "@img", ignore_errors=True)
+    shutil.rmtree(app / "node_modules" / "sharp", ignore_errors=True)
+    # source maps carry the original source: drop them
+    for m in app.rglob("*.map"):
+        m.unlink()
+    # absolute build paths (they name the build machine's user): the container runs from /app
+    for f in (app / "server.js", app / ".next" / "required-server-files.json"):
+        f.write_text(f.read_text().replace(str(web), "/app"))
     shutil.copy2(ROOT / "deploy" / "hf" / "Dockerfile", STAGE / "Dockerfile")
     shutil.copy2(ROOT / "deploy" / "hf" / "README.md", STAGE / "README.md")
     if not WASM.exists():
@@ -75,14 +97,22 @@ def stage():
     pinned = pinned_version()
     if digest != pinned:
         die(f"demo scorer {digest[:8]}... is not the version pinned on {CONTRACT} ({pinned[:8]}...)")
-    dockerfile = (STAGE / "Dockerfile").read_text()
-    if f"SCORER_SHA256={digest}" not in dockerfile:
+    if f"SCORER_SHA256={digest}" not in (STAGE / "Dockerfile").read_text():
         die("deploy/hf/Dockerfile SCORER_SHA256 does not match the demo scorer")
-    (STAGE / "scorer" / "out").mkdir(parents=True)
-    shutil.copy2(WASM, STAGE / "scorer" / "out" / WASM.name)
+    (STAGE / "scorer").mkdir()
+    shutil.copy2(WASM, STAGE / "scorer" / WASM.name)
+    # no readable source anywhere outside third-party node_modules type stubs
+    bad = [str(p.relative_to(STAGE)) for p in STAGE.rglob("*") if p.is_file() and (
+        p.suffix in (".tsx", ".rs", ".map") or (p.suffix == ".ts" and not p.name.endswith(".d.ts"))
+        or (p.suffix == ".ts" and "node_modules" not in p.parts))]
+    if bad:
+        die("source files in the stage: " + ", ".join(bad[:10]))
+    leaks = [str(p.relative_to(STAGE)) for p in app.rglob("*") if p.is_file() and p.suffix in (".js", ".json") and str(ROOT).encode() in p.read_bytes()]
+    if leaks:
+        die("absolute build paths left in: " + ", ".join(leaks[:5]))
     scan()
     n = sum(1 for p in STAGE.rglob("*") if p.is_file())
-    print(f"staged {n} files in build/hf-space (scorer {digest[:8]}..., pinned on {CONTRACT}); secret scan clean")
+    print(f"staged {n} files in build/hf-space (compiled app, scorer {digest[:8]}..., pinned on {CONTRACT}); no source files; secret scan clean")
 
 
 def scan():
@@ -145,9 +175,12 @@ def main():
                 print(f"set secret {k}")
     elif a.cmd == "push":
         stage()
-        info = api().upload_folder(folder_path=str(STAGE), repo_id=a.space, repo_type="space",
-                                   commit_message="Deploy KredoFi (testnet)", delete_patterns=["web/**", "scorer/**"])
-        print(f"pushed: {info}")
+        h = api()
+        info = h.upload_folder(folder_path=str(STAGE), repo_id=a.space, repo_type="space",
+                               commit_message="KredoFi testnet demo (compiled build)", delete_patterns=["*", "**/*", ".*"])
+        # one commit, no history: earlier commits held source code
+        h.super_squash_history(repo_id=a.space, repo_type="space", commit_message="KredoFi testnet demo (compiled build)")
+        print(f"pushed and squashed: {info}")
 
 
 if __name__ == "__main__":
