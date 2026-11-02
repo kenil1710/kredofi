@@ -240,7 +240,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     const since = sess.scoringSince;
     if (b?.score && b.score.issued_at !== sess.prevIssued) {
       updateSession({ scoringSince: undefined });
-      setScoring((s) => (s?.resumed ? { ...s, step: 'sealed' } : s));
+      setScoring((s) => (s?.resumed ? { ...s, step: 'sealed', elapsed: Math.round((Date.now() - since) / 1000) } : s));
       setPress((x) => x + 1);
       return;
     }
@@ -249,11 +249,17 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       setScoring({ step: 'failed', elapsed: Math.round((Date.now() - since) / 1000), error: 'This scoring did not finish. Nothing changed on-chain. Check your limit again.' });
       return;
     }
-    setScoring({ step: 'sent', elapsed: Math.round((Date.now() - since) / 1000), resumed: true });
-    const t = setTimeout(() => refresh().catch(() => {}), 2000);
-    return () => clearTimeout(t);
+    setScoring((s) => (s?.resumed && s.step === 'sent' ? s : { step: 'sent', elapsed: Math.round((Date.now() - since) / 1000), resumed: true }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acct, sess.scoringSince, b]);
+  // While resuming, re-read the chain every 2 s (a re-read from the same block changes nothing, so
+  // this can't hang on an unchanged view).
+  const resuming = !!sess.scoringSince && !!scoring?.resumed && scoring.step === 'sent';
+  useEffect(() => {
+    if (!resuming) return;
+    const t = setInterval(() => { refresh().catch(() => {}); setNow(Date.now()); }, 2000);
+    return () => clearInterval(t);
+  }, [resuming, refresh]);
   const extra: Extra | null = useMemo(() => {
     if (!sess.replySecret || typeof sealedExtra !== 'string') return null;
     try { return JSON.parse(openSealed(sess.replySecret, sealedExtra)) as Extra; } catch { return null; }
