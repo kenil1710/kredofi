@@ -47,7 +47,7 @@ fn run() -> Result<serde_json::Value, String> {
                 score_output(&caller, &bank, &seal_key, reply_pubkey.as_ref(), now)
             });
             let removed = plaid.remove(&access_token);
-            let scored = result?;
+            let scored = result?; #[cfg(feature = "demo")] let scored = kredofi_scorer::demo::with_extra(scored, reply_pubkey.as_ref()); // testnet only: sealed receipt + AI summary
             removed.map_err(|e| format!("item/remove failed: {e}"))?;
             if debug {
                 // `debug` builds only (rejected by parse_input otherwise). stderr, never stdout.

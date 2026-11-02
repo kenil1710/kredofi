@@ -27,8 +27,10 @@ import type { LedgerEvent } from '@/lib/events';
 
 type Who = BorrowerKey | 'custom' | 'plaid';
 type Source = { borrower: Who; custom?: CustomInputs; publicToken?: string };
-type Session = { who?: Who; replySecret?: string; output?: Record<string, unknown>; scoreHash?: string; scoredIn?: number };
-type Record_ = { events: LedgerEvent[]; output: Record<string, unknown> | null; scoreHash: string | null };
+type Session = { who?: Who; replySecret?: string; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number };
+type Record_ = { events: LedgerEvent[]; output: Record<string, unknown> | null; extra: string | null; scoreHash: string | null };
+/** Testnet extras, sealed to the borrower (demo scorer build): real fetch counts and the AI summary. */
+type Extra = { receipt?: { plaid_transactions: number; plaid_accounts: number; read_transactions: number; months: number }; summary?: string; summary_by?: string };
 const whoName = (w?: Who) => (w === 'custom' ? 'your test borrower' : w === 'plaid' ? 'the sandbox bank user' : w ? BORROWERS[w].name.split(' ')[0] : '');
 
 // Plaid Link (SPEC 8c), loaded only when the judge asks for it.
@@ -141,7 +143,7 @@ export function Passbook() {
     if (!acctId) return;
     const who = src.borrower;
     const kp = newKeypair();
-    updateSession({ who, replySecret: kp.secret, output: undefined, scoreHash: undefined, scoredIn: undefined }, acctId);
+    updateSession({ who, replySecret: kp.secret, output: undefined, extra: undefined, scoreHash: undefined, scoredIn: undefined }, acctId);
     const started = Date.now();
     setScoring({ step: 'sent', elapsed: 0 });
     setTimeout(() => scoringBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
@@ -153,7 +155,7 @@ export function Passbook() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'Scoring failed.');
       clearInterval(timer);
-      updateSession({ who, replySecret: kp.secret, output: j.output, scoreHash: j.hash, scoredIn: Math.round((Date.now() - started) / 1000) }, acctId);
+      updateSession({ who, replySecret: kp.secret, output: j.output, extra: j.extra, scoreHash: j.hash, scoredIn: Math.round((Date.now() - started) / 1000) }, acctId);
       setScoring({ step: 'reading', elapsed: Math.round((Date.now() - started) / 1000), hash: j.hash });
       for (let i = 0; i < 30; i++) {
         const { value: bb, height } = await getBorrowerAt(acctId);
@@ -211,6 +213,11 @@ export function Passbook() {
     const ok = (o?: Record<string, unknown> | null) => !!o && (!sc || o.fingerprint === sc.fingerprint);
     return ok(sess.output) ? sess.output! : ok(record?.output) ? record!.output! : null;
   }, [sess.output, record, sc]);
+  const sealedExtra = output && output === sess.output ? sess.extra : output && output === record?.output ? record?.extra : null;
+  const extra: Extra | null = useMemo(() => {
+    if (!sess.replySecret || typeof sealedExtra !== 'string') return null;
+    try { return JSON.parse(openSealed(sess.replySecret, sealedExtra)) as Extra; } catch { return null; }
+  }, [sess.replySecret, sealedExtra]);
   const scoreHash = sess.scoreHash ?? record?.scoreHash ?? undefined;
   const parts: Parts | null = useMemo(() => {
     const reply = output?.reply;
@@ -431,6 +438,13 @@ export function Passbook() {
                   <p className="hint">Score {sc.score}. The five rule results are shown only in the browser that asked for this score; they were sealed to its key.</p>
                 )}
               </div>
+              {extra?.summary && (
+                <div className="change ai-summary">
+                  <h3>In plain words</h3>
+                  <p>{extra.summary}</p>
+                  <p className="hint" style={{ marginTop: 6 }}>Written by {extra.summary_by ?? 'Qwen'} on NEAR AI Cloud from your band and rule points only, and sealed so only this browser can read it. On testnet it is generated on our server. The score never depends on it.</p>
+                </div>
+              )}
               {defaulted ? (
                 <p>Band {sc.band} when scored. This account defaulted, so it can&apos;t borrow again.</p>
               ) : sc.expired ? (

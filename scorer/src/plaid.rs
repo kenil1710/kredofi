@@ -78,7 +78,7 @@ impl Plaid {
 
     pub fn fetch(&self, access_token: &str) -> Result<BankData, String> {
         // Transactions first: the historical pull may need retries.
-        let (txs, status, retries) = self.sync_all(access_token)?;
+        let (txs, status, retries) = self.sync_all(access_token)?; #[cfg(feature = "demo")] kredofi_scorer::demo::note_sync(txs.len());
         #[cfg(feature = "debug")]
         if std::env::var("KREDOFI_TRACE").is_ok() {
             eprintln!("trace sync: status {status}, retries {retries}, transactions {}", txs.len());
@@ -87,7 +87,7 @@ impl Plaid {
 
         let accts = self.post("/accounts/get", json!({ "access_token": access_token }))?;
         let institution_id = accts["item"]["institution_id"].as_str().unwrap_or("").to_string();
-        let list = accts["accounts"].as_array().ok_or("no accounts")?;
+        let list = accts["accounts"].as_array().ok_or("no accounts")?; #[cfg(feature = "demo")] kredofi_scorer::demo::note_accounts(list.len());
         let depository = |a: &&Value| a["type"] == "depository";
         let primary = list
             .iter()

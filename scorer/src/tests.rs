@@ -399,3 +399,45 @@ fn testnet_mode_scopes_sandbox_identity_per_account() {
     let unscoped = score_output("judge1.testnet", &bank("Alberta Bobbeth Charleson", 1000, riya_txs(NOV_1_2026)), &SEAL_KEY, None, NOV_1_2026).unwrap();
     assert_eq!(j1.score, unscoped.score);
 }
+
+// --------------------------------------------------- testnet extras (demo builds)
+
+#[test]
+fn demo_extra_is_sealed_counts_only_and_ai_input_has_no_bank_data() {
+    let bank = bank("Riya Good", 6000, riya_txs(NOV_1_2026));
+    demo::note_sync(64);
+    demo::note_accounts(2);
+    let pk_secret = rand32().unwrap();
+    let pk = public_of(&pk_secret);
+    let scored = score_output("riya.testnet", &bank, &SEAL_KEY, Some(&pk), NOV_1_2026).unwrap();
+    let before = scored.output.clone();
+    let scored = demo::with_extra(scored, Some(&pk));
+    // the on-chain fields are untouched; `extra` is added and sealed
+    for k in ["v", "caller", "band", "score", "income_cap", "fingerprint", "sealed_identity", "reply"] {
+        assert_eq!(scored.output[k].is_null(), before[k].is_null(), "{k}");
+    }
+    let opened = open_sealed(&pk_secret, scored.output["extra"].as_str().unwrap()).unwrap();
+    let extra: Value = serde_json::from_slice(&opened).unwrap();
+    assert_eq!(extra["receipt"]["plaid_transactions"], 64);
+    assert_eq!(extra["receipt"]["plaid_accounts"], 2);
+    assert_eq!(extra["receipt"]["months"], 6);
+    assert!(extra["receipt"]["read_transactions"].as_u64().unwrap() > 0);
+    assert!(extra.get("summary").is_none(), "no network in native tests");
+    // what the AI would see: derived results only
+    let req = demo::summary_request(&scored.score, &scored.features).to_string();
+    assert!(req.contains("Band A") && req.contains("6 of the last 6 months"));
+    for secret in [bank.owner_name.as_str(), bank.mask.as_str(), "Acme", "4000"] {
+        assert!(!req.contains(secret), "AI input leaks {secret}");
+    }
+    assert!(req.contains("\"enable_thinking\":false") && req.contains("/no_think"));
+}
+
+#[test]
+fn demo_summary_parsing() {
+    let ok = serde_json::json!({ "choices": [{ "message": { "content": "<think>\n</think>\n\nYou were paid every month.  Keep fees at zero." } }] });
+    assert_eq!(demo::parse_summary(&ok).unwrap(), "You were paid every month. Keep fees at zero.");
+    let null = serde_json::json!({ "choices": [{ "message": { "content": null } }] });
+    assert!(demo::parse_summary(&null).is_none());
+    let long = serde_json::json!({ "choices": [{ "message": { "content": "a ".repeat(500) } }] });
+    assert!(demo::parse_summary(&long).unwrap().len() <= 400);
+}

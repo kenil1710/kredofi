@@ -332,3 +332,103 @@ pub fn scope_identity_to_account(mut bank: BankData, account: &str) -> BankData 
     bank.institution_id = format!("{}#{}", bank.institution_id, account);
     bank
 }
+
+// ------------------------------------------------------------------ testnet extras (demo builds)
+// Also kept at the end of the file (see above). The production build contains none of this.
+
+/// Testnet / Dev mode only: a fetch receipt (real counts, no transactions) and an optional AI
+/// summary (SPEC 5 step 7), sealed to the borrower's reply key as `extra`. `extra` is never put
+/// on-chain: the Dev-mode server strips it before `dev_submit_score` and hands it to the browser.
+#[cfg(any(test, feature = "demo"))]
+pub mod demo {
+    use super::*;
+    use std::cell::Cell;
+
+    thread_local! {
+        static PLAID_TXS: Cell<usize> = const { Cell::new(0) };
+        static PLAID_ACCOUNTS: Cell<usize> = const { Cell::new(0) };
+    }
+    /// Called by the Plaid client: how many transactions and accounts Plaid sent (counts only).
+    pub fn note_sync(transactions: usize) { PLAID_TXS.with(|c| c.set(transactions)); }
+    pub fn note_accounts(accounts: usize) { PLAID_ACCOUNTS.with(|c| c.set(accounts)); }
+
+    pub const NEARAI_URL: &str = "https://cloud-api.near.ai/v1/chat/completions";
+    pub const NEARAI_MODEL: &str = "Qwen/Qwen3.8-27B";
+    const MAX_SUMMARY: usize = 400;
+
+    /// Counts for the borrower's fetch receipt. Never a transaction, amount, name or balance.
+    pub fn receipt(f: &Features) -> Value {
+        json!({
+            "plaid_transactions": PLAID_TXS.with(Cell::get),
+            "plaid_accounts": PLAID_ACCOUNTS.with(Cell::get),
+            "read_transactions": f.tx_count,
+            "months": f.monthly_income_cents.len(),
+        })
+    }
+
+    /// The AI sees only derived results: band, points per rule and three coarse facts. No
+    /// transactions, names, amounts or balances. The score never depends on its answer.
+    pub fn summary_request(s: &Score, f: &Features) -> Value {
+        let p = &s.parts;
+        let months_paid = f.monthly_income_cents.iter().filter(|&&m| m > 0).count();
+        let income: i64 = f.monthly_income_cents.iter().sum();
+        let spent_more = f.spending_cents > income;
+        let facts = format!(
+            "Band {} ({} of 1000 points). Rule points: income level {}/250, steady income {}/250, on-time payments {}/250, money left over {}/150, savings buffer {}/100. Facts: income arrived in {} of the last 6 months; {} overdraft or returned-payment fees; spending was {} income.",
+            s.band, s.score, p.income, p.stability, p.payment, p.cash_flow, p.buffer, months_paid, f.fee_events,
+            if spent_more { "above" } else { "below" }
+        );
+        json!({
+            "model": NEARAI_MODEL,
+            "messages": [
+                { "role": "system", "content": "/no_think You explain a credit result to the borrower in exactly two short, plain, kind sentences: why this band, and the one change that would help most. No numbers other than the band letter. No advice beyond the rules given." },
+                { "role": "user", "content": facts },
+            ],
+            "max_tokens": 120,
+            "temperature": 0.2,
+            "chat_template_kwargs": { "enable_thinking": false },
+        })
+    }
+
+    /// The model's text, cleaned (no reasoning tags, one line, bounded). None if unusable.
+    pub fn parse_summary(v: &Value) -> Option<String> {
+        let raw = v["choices"][0]["message"]["content"].as_str()?;
+        let text = match raw.rfind("</think>") { Some(i) => &raw[i + 8..], None => raw };
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if text.is_empty() || text.contains("<think>") { return None; }
+        Some(truncate(&text, MAX_SUMMARY).to_string())
+    }
+
+    #[cfg(target_os = "wasi")]
+    fn ask_nearai(req: &Value) -> Option<String> {
+        let key = std::env::var("NEARAI_KEY").ok().filter(|k| !k.is_empty())?;
+        let body = serde_json::to_vec(req).ok()?;
+        let resp = wasi_http_client::Client::new()
+            .post(NEARAI_URL)
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {key}").as_str())
+            .body(&body)
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .send()
+            .ok()?;
+        if resp.status() != 200 { return None; }
+        parse_summary(&serde_json::from_slice(&resp.body().ok()?).ok()?)
+    }
+    #[cfg(not(target_os = "wasi"))]
+    fn ask_nearai(_req: &Value) -> Option<String> { None }
+
+    /// Seal {receipt, summary} to the borrower as `extra`. Best effort: any failure leaves the
+    /// scored output exactly as it was.
+    pub fn with_extra(mut scored: Scored, reply_pubkey: Option<&Key32>) -> Scored {
+        let Some(pk) = reply_pubkey else { return scored };
+        let mut extra = json!({ "receipt": receipt(&scored.features) });
+        if let Some(s) = ask_nearai(&summary_request(&scored.score, &scored.features)) {
+            extra["summary"] = json!(s);
+            extra["summary_by"] = json!(NEARAI_MODEL);
+        }
+        if let Ok(sealed) = crypto::seal_to(pk, extra.to_string().as_bytes()) {
+            scored.output["extra"] = json!(sealed);
+        }
+        scored
+    }
+}

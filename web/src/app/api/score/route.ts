@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server';
 import { checkCustom, customProfile, profileFor, type BorrowerKey, type CustomInputs } from '@/lib/borrowers';
 import { KREDOFI_CONTRACT } from '@/lib/config';
 import { call, isTestnetAccount, rateLimited, scorerAccount } from '@/server/near';
-import { checkPinned, runScorer, saveSubmitted } from '@/server/scorer';
+import { checkPinned, runScorer, saveExtra, saveSubmitted } from '@/server/scorer';
 import { recordSoon } from '@/server/ledger';
 
 export const runtime = 'nodejs';
@@ -32,7 +32,8 @@ export async function POST(req: Request) {
     const input = borrower === 'plaid'
       ? { op: 'score', public_token: publicToken, reply_pubkey: replyPubkey }
       : { op: 'score', profile: borrower === 'custom' ? customProfile(custom as CustomInputs, tag) : profileFor(borrower as BorrowerKey, tag), reply_pubkey: replyPubkey };
-    const output = await runScorer(input, accountId);
+    // `extra` (demo build: fetch receipt + AI summary, sealed to the borrower) never goes on-chain.
+    const { extra, ...output } = await runScorer(input, accountId);
     const scorer = scorerAccount();
     const r = await call(scorer, KREDOFI_CONTRACT, 'dev_submit_score', { borrower: accountId, output });
     recordSoon(r.hash, scorer.accountId);
@@ -43,7 +44,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error, hash: r.hash }, { status: 409 });
     }
     await saveSubmitted(accountId, output);
-    return NextResponse.json({ output, hash: r.hash, scorerVersion: version });
+    if (typeof extra === 'string') await saveExtra(accountId, extra);
+    return NextResponse.json({ output, extra: typeof extra === 'string' ? extra : null, hash: r.hash, scorerVersion: version });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Scoring failed.' }, { status: 502 });
   }
