@@ -1,0 +1,16 @@
+# Reproducible scorer build on an x86_64 Linux runner: the same pinned Rust image as on any other
+# machine (scorer/build-docker.sh). Compare the printed SHA-256 with the pinned version.
+name: scorer reproducible build
+on:
+  workflow_dispatch:
+  push:
+    paths: ["scorer/**", "rust-toolchain.toml", ".github/workflows/scorer-repro.yml"]
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: production build
+        run: ./scorer/build-docker.sh && sha256sum scorer/out/kredofi_scorer.wasm
+      - name: testnet demo build
+        run: ./scorer/build-docker.sh demo && sha256sum scorer/out/kredofi_scorer_demo.wasm

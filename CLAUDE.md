@@ -70,6 +70,8 @@ cd scorer && cargo test
 cd scorer && ./build.sh          # production (pin this): out/kredofi_scorer.wasm, rejects profiles and debug
 cd scorer && ./build.sh demo     # + demo profiles: out/kredofi_scorer_demo.wasm (local / testnet Dev mode)
 cd scorer && ./build.sh debug    # + debug features on stderr: local only, never deploy
+cd scorer && ./build.sh legacy   # production WITHOUT path remapping: reproduces the current mainnet pin 87ceab66 (this machine only)
+# all other modes rewrite machine paths (--remap-path-prefix): same bytes on any machine (7614ee86 production)
 # demo borrowers -> scorer/out/borrowers/{good,risky,cheater}.json (ready scorer inputs)
 python3 scripts/gen_borrowers.py
 # run locally: keys from .env, passed to wasmtime by NAME only (never values on the command line)
