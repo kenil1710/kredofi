@@ -448,12 +448,12 @@ fn demo_history_covers_window_only_when_every_month_is_there() {
     // Nov 1 2026: window 2026-05 .. 2026-10
     let months = ["2026-05-03", "2026-06-03", "2026-07-03", "2026-08-03", "2026-09-03", "2026-10-03"];
     let full: Vec<_> = months.iter().map(|d| tx(d)).collect();
-    assert!(demo::covers_window_at(full.iter(), NOV_1_2026));
+    assert!(sync_guard::covers_window_at(full.iter(), NOV_1_2026));
     // reaches back to May but a month is missing (caught mid-delivery, the live Riya C case)
     let gap: Vec<_> = months.iter().filter(|d| !d.starts_with("2026-08")).map(|d| tx(d)).collect();
-    assert!(!demo::covers_window_at(gap.iter(), NOV_1_2026));
+    assert!(!sync_guard::covers_window_at(gap.iter(), NOV_1_2026));
     // the Nov 1 sandbox bug: only the last month delivered
     let recent_only = [tx("2026-10-05"), tx("2026-10-20")];
-    assert!(!demo::covers_window_at(recent_only.iter(), NOV_1_2026));
-    assert!(!demo::covers_window_at([].iter(), NOV_1_2026));
+    assert!(!sync_guard::covers_window_at(recent_only.iter(), NOV_1_2026));
+    assert!(!sync_guard::covers_window_at([].iter(), NOV_1_2026));
 }

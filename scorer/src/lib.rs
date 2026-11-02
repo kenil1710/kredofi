@@ -347,8 +347,6 @@ pub mod demo {
     thread_local! {
         static PLAID_TXS: Cell<usize> = const { Cell::new(0) };
         static PLAID_ACCOUNTS: Cell<usize> = const { Cell::new(0) };
-        static STABLE: Cell<(usize, u32)> = const { Cell::new((0, 0)) };
-        static WAIT_SINCE: Cell<u64> = const { Cell::new(0) };
     }
     /// Called by the Plaid client: how many transactions and accounts Plaid sent (counts only).
     pub fn note_sync(transactions: usize) { PLAID_TXS.with(|c| c.set(transactions)); }
@@ -419,51 +417,6 @@ pub mod demo {
     #[cfg(not(target_os = "wasi"))]
     fn ask_nearai(_req: &Value) -> Option<String> { None }
 
-    /// Testnet speed-up for the sync completion rule (demo builds). Done early only when Plaid says
-    /// the historical update is complete, EVERY month of the scoring window already has transactions,
-    /// and the count stayed the same over 2 more complete polls (about 3 s; the normal rule waits 5).
-    /// A first version stopped as soon as the history merely reached back to the window: on the
-    /// hosted server (polling faster) the sandbox was caught mid-delivery and Riya scored C instead
-    /// of A (live, Nov 2). Anything else falls through to the normal `SyncProgress` rule.
-    pub fn covers_window<'a>(txs: impl Iterator<Item = &'a Value>) -> bool {
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        let txs: Vec<&Value> = txs.collect();
-        let full = covers_window_at(txs.iter().copied(), now);
-        STABLE.with(|c| {
-            let (last, n) = c.get();
-            let next = if full && txs.len() == last { n + 1 } else { 0 };
-            c.set((txs.len(), next));
-            next >= 2
-        })
-    }
-    pub enum Step { Done, Repoll, Normal }
-    /// Called at every sync checkpoint (demo builds), before the normal `SyncProgress` rule.
-    /// - complete, every window month present, count stable over 2 polls: Done (fast path);
-    /// - complete but the window NOT covered: re-poll without letting the normal rule decide, for up
-    ///   to 25 s. Live (Nov 2, fast host): the sandbox flagged HISTORICAL_UPDATE_COMPLETE, then the
-    ///   first 30-day batch (6 transactions) arrived on a later page, which the normal rule takes as
-    ///   "the historical batch arrived" and scored Riya C on 6 of her 30 transactions;
-    /// - otherwise (not complete yet, or the 25 s are used up): the normal rule decides.
-    pub fn checkpoint_step<'a>(status_complete: bool, txs: impl Iterator<Item = &'a Value>) -> Step {
-        if !status_complete {
-            STABLE.with(|c| c.set((0, 0)));
-            return Step::Normal;
-        }
-        let txs: Vec<&Value> = txs.collect();
-        if covers_window(txs.iter().copied()) {
-            return Step::Done;
-        }
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
-        let started = WAIT_SINCE.with(|c| { if c.get() == 0 { c.set(now); } c.get() });
-        if now.saturating_sub(started) < 25_000 && !covers_window_at(txs.iter().copied(), now / 1000) { Step::Repoll } else { Step::Normal }
-    }
-
-    /// Every month of the scoring window has at least one transaction.
-    pub fn covers_window_at<'a>(txs: impl Iterator<Item = &'a Value>, now_unix: u64) -> bool {
-        let months: std::collections::BTreeSet<&str> = txs.filter_map(|t| t["date"].as_str()).filter_map(|d| d.get(..7)).collect();
-        window(now_unix).iter().all(|m| months.contains(m.as_str()))
-    }
-
     /// Testnet: print the on-chain output as soon as the score exists, so the Dev-mode server can
     /// submit it while the scorer removes the bank connection and asks for the AI summary. The final
     /// line (output + sealed `extra`) still follows.
@@ -494,5 +447,61 @@ pub mod demo {
             scored.output["extra"] = json!(sealed);
         }
         scored
+    }
+}
+
+// ------------------------------------------------------------------ Plaid history guard (all builds)
+
+/// Stricter completion rule for `/transactions/sync`, used by every build (mainnet and testnet run the
+/// same scoring logic since Nov 2). Plaid's sandbox can flag HISTORICAL_UPDATE_COMPLETE before the
+/// history has arrived, and the first batch can land on a later page, which `SyncProgress` alone took
+/// as "the historical batch arrived" (live Nov 2: Riya scored C on 6 of her 30 transactions).
+pub mod sync_guard {
+    use super::*;
+    use std::cell::Cell;
+
+    /// Re-poll budget while complete but the window isn't covered; OutLayer runs are capped at 30 s.
+    pub const REPOLL_BUDGET_MS: u64 = 15_000;
+
+    thread_local! {
+        static STABLE: Cell<(usize, u32)> = const { Cell::new((0, 0)) };
+        static WAIT_SINCE: Cell<u64> = const { Cell::new(0) };
+    }
+
+    pub enum Step { Done, Repoll, Normal }
+
+    /// Every month of the scoring window has at least one transaction.
+    pub fn covers_window_at<'a>(txs: impl Iterator<Item = &'a Value>, now_unix: u64) -> bool {
+        let months: std::collections::BTreeSet<&str> = txs.filter_map(|t| t["date"].as_str()).filter_map(|d| d.get(..7)).collect();
+        window(now_unix).iter().all(|m| months.contains(m.as_str()))
+    }
+
+    /// Complete, every window month present, and the count unchanged over 2 more complete polls.
+    fn covered_and_stable(txs: &[&Value], now_unix: u64) -> bool {
+        let full = covers_window_at(txs.iter().copied(), now_unix);
+        STABLE.with(|c| {
+            let (last, n) = c.get();
+            let next = if full && txs.len() == last { n + 1 } else { 0 };
+            c.set((txs.len(), next));
+            next >= 2
+        })
+    }
+
+    /// Called at every sync checkpoint, before `SyncProgress`:
+    /// - complete, every window month present, count stable over 2 polls: Done;
+    /// - complete but the window NOT covered: Repoll (the normal rule doesn't decide) for up to 15 s;
+    /// - otherwise (not complete yet, or the budget is used up): Normal, `SyncProgress` decides.
+    pub fn checkpoint_step<'a>(status_complete: bool, txs: impl Iterator<Item = &'a Value>) -> Step {
+        if !status_complete {
+            STABLE.with(|c| c.set((0, 0)));
+            return Step::Normal;
+        }
+        let txs: Vec<&Value> = txs.collect();
+        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+        if covered_and_stable(&txs, now_ms / 1000) {
+            return Step::Done;
+        }
+        let started = WAIT_SINCE.with(|c| { if c.get() == 0 { c.set(now_ms); } c.get() });
+        if now_ms.saturating_sub(started) < REPOLL_BUDGET_MS && !covers_window_at(txs.iter().copied(), now_ms / 1000) { Step::Repoll } else { Step::Normal }
     }
 }
