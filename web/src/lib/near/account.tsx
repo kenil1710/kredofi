@@ -46,7 +46,11 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
     return d.accountId;
   }, [slot]);
   const resetDemo = useCallback(() => {
-    try { localStorage.removeItem(demoKey(slot)); } catch { /* private mode */ }
+    try {
+      const id = loadDemo(slot)?.accountId;
+      if (id) localStorage.removeItem(`kredofi:passbook:${id}`); // its reply key and scorer output too
+      localStorage.removeItem(demoKey(slot));
+    } catch { /* private mode */ }
     setDemo(null);
   }, [slot]);
 

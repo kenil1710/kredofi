@@ -2,7 +2,8 @@
 // The scoring box on the passbook (passbook reference + DESIGN 7.3, "waiting honestly").
 // Four real phases, each confirmed by something real; elapsed seconds while the enclave reads;
 // after 30 s a note that it is safe to leave. Never a bare spinner or a fake percentage.
-// The blurred rows are decoration only (aria-hidden): no bank data ever reaches the browser.
+// The blurred rows are abstract bars (aria-hidden, no text or numbers): no bank data, real or
+// realistic, ever reaches the browser.
 import { HashLink } from './HashLink';
 
 export type EnclaveStep = 'signing' | 'sent' | 'reading' | 'sealed' | 'failed';
@@ -12,9 +13,12 @@ export const PHASES = ['Waiting for your signature', 'Request sent', 'Enclave re
 export const DEV_PHASES = ['Request sent', 'Scorer reading your transactions', 'Result submitted on-chain', 'Sealed'] as const;
 const INDEX: Record<EnclaveStep, number> = { signing: 0, sent: 1, reading: 2, sealed: 4, failed: -1 };
 
-export const DECOR_ROWS: Record<'steady' | 'irregular', [string, string][]> = {
-  steady: [['Salary', '+4,000.00'], ['Rent', '−1,200.00'], ['Groceries', '−186.40'], ['Electricity', '−92.10'], ['To savings', '−600.00'], ['Phone', '−45.00'], ['Groceries', '−201.75'], ['Bus pass', '−64.00']],
-  irregular: [['Gig payout', '+2,500.00'], ['Rent', '−1,100.00'], ['Overdraft fee', '−35.00'], ['Groceries', '−210.40'], ['Returned payment fee', '−35.00'], ['Gig payout', '+2,000.00'], ['Phone', '−45.00'], ['Overdraft fee', '−35.00']],
+/** Decoration only: abstract bar widths (%, label and amount), no text or numbers at all, so
+ * nothing that looks like bank data reaches the page, screen readers or copy-paste. A third value
+ * of 1 tints the bar like money in. */
+export const DECOR_ROWS: Record<'steady' | 'irregular', [number, number, number?][]> = {
+  steady: [[46, 34, 1], [22, 30], [34, 24], [40, 20], [30, 28], [24, 16], [36, 26], [28, 18]],
+  irregular: [[38, 34, 1], [22, 30], [44, 12], [34, 26], [52, 12], [38, 30, 1], [24, 16], [44, 12]],
 };
 
 export function EnclavePanel({
@@ -35,7 +39,7 @@ export function EnclavePanel({
   failedAt?: number;
   failure?: string;
   txHash?: string;
-  rows?: [string, string][];
+  rows?: [number, number, number?][];
   /** Phase labels (4). */
   labels?: readonly string[];
   /** Which phase shows the elapsed seconds. */
@@ -50,7 +54,7 @@ export function EnclavePanel({
     <div>
       <div className={`enc${step === 'sealed' || step === 'failed' ? ' sealed' : ''}`}>
         <div className="rows" aria-hidden="true">
-          <ul>{list.map(([a, b], i) => <li key={i}><span>{a}</span><span>{b}</span></li>)}</ul>
+          <ul>{list.map(([a, b, inc], i) => <li key={i} className={inc ? 'in' : undefined}><i style={{ width: `${a}%` }} /><i style={{ width: `${b}%` }} /></li>)}</ul>
         </div>
         <div className="cube" aria-hidden="true">
           <div className="cube3"><i /><i /><i /><i /><i /><i /></div>

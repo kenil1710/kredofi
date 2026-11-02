@@ -460,7 +460,9 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 {parts ? (
                   <Tally play={press} rows={PART_KEYS.map((k) => ({ label: PART_NAMES[k], detail: reason(k, parts[k]), points: parts[k] }))} />
                 ) : (
-                  <p className="hint">Score {sc.score}. The five rule results are shown only in the browser that asked for this score; they were sealed to its key.</p>
+                  <p className="hint">Rule results aren&apos;t available for this score. {!b?.has_active_loan && !b?.blocked && (who || !scenarios)
+                    ? <button type="button" className="linkbtn" onClick={() => (who ? retry() : connectBank())}>Check your limit again</button>
+                    : 'Check your limit again'} to see them.</p>
                 )}
               </div>
               {extra?.summary && (

@@ -294,3 +294,18 @@ button{font-family:inherit}
 .appfoot.night{border-top-color:var(--line-night);color:var(--muted)}
 .appfoot .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 .layout.has-bar + .appfoot{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+
+/* Scoring box decoration: abstract bars only (no text, no amounts) */
+.enc .rows li{align-items:center;min-height:30px;user-select:none}
+.enc .rows li i{display:block;height:8px;border-radius:4px;background:rgba(230,234,225,.32)}
+.enc .rows li.in i:last-child{background:rgba(159,217,191,.6)}
+
+/* Account menu (top right) */
+.acctmenu{position:relative}
+.acctmenu .menu{position:absolute;right:0;top:calc(100% + 8px);z-index:60;width:min(340px,calc(100vw - 32px));background:var(--paper-2);color:var(--ink);border:1px solid var(--line-paper);box-shadow:0 18px 40px rgba(16,48,42,.25);padding:16px 18px;display:flex;flex-direction:column;gap:10px;font-size:14px}
+.acctmenu .who-line{font-weight:700}
+.acctmenu .id{overflow-wrap:anywhere;color:#2C4A41;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.acctmenu .hint{color:var(--ink-soft)}
+.acctmenu .warn{color:var(--red-ink);line-height:1.45}
+.acctmenu .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.acctmenu .btn{min-height:44px;font-size:14px;padding:0 14px}
