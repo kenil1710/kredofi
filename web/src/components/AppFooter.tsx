@@ -6,7 +6,7 @@ export function AppFooter({ ground = 'paper' }: { ground?: 'paper' | 'night' }) 
     <footer className={`appfoot ${ground}`}>
       <div className="wrap">
         <p>KredoFi, built for NEAR HACKATHON in November 2026. Testnet, Plaid sandbox data only; not a lending offer.</p>
-        <p><Link href="/docs">Docs</Link> · <Link href="/ledger">Public ledger</Link> · <Link href="/scenarios">Demo scenarios</Link></p>
+        <p><Link href="/trust">Why is this safe?</Link> · <Link href="/docs">Docs</Link> · <Link href="/ledger">Public ledger</Link> · <Link href="/scenarios">Demo scenarios</Link></p>
       </div>
     </footer>
   );

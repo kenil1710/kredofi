@@ -39,7 +39,7 @@ Mainnet proof, all on `kredofi.near` (Nov 1, 2026):
 - A real score computed inside OutLayer and stored by `on_score` (band A, 1000, scorer `87ceab66…`), unused fee refunded to the borrower: [tx 4dgHrA97…](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu).
 - Two earlier attempts refused by OutLayer's secrets access rule before it was fixed (no score stored): [tx BCdtpGjj…](https://nearblocks.io/txns/BCdtpGjjqPeBFqjnPf7FvbgShyagerNWMM8KCFSY8qEP), [tx 2AjMgECA…](https://nearblocks.io/txns/2AjMgECA6PFJaMTQkbP5vZ3dpKATAoapWAqCocidDP4F).
 
-How to check all of this yourself: [VERIFY.md](VERIFY.md). What is protected and what isn't: [THREAT_MODEL.md](THREAT_MODEL.md).
+How to check all of this yourself: [VERIFY.md](VERIFY.md). What is protected and what isn't: [THREAT_MODEL.md](THREAT_MODEL.md). The short version for visitors: [/trust](https://kenil1710-kredofi.hf.space/trust).
 
 ## How it works
 
@@ -96,6 +96,7 @@ Every security rule in [SPEC section 7](docs/SPEC.md) has a test. Build and run 
 
 - Bank data is Plaid sandbox only. Real banks need Plaid production access and a licensed lending partner.
 - The live demo is testnet in Dev mode: the scorer runs on our server, not in an enclave. Only mainnet uses OutLayer, and no mainnet loan has been made.
+- Testnet scoring requires a one-time challenge signed by the account's own key (NEP-413), so nobody can re-score another account (`web/src/lib/ownership.ts`).
 - On testnet every judge can use the shared sandbox login because the testnet scorer ties the sandbox identity to your NEAR account ([SPEC 8c](docs/SPEC.md)); the mainnet build keeps the strict one-identity rule.
 - The production scorer WASM contains absolute build paths, so rebuilding it on another machine gives a different hash; verify the published file instead ([VERIFY.md](VERIFY.md)).
 - Both contract accounts still have their full-access keys, so the owner can redeploy the code. Owner methods can't move lender funds or the reserve (rule 10, tested), but a redeploy could. See [THREAT_MODEL.md](THREAT_MODEL.md).

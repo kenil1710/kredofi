@@ -11,6 +11,8 @@ import { EnclavePanel, DECOR_ROWS, DEV_PHASES, type EnclaveStep } from './Enclav
 import { TxButton, TxStatus } from './TxButton';
 import { HashLink } from './HashLink';
 import { CopyButton } from './CopyButton';
+import { SandboxBanner } from './SandboxBanner';
+import Link from 'next/link';
 import { functionCall } from '@/lib/near/wallet';
 import { useAccount } from '@/lib/near/account';
 import { useTx } from '@/lib/useTx';
@@ -430,6 +432,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
 
         {showPick && !scenarios && (
           <section aria-label="Connect your bank" className="bankstart">
+            <SandboxBanner />
             <article className="who connect" id="pa-start">
               <GuillocheStrip />
               <h3>Connect your bank (sandbox)</h3>
@@ -439,7 +442,10 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 <dt>Password</dt><dd><code>pass_good</code><CopyButton text="pass_good" label="password" /></dd>
               </dl>
               <p className="expect">This is Plaid&apos;s public sandbox login: a test bank with test money, the same for everyone. Pick any bank in the list.</p>
-              <button type="button" className="btn btn-violet btn-big" disabled={!!starting} onClick={connectBank}>Connect your bank (sandbox)</button>
+              <p className="connect-row">
+                <button type="button" className="btn btn-violet btn-big" disabled={!!starting} onClick={connectBank}>Connect your bank (sandbox)</button>
+                <Link href="/trust" className="linkbtn">How we keep your data private</Link>
+              </p>
             </article>
             {starting && <p className="acct" aria-live="polite">{starting}</p>}
             {startError && <p className="hint err" role="alert" style={{ marginTop: 12 }}>{startError}</p>}
@@ -448,6 +454,8 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
             </p>
           </section>
         )}
+
+        {scenarios && <SandboxBanner />}
 
         {showPick && scenarios && (
           <section aria-label="Pick a prepared borrower">
@@ -510,6 +518,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
               <EnclavePanel step={scoring?.step ?? 'sealed'} elapsed={scoring?.elapsed ?? sess.scoredIn ?? 0} labels={DEV_PHASES} timerAt={1} failedAt={1}
                 txHash={scoring?.hash ?? scoreHash} failure={scoring?.error} rows={who === 'sam' ? DECOR_ROWS.irregular : DECOR_ROWS.steady}
                 note="Testnet: the pinned scorer runs on our server, outside the enclave. On mainnet the same code runs inside Intel TDX through OutLayer." />
+              {scoring && scoring.step !== 'sealed' && !scenarios && <SandboxBanner />}
               {extra?.receipt && (!scoring || scoring.step === 'sealed') && (
                 <p className="receipt">
                   Plaid sent {extra.receipt.plaid_transactions} transactions from {extra.receipt.plaid_accounts} account{extra.receipt.plaid_accounts === 1 ? '' : 's'}; the scorer read the last {extra.receipt.months} months ({extra.receipt.read_transactions} transactions from your main account), and none of it left.

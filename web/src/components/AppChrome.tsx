@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AccountMenu } from './AccountMenu';
 import { NETWORK } from '@/lib/config';
 
-const LINKS = [['/borrow', 'Borrow'], ['/lend', 'Lend'], ['/ledger', 'Public ledger'], ['/docs', 'Docs']] as const;
+const LINKS = [['/borrow', 'Borrow'], ['/lend', 'Lend'], ['/ledger', 'Public ledger'], ['/docs', 'Docs'], ['/trust', 'Trust']] as const;
 
 export function AppChrome() {
   const path = usePathname();
