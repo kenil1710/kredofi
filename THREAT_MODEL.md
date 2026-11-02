@@ -36,7 +36,7 @@ What KredoFi protects, against whom, and where the protection stops. "Mainnet" m
 
 **Releasing a defaulter's name is permissionless.** After the due date plus grace, anyone can mark a loan defaulted and request the release, and the sealed name goes to the recovery partner. That is the deterrent by design; it also means a borrower who misses the deadline by a minute is released (testnet terms are 2 minutes plus 1 minute of grace).
 
-**The scorer build isn't reproducible on other machines.** The production WASM contains absolute build paths, so rebuilding it elsewhere gives a different hash. Anyone can check that the published WASM is the pinned one; not that it came byte-for-byte from this source ([VERIFY.md](VERIFY.md) section 3).
+**The pinned mainnet scorer isn't yet reproducible on other machines.** Scorer builds are now reproducible on x86_64 Linux in a pinned image (`./scorer/build-docker.sh`, `39eec3ba…`; builds on other OS/CPU combinations differ), but `kredofi.near` still pins `87ceab66…`, built on macOS before that change, which reproduces only on the original machine. The re-pin is prepared ([docs/REPIN_PLAN.md](docs/REPIN_PLAN.md)) and waits for approval.
 
 **The scorer trusts Plaid's "complete" flag only so far.** Plaid's sandbox sometimes reports the historical update complete before the history arrives. The production rule waits for a later page with transactions, or 5 quiet polls. On a fast host that was too short for the testnet build (a prepared borrower was scored on 6 of 30 transactions); the testnet build now also requires every month of the window. The production build has the original rule and could, in theory, score a partial history the same way; a partial history lowers a score, it can't raise it.
 

@@ -6,7 +6,7 @@
 export type DocPage = { slug: string; title: string; summary: string; body: string };
 
 const MAINNET_SCORER = '87ceab664ebf5596ee1a78f84e7f3817faa452dcb67c5f98cac1ad724a3e1587';
-const TESTNET_SCORER = '473be96da6b1a9f7313410acdc0d0695c9d1f082d94978cb4a594ab74ae5e312';
+const TESTNET_SCORER = '7f57898102233ceaa9990eef9d4abde214a58c11f3ecfa850e7a5b532a51ecb9';
 const TX_SCORE = 'https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu';
 const TX_DEPLOY = 'https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp';
 const TX_MIGRATE = 'https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34';
@@ -315,7 +315,9 @@ No. On mainnet the contract is in OutLayer mode, so \`dev_submit_score\` is refu
 
 ## 5. Does the WASM come from this source?
 
-The source is in the repository (\`scorer/\`) and \`./build.sh\` builds the production file. One honest limit: the file contains absolute build paths of the machine that built it, so a build on another machine gives a different hash. Verify the published file against the pin (steps 1 and 2) and read the source; a byte-identical rebuild elsewhere needs a path-independent build, which is on the [roadmap](/docs/roadmap).
+The source is in the repository (\`scorer/\`). The canonical build runs on x86_64 Linux in a pinned Rust image: \`./scorer/build-docker.sh\` gives \`39eec3ba1e0208f838cfa7d5cb32ff0f8112594217fd44cb5703cd5954fa2975\` on any x86_64 machine with Docker, and the repository's GitHub workflow prints the same hash (two separate runs matched). Builds on macOS or ARM Linux give other hashes for the same source, which is why one platform is canonical.
+
+One honest gap: mainnet still pins \`${MAINNET_SCORER.slice(0, 8)}…\`, built on macOS before this, so that exact file rebuilds byte for byte only on the original machine. Its code is the same; only the build changed. Moving mainnet to the reproducible build is prepared and waits for approval (see the [roadmap](/docs/roadmap)).
 
 ## 6. The testnet demo
 
@@ -460,7 +462,7 @@ The demo's server routes (\`/api/score\`, \`/api/relay\`, \`/api/demo\`, \`/api/
 - **Fingerprints rely on identity data.** Someone with accounts at several banks could become several borrowers.
 - **A missed deadline releases your name.** After the due date plus grace, anyone can mark the default; that is the deterrent by design.
 - **Partial bank history.** Plaid's sandbox sometimes reports the history as complete before it has arrived. The scorer waits for it (and the testnet scorer also checks every month is present); a partial history can lower a score, never raise it.
-- **The scorer build isn't reproducible elsewhere.** The published WASM matches the pin, but a rebuild on another machine gives a different hash. See [Verify it yourself](/docs/verify).
+- **The mainnet scorer can't yet be rebuilt byte for byte elsewhere.** Scorer builds are now reproducible on x86_64 Linux in a pinned image, but mainnet still pins the earlier macOS build until it is re-pinned. See [Verify it yourself](/docs/verify).
 - **Demo accounts live in your browser.** Their key is in local storage; anything that can run script on the page could take it. They hold only test funds.
 
 ## Known limits
@@ -560,7 +562,7 @@ No owner method can move lender cash, loans or the reserve. But the contract key
 Nothing on this page is built yet; it is the plan, roughly in order.
 
 1. **Lock the contract keys** behind a time-locked upgrade path or a DAO, so code can't change silently.
-2. **Path-independent scorer builds**, so anyone can rebuild the WASM byte for byte, then pin that build on mainnet.
+2. **Pin the reproducible scorer build on mainnet** (built on x86_64 Linux and checked; waiting for approval), so anyone can rebuild the exact pinned file.
 3. **Generate the sealing key inside the enclave** and never export it; a real recovery partner with its own key.
 4. **Plaid production access** and a licensed lending partner; Plaid's persistent account IDs for fingerprints.
 5. **First mainnet loans** with small amounts.

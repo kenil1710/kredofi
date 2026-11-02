@@ -18,7 +18,7 @@ ARG WASMTIME_VERSION=50.0.0
 ARG WASMTIME_SHA256=77c19ee0437991f9ac7837b9c269d9c7076744f85dad263fea5214cc2723c7ff
 # Must equal the scorer_version pinned on kredofi.kency.testnet; the server also refuses to score
 # on a mismatch (web/src/server/scorer.ts).
-ARG SCORER_SHA256=473be96da6b1a9f7313410acdc0d0695c9d1f082d94978cb4a594ab74ae5e312
+ARG SCORER_SHA256=7f57898102233ceaa9990eef9d4abde214a58c11f3ecfa850e7a5b532a51ecb9
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \

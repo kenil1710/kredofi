@@ -25,18 +25,19 @@ Expected: `87ceab664ebf5596ee1a78f84e7f3817faa452dcb67c5f98cac1ad724a3e1587`.
 
 ## 3. Does that WASM come from this source code?
 
-Build it and compare:
+Since Nov 2 scorer builds rewrite machine paths (`--remap-path-prefix`) and the canonical build runs on **x86_64 Linux in a pinned Rust image** (the bytes also depend on the build host's OS and CPU, so builds on macOS or ARM Linux give other hashes):
 
 ```bash
-cd scorer && ./build.sh        # prints: sha256 87ceab66…
+./scorer/build-docker.sh        # production: sha256 39eec3ba1e0208f838cfa7d5cb32ff0f8112594217fd44cb5703cd5954fa2975
+./scorer/build-docker.sh demo   # testnet demo: the hash pinned on kredofi.kency.testnet (section 6)
 ```
 
-Honest limit: the WASM embeds absolute paths of the build machine (Rust panic locations for dependencies, e.g. `~/.cargo/registry/...`), so the same source built on another machine gives a different hash. On the original build machine it reproduces exactly (checked after every scorer change; the testnet-only code is compiled out of this build). To check the code without a byte-identical rebuild:
+On an x86_64 machine with Docker, or in a fork with the GitHub workflow `scorer reproducible build` (`.github/workflows/scorer-repro.yml`), which prints both hashes; two separate runs gave the same bytes.
+
+Honest gap until the mainnet re-pin: `kredofi.near` still pins `87ceab66…`, which was built on macOS before path rewriting. It embeds the builder's paths, so it reproduces only on the original machine (`./build.sh legacy`); the code is the same as `39eec3ba…` (only the build changed). The re-pin to `39eec3ba…` is prepared and waits for the owner's approval: [docs/REPIN_PLAN.md](docs/REPIN_PLAN.md). Until then, check the published file against the pin (sections 1 and 2) and these properties of it:
 
 - `strings kredofi_scorer.wasm | grep -c 'demo profiles are disabled in this build'` prints `1` (the production build refuses prepared sandbox profiles at input parsing, `scorer/src/lib.rs` `parse_input`), and `strings kredofi_scorer.wasm | grep -c cloud-api.near.ai` prints `0` (no AI call in the production build).
 - The output it may produce is fixed by the contract's strict parser (`contracts/kredofi/src/score.rs`, `parse_output`): exactly `v`, `caller`, `band`, `score`, `income_cap`, `fingerprint`, `sealed_identity` and an optional `reply`; anything else is refused.
-
-Fixing this needs `--remap-path-prefix` in `scorer/build.sh`, which changes the hash and needs a new mainnet pin.
 
 ## 4. Did a real score come from OutLayer?
 
@@ -69,7 +70,7 @@ The live demo runs on testnet in Dev mode, where the server runs the pinned demo
 curl -s https://kenil1710-kredofi.hf.space/api/ledger | python3 -c "import json,sys;print(json.load(sys.stdin)['config']['scorer_version'])"
 ```
 
-Expected: `473be96da6b1a9f7313410acdc0d0695c9d1f082d94978cb4a594ab74ae5e312`. The server refuses to score if its WASM's hash differs from the pinned value (`web/src/server/scorer.ts`, `checkPinned`), and the container build refuses a WASM with any other hash (`deploy/hf/Dockerfile`).
+Expected: `7f57898102233ceaa9990eef9d4abde214a58c11f3ecfa850e7a5b532a51ecb9`. The server refuses to score if its WASM's hash differs from the pinned value (`web/src/server/scorer.ts`, `checkPinned`), and the container build refuses a WASM with any other hash (`deploy/hf/Dockerfile`).
 
 Every event on [the public ledger](https://kenil1710-kredofi.hf.space/ledger) links to its transaction on `testnet.nearblocks.io`; the ledger trusts only logs from receipts executed by the KredoFi contract itself (`web/src/lib/events.ts`, tested).
 

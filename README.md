@@ -28,7 +28,7 @@ You can't borrow on-chain without locking up more collateral than you borrow, an
 |---|---|---|
 | Contract | [`kredofi.kency.testnet`](https://testnet.nearblocks.io/address/kredofi.kency.testnet) | [`kredofi.near`](https://nearblocks.io/address/kredofi.near) |
 | Where the scorer runs | **Dev mode**: the pinned scorer runs on our server with wasmtime, outside an enclave, and the server submits its output (`dev_submit_score`) | **OutLayer** (Intel TDX): the contract calls OutLayer itself and accepts the score only in its own callback (`on_score`) |
-| Pinned scorer (SHA-256) | demo build `473be96d…` (adds sandbox profiles, the AI summary and the fetch receipt) | production build `87ceab66…`, [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm) |
+| Pinned scorer (SHA-256) | demo build `7f578981…` (adds sandbox profiles, the AI summary and the fetch receipt) | production build `87ceab66…`, [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm) |
 | Bank data | Plaid sandbox (public test logins) | Plaid sandbox (no production access yet) |
 | Money | mock USDC (`musdc.kency.testnet`), test NEAR | real USDC contract configured; no loans made yet |
 | AI summary | NEAR AI Cloud, generated on our server, sealed to your browser | not in the production build |
@@ -98,7 +98,7 @@ Every security rule in [SPEC section 7](docs/SPEC.md) has a test. Build and run 
 - The live demo is testnet in Dev mode: the scorer runs on our server, not in an enclave. Only mainnet uses OutLayer, and no mainnet loan has been made.
 - Testnet scoring requires a one-time challenge signed by the account's own key (NEP-413), so nobody can re-score another account (`web/src/lib/ownership.ts`).
 - On testnet every judge can use the shared sandbox login because the testnet scorer ties the sandbox identity to your NEAR account ([SPEC 8c](docs/SPEC.md)); the mainnet build keeps the strict one-identity rule.
-- The production scorer WASM contains absolute build paths, so rebuilding it on another machine gives a different hash; verify the published file instead ([VERIFY.md](VERIFY.md)).
+- Scorer builds are now reproducible on x86_64 Linux in a pinned image (`./scorer/build-docker.sh` and a GitHub workflow give `39eec3ba…`; macOS and ARM builds differ), but mainnet still pins the earlier macOS build `87ceab66…` until the prepared re-pin is approved ([VERIFY.md](VERIFY.md) section 3, [docs/REPIN_PLAN.md](docs/REPIN_PLAN.md)).
 - Both contract accounts still have their full-access keys, so the owner can redeploy the code. Owner methods can't move lender funds or the reserve (rule 10, tested), but a redeploy could. See [THREAT_MODEL.md](THREAT_MODEL.md).
 - Trust assumptions: Intel TDX, OutLayer's worker registration, Plaid, NEAR AI Cloud (summary only; the score never depends on it).
 
