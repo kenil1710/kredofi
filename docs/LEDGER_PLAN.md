@@ -1,6 +1,23 @@
-# Plan: a clean testnet ledger before judging (PROPOSAL, not executed)
+# Plan: a clean testnet ledger before judging
 
-Status: proposal for the owner's yes (Nov 2). Nothing has been wiped, deployed or seeded.
+Status (Nov 2): **approved** (29 loans, 27 repaid, 2 defaults in band B and C only; tag every seeded row; SPEC 8d). Scripts and ledger tags are built and dry-run on a throwaway contract. **Deploying `app.kency.testnet` and switching the site still need the owner's yes (Nov 5).** Nothing on `kredofi.kency.testnet` was changed.
+
+## Built and tested (Nov 2)
+
+- `scripts/seed_ledger.mjs`: `plan` (prints the 29-loan plan), `plan --score-check` (runs the pinned demo scorer on all 24 profiles with Plaid sandbox, nothing submitted: **24/24 land in their planned band**, after retuning the B and C profiles, which first scored a band too high), `setup`, `tick` (cron), `status`. Run with `node --experimental-strip-types`.
+- Accounts: `borrower-01…24.kredofi-seed.testnet` and `lender.kredofi-seed.testnet`, under the faucet-funded `kredofi-seed.testnet` (`kency.testnet` holds only 1.26 NEAR, so `seed-NN.kency.testnet` couldn't be funded).
+- Ledger: "Seeded demo" tag on every seeded row; band table split into "Visitors and judges" (the contract's `get_stats` minus the seeded part) and "Seeded demo", under the sentence below (`web/src/lib/seeded.ts`, tests).
+- Scripts default to `kredofi.kency.testnet` and refuse `app.kency.testnet` unless `ALLOW_DEMO_CONTRACT=1` (`scripts/lib/near.mjs`).
+- Dry run on throwaway `kredofi-seedtest-1793636134.testnet` (same wasm, owner `kredofi-seed.testnet`): setup, then borrower 01 two loans repaid (levels 1→2→3, limit $100→$500), borrower 21 band C default (reserve $500→$461), borrower 22 band D score. Contract `get_stats` and the ledger's seeded table matched exactly.
+- Found and fixed in the dry run: `borrow` needs 1 yoctoNEAR; the ledger cache file wasn't tied to a contract (a switch would have shown the old contract's events), now it records its contract and ignores another's.
+
+## Switch checklist (Nov 5, after the yes)
+
+1. Faucet account for funds; create `app.kency.testnet` (about 3 NEAR) and deploy the same wasm with init `new` (owner `kency.testnet`, Dev mode, scorer `ac8e2a9c…`, term 2 min, grace 1 min).
+2. Register it with `musdc.kency.testnet`; `KREDOFI_CONTRACT=app.kency.testnet ./scripts/reserve_guard.sh`.
+3. `KREDOFI_CONTRACT=app.kency.testnet node --experimental-strip-types scripts/seed_ledger.mjs setup`, then a cron for `tick` every 3 hours until Nov 13.
+4. Space: `NEXT_PUBLIC_KREDOFI_CONTRACT=app.kency.testnet`, redeploy; relayer allow-list and `/api/health` follow the variable.
+5. Docs, README, VERIFY, video notes: new address, and the sentence about seeded rows. Our Playwright runs move to a local server on `kredofi.kency.testnet`.
 
 ## The problem
 
@@ -21,7 +38,7 @@ The defaults are our own scripts testing the default path (Max, "Mark as default
 
 | Contract | Used by | Shown on the live site |
 |---|---|---|
-| `kredofi-demo.kency.testnet` (new) | the live site, judges, seeded history | yes |
+| `app.kency.testnet` (new) | the live site, judges, seeded history | yes |
 | `kredofi.kency.testnet` (today's) | our automated tests and scripts from now on | no; linked from /docs as "development contract, our test runs" |
 
 The same `kredofi` wasm as today, deployed fresh, with the same config (term 2 min, grace 1 min, min hold 1 min) and the pinned testnet demo scorer `ac8e2a9c…`. A second test-USDC isn't needed: both contracts use `musdc.kency.testnet`. The old contract's history stays on-chain and readable, so nothing is hidden.
@@ -30,7 +47,7 @@ Test scripts get a guard: `scripts/demo.mjs`, the Playwright runs and `dev_score
 
 **2. A seeded history, labelled as seeded everywhere.**
 
-- Seeded borrowers are separate testnet accounts named `seed-01.kency.testnet` … `seed-24.kency.testnet`. The list is published in `web/src/lib/seeded.ts` and in /docs.
+- Seeded borrowers are separate testnet accounts named `borrower-01.kredofi-seed.testnet` … `borrower-24.kredofi-seed.testnet`. The pattern is published in `web/src/lib/seeded.ts` and in /docs.
 - Every seeded step is a real transaction through the real path: a Plaid sandbox score from the pinned scorer (sandbox profiles), `borrow`, `repay` or a real default after the grace period, with the reserve paying the pool. Only the borrower is scripted.
 - Proposed mix (about 24 borrowers, spread over Nov 5–12, a few loans a day rather than all at once):
 
@@ -50,7 +67,7 @@ Test scripts get a guard: `scripts/demo.mjs`, the Playwright runs and `dev_score
 |---|---|---|
 | Nov 3 | Script `scripts/seed_ledger.mjs` (dry run prints the plan), ledger "Seeded demo" tag + split table, script guards, tests | no (code only) |
 | Nov 4 | Full dry run of the seeding against a throwaway contract `kredofi-seedtest.kency.testnet`; I show you the ledger page | no |
-| Nov 5 | Deploy `kredofi-demo.kency.testnet`, init, pin scorer, seed reserve $500, point the Space at it, redeploy; docs/README/VERIFY updated to the new address | **yes** |
+| Nov 5 | Deploy `app.kency.testnet`, init, pin scorer, seed reserve $500, point the Space at it, redeploy; docs/README/VERIFY updated to the new address | **yes** |
 | Nov 5–12 | Seeding runs a few loans a day (cron on this machine) | covered by the Nov 5 yes |
 | Nov 13 | Freeze: seeding stops, reserve topped up, final check of every number on the ledger | no |
 
@@ -62,8 +79,6 @@ Cost: testnet NEAR only (faucet); no mainnet transaction, no change to `kredofi.
 - Fabricated events or anything that isn't a real transaction.
 - Presenting seeded borrowers as users anywhere.
 
-## Open questions for you
+## Decisions (owner, Nov 2)
 
-1. Names: `kredofi-demo.kency.testnet` for the judge contract OK?
-2. Mix: is 2 defaults in 29 loans the right story, or would you rather show 0, or more?
-3. Ledger tag and split table are UI outside SPEC: OK to add?
+Contract name `app.kency.testnet`; 2 defaults in 29 loans, band B and C only; tag and split table added to SPEC (8d).

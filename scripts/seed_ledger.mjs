@@ -10,7 +10,7 @@
 //   KREDOFI_CONTRACT=<contract> node ... seed_ledger.mjs tick     # run every step that is due (cron, a few times a day)
 //   KREDOFI_CONTRACT=<contract> node ... seed_ledger.mjs status
 // Options: SEED_DAY_MS (default one day; 0 = everything due now, for a throwaway test contract),
-//          SEED_MAX_LOANS (loans per tick, default 6).
+//          SEED_MAX_LOANS (loans per tick, default 6), SEED_ONLY (borrower numbers, e.g. "1,21,22": test runs).
 // Keys: the parent's key in ~/.near-credentials/testnet (create it with the faucet, see `setup`);
 // Plaid keys and SEAL_KEY_TESTNET from .env (set -a; source .env; set +a). Never printed.
 import { createHash } from 'node:crypto';
@@ -27,6 +27,7 @@ export const PARENT = 'kredofi-seed.testnet';
 const LENDER = `lender.${PARENT}`;
 const DAY_MS = Number(process.env.SEED_DAY_MS ?? 86_400_000);
 const MAX_LOANS = Number(process.env.SEED_MAX_LOANS ?? 6);
+const ONLY = process.env.SEED_ONLY ? new Set(process.env.SEED_ONLY.split(',').map(Number)) : null;
 const STATE_DIR = join(ROOT, 'scripts', '.seed');
 
 // ---------------------------------------------------------------- the plan (deterministic)
@@ -121,7 +122,7 @@ async function runLoan(step, cfg) {
   const amount = (max * BigInt(Math.round(step.share * 1000)) / 1000n) / 1_000_000n * 1_000_000n; // whole dollars
   const half = (limit + 1n) / 2n;
   const amt = amount < half && half <= max ? half : amount; // at least half the limit (level-ups)
-  const br = await call(who, POOL, 'borrow', { amount: amt.toString() }, { gas: 40n });
+  const br = await call(who, POOL, 'borrow', { amount: amt.toString() }, { gas: 40n, deposit: 1n });
   if (!br.ok || br.receiptErrors.length) throw new Error(`borrow failed for ${acct}: ${br.error ?? br.receiptErrors[0]}`);
   console.log(`  ${acct} borrowed ${fmtUsd(amt)} (band ${step.band}, limit ${fmtUsd(limit)}) ${EXPLORER}${br.hash}`);
   if (step.defaults) {
@@ -172,7 +173,7 @@ async function tick() {
   if (!s.start) throw new Error('run setup first');
   const cfg = await view(POOL, 'get_config');
   const day = DAY_MS ? Math.floor((Date.now() - s.start) / DAY_MS) : Infinity;
-  const due = plan().filter((x) => x.day <= day && !s.done[x.i]);
+  const due = plan().filter((x) => x.day <= day && !s.done[x.i] && (!ONLY || ONLY.has(x.n)));
   console.log(`${POOL}: day ${day === Infinity ? 'all' : day}, ${due.length} step(s) due`);
   let loans = 0;
   for (const step of due) {

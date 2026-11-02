@@ -20,11 +20,19 @@ export const lastChange = () => changedAt;
 
 async function load() {
   if (loaded) return; loaded = true;
-  try { for (const [h, e] of Object.entries(JSON.parse(await readFile(/* turbopackIgnore: true */ FILE(), 'utf8')) as Record<string, Entry>)) cache.set(h, e); } catch { /* first run */ }
+  // The file names its contract: a cache from another contract (e.g. before a switch to a new
+  // contract) is ignored, so its events never show on this ledger. Old files (no contract) were
+  // written for kredofi.kency.testnet.
+  try {
+    const raw = JSON.parse(await readFile(/* turbopackIgnore: true */ FILE(), 'utf8')) as { contract?: string; txs?: Record<string, Entry> } & Record<string, Entry>;
+    const contract = typeof raw.contract === 'string' ? raw.contract : 'kredofi.kency.testnet';
+    const txs = raw.txs ?? (raw.contract ? {} : raw);
+    if (contract === KREDOFI_CONTRACT) for (const [h, e] of Object.entries(txs)) cache.set(h, e as Entry);
+  } catch { /* first run */ }
 }
 async function save() {
   if (!FILE()) return;
-  try { await mkdir(dirname(/* turbopackIgnore: true */ FILE()), { recursive: true }); await writeFile(/* turbopackIgnore: true */ FILE(), JSON.stringify(Object.fromEntries(cache))); } catch { /* best effort */ }
+  try { await mkdir(dirname(/* turbopackIgnore: true */ FILE()), { recursive: true }); await writeFile(/* turbopackIgnore: true */ FILE(), JSON.stringify({ contract: KREDOFI_CONTRACT, txs: Object.fromEntries(cache) })); } catch { /* best effort */ }
 }
 
 type FnTx = { transaction: { hash: string }; execution_outcome: { block_timestamp: number | string }; receipts: { execution_outcome: { block_timestamp?: number | string; outcome: { executor_id: string; logs: string[] } } }[] };

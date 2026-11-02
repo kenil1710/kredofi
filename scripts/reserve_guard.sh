@@ -7,7 +7,7 @@
 # Testnet only. kency.testnet signs with its keychain key, the relayer with its legacy keychain key.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-NET=testnet; POOL=kredofi.kency.testnet; USDC=musdc.kency.testnet; OWNER=kency.testnet; RELAYER=relayer.kency.testnet
+NET=testnet; POOL="${KREDOFI_CONTRACT:-kredofi.kency.testnet}"; USDC=musdc.kency.testnet; OWNER=kency.testnet; RELAYER=relayer.kency.testnet
 MIN_USD="${MIN_USD:-200}"; TARGET_USD="${TARGET_USD:-500}"
 v() { node --input-type=module -e "import {view} from './scripts/lib/near.mjs'; console.log(JSON.stringify(await view('$1','$2',$3)))"; }
 RESERVE=$(v $POOL get_pool '{}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["reserve"])')
