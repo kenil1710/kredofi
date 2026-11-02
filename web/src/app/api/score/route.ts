@@ -39,7 +39,9 @@ export async function POST(req: Request) {
     // `extra` (demo build: fetch receipt + AI summary, sealed to the borrower) never goes on-chain.
     // Demo builds print the on-chain output as soon as the score exists, then remove the bank
     // connection and ask for the AI summary; the submit runs in parallel with that tail.
-    const run = startScorer(input, accountId);
+    let latestExtra: string | undefined, submitted = false;
+    // Save each sealed extra the moment it exists (receipt first, then receipt + AI summary).
+    const run = startScorer(input, accountId, (x) => { latestExtra = x; if (submitted) saveExtra(accountId, x).catch(() => {}); });
     const { extra: _early, ...output } = await run.first; mark('scored');
     const scorer = scorerAccount();
     const tail = run.done.then((x) => { mark('tail'); return x; }).catch((e) => { console.error(`scorer tail failed after the score: ${e instanceof Error ? e.message : e}`); return null; });
@@ -48,11 +50,9 @@ export async function POST(req: Request) {
     // 6 s more, then answer; a late `extra` is saved when it arrives and the passbook picks it up.
     const fin = await Promise.race([tail, new Promise<'late'>((res) => setTimeout(() => res('late'), 6000))]);
     const late = fin === 'late';
-    if (late) tail.then((f) => {
-      console.log(`score tail ${borrower}: done at ${Date.now() - t0}ms, extra ${typeof f?.extra === 'string' ? 'yes' : 'no'}`);
-      if (r.ok && typeof f?.extra === 'string') saveExtra(accountId, f.extra).catch(() => {});
-    });
-    const extra = late ? undefined : fin?.extra;
+    if (late) tail.then(() => console.log(`score tail ${borrower}: done at ${Date.now() - t0}ms, extra ${latestExtra ? 'yes' : 'no'}`));
+    if (r.ok) submitted = true;
+    const extra = late ? latestExtra : fin?.extra ?? latestExtra;
     // Server log only: where the time goes (no data).
     console.log(`score timing ${borrower}: ${Object.entries(lap).map(([k, v]) => `${k}=${v}ms`).join(' ')}`);
     recordSoon(r.hash, scorer.accountId);
@@ -64,6 +64,7 @@ export async function POST(req: Request) {
     }
     await saveSubmitted(accountId, output);
     if (typeof extra === 'string') await saveExtra(accountId, extra);
+    else if (r.ok && latestExtra) await saveExtra(accountId, latestExtra);
     return NextResponse.json({ output, extra: typeof extra === 'string' ? extra : null, extraPending: late, hash: r.hash, scorerVersion: version });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Scoring failed.' }, { status: 502 });

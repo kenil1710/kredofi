@@ -313,3 +313,49 @@ button{font-family:inherit}
 /* Touch targets at least 44 px on touch screens (DESIGN 7.8) */
 @media (pointer:coarse){.copy,.hash button{min-height:44px;min-width:44px}}
 .terms dd{overflow-wrap:anywhere;min-width:0}
+
+/* Docs (/docs): credit-note page on paper, sidebar with search; collapses on phones */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.docs{display:grid;grid-template-columns:240px minmax(0,1fr);gap:48px;padding-block:48px 96px;align-items:start}
+.docs-side{position:sticky;top:calc(88px + env(safe-area-inset-top,0px));max-height:calc(100vh - 110px);overflow:auto}
+.docs-search input{width:100%;min-height:44px;border:1px solid rgba(16,48,42,.45);border-radius:2px;background:var(--paper-2);padding:0 12px;font:inherit;font-size:15px;color:var(--ink)}
+.docs-list,.docs-hits{list-style:none;margin:14px 0 0;padding:0;border-top:1px solid var(--line-paper)}
+.docs-list li a{display:flex;align-items:center;min-height:40px;padding:4px 10px;border-bottom:1px solid var(--line-paper);text-decoration:none;color:var(--ink-soft);font-size:15px}
+.docs-list li a:hover{color:var(--ink)}
+.docs-list li a[aria-current]{color:var(--ink);font-weight:700;border-left:3px solid var(--violet-ink);padding-left:7px}
+.docs-hits li a{display:block;padding:10px;border-bottom:1px solid var(--line-paper);text-decoration:none;color:var(--ink)}
+.docs-hits li a span{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px}
+.docs-hits li.none{padding:10px;font-size:14px;color:var(--ink-soft)}
+.docs-mobile{display:none}
+.doc{position:relative;background:var(--paper-2);border:1px solid var(--line-paper);box-shadow:0 18px 36px rgba(16,48,42,.08);padding:44px 48px 36px;min-width:0}
+.doc-kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--violet-ink)}
+.doc h1{font-size:clamp(36px,4.4vw,56px);line-height:1.02;margin-top:6px}
+.doc-summary{font-size:18px;color:#2C4A41;margin:12px 0 26px;max-width:640px}
+.doc h2{font-size:28px;margin:36px 0 12px;scroll-margin-top:96px}
+.doc h3{font-size:21px;margin:24px 0 8px;scroll-margin-top:96px}
+.doc .anchor{float:left;margin-left:-26px;width:26px;color:var(--line-paper);text-decoration:none;font-family:var(--body);font-size:.7em;padding-top:.3em}
+.doc h2:hover .anchor,.doc h3:hover .anchor,.doc .anchor:focus{color:var(--violet-ink)}
+.doc p,.doc li{font-size:16.5px;line-height:1.65;color:#1F3A33;max-width:720px}
+.doc p{margin:0 0 14px}
+.doc ul,.doc ol{margin:0 0 16px;padding-left:22px}
+.doc li{margin:4px 0}
+.doc code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em;background:rgba(16,48,42,.07);padding:1px 5px;border-radius:2px;overflow-wrap:anywhere}
+.doc-code{background:#0F2A23;color:#E6EAE1;padding:14px 16px;border-radius:3px;overflow-x:auto;margin:0 0 16px;font-size:13px;line-height:1.55}
+.doc-code code{background:none;padding:0;color:inherit;white-space:pre;overflow-wrap:normal}
+.doc-table{overflow-x:auto;margin:0 0 18px}
+.doc table{border-collapse:collapse;width:100%;font-size:15px;font-variant-numeric:tabular-nums}
+.doc th,.doc td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--line-paper)}
+.doc thead th{border-bottom:2px solid var(--ink);font-weight:700}
+.doc-diagram{margin:8px 0 22px}
+.doc-diagram svg{width:100%;height:auto;display:block;background:var(--paper);border:1px solid var(--line-paper)}
+.doc-pager{display:flex;justify-content:space-between;gap:16px;margin-top:36px;padding-top:18px;border-top:4px double var(--ink);font-weight:600}
+.doc-pager a{min-height:44px;display:inline-flex;align-items:center}
+@media (max-width:900px){
+  .docs{grid-template-columns:1fr;gap:16px;padding-block:20px 80px}
+  .docs-side{display:none}
+  .docs-mobile{display:block;border:1px solid var(--line-paper);background:var(--paper-2);padding:0 14px}
+  .docs-mobile summary{min-height:48px;display:flex;align-items:center;font-weight:700;cursor:pointer}
+  .docs-mobile nav{padding-bottom:14px}
+  .doc{padding:28px 18px 24px}
+  .doc .anchor{display:none}
+}

@@ -398,6 +398,7 @@ export function Landing() {
             <span className="sep" aria-hidden="true" />
             <Link href="/lend">Lend</Link>
             <Link href="/ledger">Public ledger</Link>
+            <Link href="/docs">Docs</Link>
           </nav>
           <Link className="btn btn-light magnetic" href="/borrow">Check my limit</Link>
         </div>
@@ -530,7 +531,7 @@ export function Landing() {
       <footer>
         <div className="wrap">
           <p>KredoFi, built for NEAR HACKATHON in November 2026. Plaid sandbox data only; not a lending offer.</p>
-          <p><a href={MAINNET_TX}>A real mainnet score</a> · <Link href="/ledger">Public ledger</Link> · <Link href="/scenarios">Demo scenarios</Link></p>
+          <p><a href={MAINNET_TX}>A real mainnet score</a> · <Link href="/docs">Docs</Link> · <Link href="/ledger">Public ledger</Link> · <Link href="/scenarios">Demo scenarios</Link></p>
         </div>
       </footer>
     </div>

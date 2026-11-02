@@ -2,7 +2,7 @@
 
 KredoFi lends USDC on NEAR against your income instead of collateral. Your bank history is read and scored by a pinned program inside a TEE (OutLayer, Intel TDX); only a band, a score, a limit cap, a keyed fingerprint and your name sealed for a recovery partner ever reach the contract.
 
-**Live demo (NEAR testnet):** https://kenil1710-kredofi.hf.space
+**Live demo (NEAR testnet):** https://kenil1710-kredofi.hf.space · **Documentation:** https://kenil1710-kredofi.hf.space/docs
 
 ## Try it in 3 minutes
 
@@ -28,7 +28,7 @@ You can't borrow on-chain without locking up more collateral than you borrow, an
 |---|---|---|
 | Contract | [`kredofi.kency.testnet`](https://testnet.nearblocks.io/address/kredofi.kency.testnet) | [`kredofi.near`](https://nearblocks.io/address/kredofi.near) |
 | Where the scorer runs | **Dev mode**: the pinned scorer runs on our server with wasmtime, outside an enclave, and the server submits its output (`dev_submit_score`) | **OutLayer** (Intel TDX): the contract calls OutLayer itself and accepts the score only in its own callback (`on_score`) |
-| Pinned scorer (SHA-256) | demo build `9606e925…` (adds sandbox profiles, the AI summary and the fetch receipt) | production build `87ceab66…`, [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm) |
+| Pinned scorer (SHA-256) | demo build `473be96d…` (adds sandbox profiles, the AI summary and the fetch receipt) | production build `87ceab66…`, [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm) |
 | Bank data | Plaid sandbox (public test logins) | Plaid sandbox (no production access yet) |
 | Money | mock USDC (`musdc.kency.testnet`), test NEAR | real USDC contract configured; no loans made yet |
 | AI summary | NEAR AI Cloud, generated on our server, sealed to your browser | not in the production build |
@@ -86,7 +86,7 @@ Rules (SPEC 6): income level (250 points), steady income (250), on-time payments
 ```bash
 cargo test --workspace                   # contracts: 121 unit + 3 mock-usdc + 35 near-workspaces sandbox tests
 (cd scorer && cargo test)                # scorer: 36 tests (reproduces the SPEC 6 table: Riya 1000/A, Sam 270/D, Max 1000/A)
-(cd web && npm install && npm test)      # web: 43 tests
+(cd web && npm install && npm test)      # web: 47 tests (incl. a check that every docs link works)
 (cd scripts && npm install && node --test seal.test.mjs)   # JS and Rust seal compatibility
 ```
 

@@ -5,7 +5,7 @@ FROM node:22-bookworm-slim
 ARG WASMTIME_VERSION=50.0.0
 ARG WASMTIME_SHA256=77c19ee0437991f9ac7837b9c269d9c7076744f85dad263fea5214cc2723c7ff
 # Must equal the scorer_version pinned on kredofi.kency.testnet (the server also checks at runtime).
-ARG SCORER_SHA256=9606e925d116fc4b7c5cee579b56480a1e8a583446b7200dbe19314d50423899
+ARG SCORER_SHA256=473be96da6b1a9f7313410acdc0d0695c9d1f082d94978cb4a594ab74ae5e312
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \

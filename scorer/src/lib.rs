@@ -479,6 +479,13 @@ pub mod demo {
     pub fn with_extra(mut scored: Scored, reply_pubkey: Option<&Key32>) -> Scored {
         let Some(pk) = reply_pubkey else { return scored };
         let mut extra = json!({ "receipt": receipt(&scored.features) });
+        // The bank connection is already removed here. Print the receipt first: the AI call has no
+        // response timeout in this HTTP client, so the server keeps the receipt even if it stops us.
+        if let Ok(sealed) = crypto::seal_to(pk, extra.to_string().as_bytes()) {
+            use std::io::Write;
+            println!("{}", json!({ "extra": sealed }));
+            let _ = std::io::stdout().flush();
+        }
         if let Some(s) = ask_nearai(&summary_request(&scored.score, &scored.features)) {
             extra["summary"] = json!(s);
             extra["summary_by"] = json!(NEARAI_MODEL);

@@ -55,7 +55,7 @@ type Out = Record<string, unknown>;
  * output as soon as the score exists, before removing the bank connection and asking for the AI
  * summary), `done` with the last line when it exits. Rejects on a scorer error.
  */
-export function startScorer(input: object, sender?: string): { first: Promise<Out>; done: Promise<Out> } {
+export function startScorer(input: object, sender?: string, onExtra?: (sealed: string) => void): { first: Promise<Out>; done: Promise<Out> } {
   for (const k of ['PLAID_CLIENT_ID', 'PLAID_SECRET', 'SEAL_KEY']) if (!process.env[k]) throw new Error(`${k} not configured`);
   const args = ['run', '-S', 'http', '--env', 'PLAID_CLIENT_ID', '--env', 'PLAID_SECRET', '--env', 'SEAL_KEY'];
   // Optional, testnet demo build only: the sealed AI summary (SPEC 5 step 7). Passed by name.
@@ -66,12 +66,19 @@ export function startScorer(input: object, sender?: string): { first: Promise<Ou
   const first = new Promise<Out>((res, rej) => { resolveFirst = res; rejectFirst = rej; });
   const done = new Promise<Out>((resolve, reject) => {
     const p = spawn('wasmtime', args, { env: process.env, timeout: 60_000 });
-    let buf = '', err = '', last: Out | null = null, gotFirst = false;
+    let buf = '', err = '', last: Out | null = null, gotFirst = false, stopTimer: ReturnType<typeof setTimeout> | null = null;
     const take = (line: string) => {
       if (!line.trim()) return;
       try {
         const v = JSON.parse(line) as Out;
         last = v;
+        // Demo builds print the sealed receipt before the AI call (which has no response timeout):
+        // keep every sealed extra as it arrives, and stop the run 15 s after the receipt. The bank
+        // connection is already removed by then.
+        if (typeof v.extra === 'string') {
+          onExtra?.(v.extra);
+          if (!('band' in v) && !stopTimer) stopTimer = setTimeout(() => p.kill(), 15_000);
+        }
         if (!gotFirst) { gotFirst = true; if (v.success === false) rejectFirst(new Error(String(v.error))); else resolveFirst(v); }
       } catch { /* not a JSON line */ }
     };
@@ -79,6 +86,7 @@ export function startScorer(input: object, sender?: string): { first: Promise<Ou
     p.stderr.on('data', (d) => (err += d));
     p.on('error', () => { const e = new Error('The scorer could not start.'); rejectFirst(e); reject(e); });
     p.on('close', () => {
+      if (stopTimer) clearTimeout(stopTimer);
       take(buf);
       const v = last as Out | null;
       if (!v) {

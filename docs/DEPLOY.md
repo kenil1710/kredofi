@@ -24,7 +24,7 @@ Keep it at **one machine**: rate limits and the ledger cache are per machine.
 
 | File | What it does |
 |---|---|
-| `Dockerfile` | Builds the app; installs wasmtime 50.0.0 (checksum-verified); copies the demo scorer and **refuses to build** unless its SHA-256 equals the version pinned on testnet (`9606e925…`). |
+| `Dockerfile` | Builds the app; installs wasmtime 50.0.0 (checksum-verified); copies the demo scorer and **refuses to build** unless its SHA-256 equals the version pinned on testnet (`473be96d…`). |
 | `docker-entrypoint.sh` | Makes the `/data` volume writable, then runs the server as the unprivileged `node` user. |
 | `.dockerignore` | Allowlist: only `web/`, the scorer wasm and the entrypoint. `.env` and `web/.env.local` can never enter the image. |
 | `fly.toml` | App `kredofi`, region `bom`, port 3000, HTTPS only, always on, volume `kredofi_data` at `/data`. |
@@ -57,7 +57,7 @@ Run from the repo root on your Mac. Nothing here touches mainnet.
    ```
 4. **Build the pinned demo scorer** (the Dockerfile checks its hash).
    ```
-   (cd scorer && ./build.sh demo)    # must print sha256 9606e925…
+   (cd scorer && ./build.sh demo)    # must print sha256 473be96d…
    ```
 5. **Set the secrets** from `web/.env.local` (values are never shown).
    ```

@@ -69,7 +69,7 @@ The live demo runs on testnet in Dev mode, where the server runs the pinned demo
 curl -s https://kenil1710-kredofi.hf.space/api/ledger | python3 -c "import json,sys;print(json.load(sys.stdin)['config']['scorer_version'])"
 ```
 
-Expected: `9606e925d116fc4b7c5cee579b56480a1e8a583446b7200dbe19314d50423899`. The server refuses to score if its WASM's hash differs from the pinned value (`web/src/server/scorer.ts`, `checkPinned`), and the container build refuses a WASM with any other hash (`deploy/hf/Dockerfile`).
+Expected: `473be96da6b1a9f7313410acdc0d0695c9d1f082d94978cb4a594ab74ae5e312`. The server refuses to score if its WASM's hash differs from the pinned value (`web/src/server/scorer.ts`, `checkPinned`), and the container build refuses a WASM with any other hash (`deploy/hf/Dockerfile`).
 
 Every event on [the public ledger](https://kenil1710-kredofi.hf.space/ledger) links to its transaction on `testnet.nearblocks.io`; the ledger trusts only logs from receipts executed by the KredoFi contract itself (`web/src/lib/events.ts`, tested).
 

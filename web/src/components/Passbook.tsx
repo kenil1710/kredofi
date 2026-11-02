@@ -233,7 +233,8 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     const ok = (o?: Record<string, unknown> | null) => !!o && (!sc || o.fingerprint === sc.fingerprint);
     return ok(sess.output) ? sess.output! : ok(record?.output) ? record!.output! : null;
   }, [sess.output, record, sc]);
-  const sealedExtra = (output && output === sess.output ? sess.extra : null) ?? (output && record?.output?.fingerprint === output.fingerprint ? record?.extra : null);
+  // The server's copy is the newest (the receipt can arrive first and the AI summary later).
+  const sealedExtra = (output && record?.output?.fingerprint === output.fingerprint ? record?.extra : null) ?? (output && output === sess.output ? sess.extra : null);
   // A reload (or a second tab) while a score was running: show it as running, follow the chain until
   // the new score lands, and give up after 150 s (the server's scorer stops at 60 s).
   useEffect(() => {
