@@ -174,7 +174,10 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       if (j.extraPending) for (let i = 0; i < 12; i++) { await new Promise((res) => setTimeout(res, 4000)); await refresh().catch(() => {}); }
     } catch (e) {
       clearInterval(timer);
-      updateSession({ scoringSince: undefined }, acctId);
+      // A dropped connection (a reload aborts the request: TypeError) is not an answer: the server keeps
+      // scoring, so keep `scoringSince` and let the resume check follow the chain. Clear it only when
+      // the server actually said no.
+      if (!(e instanceof TypeError)) updateSession({ scoringSince: undefined }, acctId);
       setScoring((s) => ({ step: 'failed', elapsed: s?.elapsed ?? 0, error: e instanceof Error ? e.message : 'Scoring failed.' }));
     }
     finally { scoringLive.current = false; }
