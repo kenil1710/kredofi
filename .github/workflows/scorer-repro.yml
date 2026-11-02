@@ -1,5 +1,7 @@
-# Reproducible scorer build on an x86_64 Linux runner: the same pinned Rust image as on any other
-# machine (scorer/build-docker.sh). Compare the printed SHA-256 with the pinned version.
+# Canonical scorer build: x86_64 Linux in the pinned Rust image (scorer/build-docker.sh). The bytes
+# depend on the build host's OS and CPU (same source, same rustc: macOS arm64, Linux arm64 and Linux
+# x86_64 each give their own hash), so the pinned versions are built here. Anyone can re-run this in a
+# fork and compare the printed SHA-256 with the pinned version.
 name: scorer reproducible build
 on:
   workflow_dispatch:
@@ -14,3 +16,7 @@ jobs:
         run: ./scorer/build-docker.sh && sha256sum scorer/out/kredofi_scorer.wasm
       - name: testnet demo build
         run: ./scorer/build-docker.sh demo && sha256sum scorer/out/kredofi_scorer_demo.wasm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scorer-wasm
+          path: scorer/out/*.wasm
