@@ -417,6 +417,30 @@ pub mod demo {
     #[cfg(not(target_os = "wasi"))]
     fn ask_nearai(_req: &Value) -> Option<String> { None }
 
+    /// Testnet speed-up for the sync completion rule (demo builds): once Plaid says the historical
+    /// update is complete AND the delivered transactions already reach back to the first month of
+    /// the scoring window, the history is complete; no need for the quiet polls. When they don't
+    /// reach that far (the Nov 1 sandbox case: status complete, only recent transactions), the
+    /// normal `SyncProgress` rule still applies.
+    pub fn covers_window<'a>(txs: impl Iterator<Item = &'a Value>) -> bool {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        covers_window_at(txs, now)
+    }
+    pub fn covers_window_at<'a>(txs: impl Iterator<Item = &'a Value>, now_unix: u64) -> bool {
+        let first = window(now_unix)[0].clone(); // "YYYY-MM"
+        txs.filter_map(|t| t["date"].as_str()).filter_map(|d| d.get(..7)).any(|m| m <= first.as_str())
+    }
+
+    /// Testnet: print the on-chain output as soon as the score exists, so the Dev-mode server can
+    /// submit it while the scorer removes the bank connection and asks for the AI summary. The final
+    /// line (output + sealed `extra`) still follows.
+    pub fn print_early(scored: Scored) -> Scored {
+        use std::io::Write;
+        println!("{}", scored.output);
+        let _ = std::io::stdout().flush();
+        scored
+    }
+
     /// Seal {receipt, summary} to the borrower as `extra`. Best effort: any failure leaves the
     /// scored output exactly as it was.
     pub fn with_extra(mut scored: Scored, reply_pubkey: Option<&Key32>) -> Scored {

@@ -45,7 +45,7 @@ fn run() -> Result<serde_json::Value, String> {
                     eprintln!("debug months (count, income cents): {months:?}");
                 }
                 score_output(&caller, &bank, &seal_key, reply_pubkey.as_ref(), now)
-            });
+            }); #[cfg(feature = "demo")] let result = result.map(kredofi_scorer::demo::print_early); // testnet: the server submits while the tail runs
             let removed = plaid.remove(&access_token);
             let scored = result?; #[cfg(feature = "demo")] let scored = kredofi_scorer::demo::with_extra(scored, reply_pubkey.as_ref()); // testnet only: sealed receipt + AI summary
             removed.map_err(|e| format!("item/remove failed: {e}"))?;

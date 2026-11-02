@@ -3,10 +3,12 @@
 // 1-yocto deposits; the relayer pays all gas), registers it with test USDC and gives it $10.
 import { NextResponse } from 'next/server';
 import { actions, PublicKey } from 'near-api-js';
-import { clientIp, fundTestUsdc, overQuota, relayerAccount } from '@/server/near';
+import { clientIp, overQuota, relayerAccount } from '@/server/near';
+import { USDC_CONTRACT } from '@/lib/config';
 
 export const runtime = 'nodejs';
 const DEMO_NEAR = 5_000_000_000_000_000_000_000n; // 0.005 NEAR
+const USDC_STORAGE = 12_500_000_000_000_000_000_000n; // NEP-145 registration, as in fundTestUsdc
 
 export async function POST(req: Request) {
   const { publicKey } = (await req.json().catch(() => ({}))) as { publicKey?: unknown };
@@ -22,9 +24,19 @@ export async function POST(req: Request) {
     const res = await relayer.signAndSendTransaction({
       receiverId: accountId,
       actions: [actions.createAccount(), actions.transfer(DEMO_NEAR), actions.addFullAccessKey(PublicKey.from(publicKey))],
-      waitUntil: 'FINAL',
+      waitUntil: 'EXECUTED_OPTIMISTIC',
     });
-    const txs = [res.transaction_outcome.id, ...(await fundTestUsdc(accountId, 10_000_000n))];
+    // A brand-new account is never registered: register it with test USDC and give it $10 in one
+    // transaction (was: two transactions, each waiting for finality; ~16 s -> ~5 s in total).
+    const usdc = await relayer.signAndSendTransaction({
+      receiverId: USDC_CONTRACT,
+      actions: [
+        actions.functionCall('storage_deposit', { account_id: accountId, registration_only: true }, 30n * 10n ** 12n, USDC_STORAGE),
+        actions.functionCall('mint', { account_id: accountId, amount: '10000000' }, 20n * 10n ** 12n, 0n),
+      ],
+      waitUntil: 'EXECUTED_OPTIMISTIC', throwOnFailure: true,
+    });
+    const txs = [res.transaction_outcome.id, usdc.transaction_outcome.id];
     return NextResponse.json({ accountId, txs });
   } catch (e) {
     const msg = e instanceof Error ? e.message : '';

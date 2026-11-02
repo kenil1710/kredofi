@@ -441,3 +441,17 @@ fn demo_summary_parsing() {
     let long = serde_json::json!({ "choices": [{ "message": { "content": "a ".repeat(500) } }] });
     assert!(demo::parse_summary(&long).unwrap().len() <= 400);
 }
+
+#[test]
+fn demo_history_covers_window_only_when_it_reaches_the_first_month() {
+    let tx = |d: &str| serde_json::json!({ "date": d });
+    // Nov 1 2026: window starts 2026-05
+    let full = [tx("2026-10-30"), tx("2026-04-28"), tx("2025-01-02")];
+    assert!(demo::covers_window_at(full.iter(), NOV_1_2026));
+    let starts_in_window = [tx("2026-05-01"), tx("2026-10-01")];
+    assert!(demo::covers_window_at(starts_in_window.iter(), NOV_1_2026));
+    // the Nov 1 sandbox bug: status complete but only the last month delivered
+    let recent_only = [tx("2026-10-05"), tx("2026-10-20")];
+    assert!(!demo::covers_window_at(recent_only.iter(), NOV_1_2026));
+    assert!(!demo::covers_window_at([].iter(), NOV_1_2026));
+}

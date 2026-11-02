@@ -40,9 +40,11 @@ export const viewUsdc = <T,>(method: string, args: Record<string, unknown> = {})
 export type CallResult = { ok: boolean; hash?: string; error?: string; value?: unknown };
 
 /** Send one function call; never throws on contract failure. */
-export async function call(signer: Account, receiverId: string, method: string, args: object, gasTgas = 30n, deposit = 0n): Promise<CallResult> {
+/** `fast`: return once the transaction and its receipts have executed (EXECUTED_OPTIMISTIC), about
+ * 2 s before finality. Used where the very next step only reads the result (testnet). */
+export async function call(signer: Account, receiverId: string, method: string, args: object, gasTgas = 30n, deposit = 0n, fast = false): Promise<CallResult> {
   const res = await signer.signAndSendTransaction({
-    receiverId, actions: [actions.functionCall(method, args, gasTgas * 10n ** 12n, deposit)], throwOnFailure: false, waitUntil: 'FINAL',
+    receiverId, actions: [actions.functionCall(method, args, gasTgas * 10n ** 12n, deposit)], throwOnFailure: false, waitUntil: fast ? 'EXECUTED_OPTIMISTIC' : 'FINAL',
   });
   const hash = res.transaction_outcome?.id;
   const f = (res.status as { Failure?: { ActionError?: { kind?: { FunctionCallError?: { ExecutionError?: string } } } } })?.Failure;

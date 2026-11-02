@@ -22,7 +22,7 @@ import { serialFromFingerprint } from '@/lib/drawNote';
 import { newKeypair, openSealed } from '@/lib/seal';
 import { PART_KEYS, PART_NAMES, reason, whatWouldChange, type Parts } from '@/lib/reasons';
 import { primaryAction } from '@/lib/primaryAction';
-import { levelPlan, mmss, noLevelUpReason } from '@/lib/levels';
+import { levelPlan, limitAt, mmss, noLevelUpReason } from '@/lib/levels';
 import { loanHistory, type LoanRecord } from '@/lib/history';
 import type { LedgerEvent } from '@/lib/events';
 
@@ -175,31 +175,38 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   }, [acct, refresh, account.kind]);
 
   // No account yet: create a no-wallet demo account first (SPEC 8a), then score.
-  const ensureAccount = async (): Promise<string | null> => {
+  const ensureAccount = async (quiet = false): Promise<string | null> => {
     if (acct) return acct;
-    setStarting('Creating your demo account. The relayer pays its network fees…');
+    if (!quiet) setStarting('Creating your demo account. The relayer pays its network fees…');
     try { return await account.createDemo(); }
     catch (e) { setStartError(e instanceof Error ? e.message : 'Could not create a demo account.'); return null; }
-    finally { setStarting(null); }
+    finally { if (!quiet) setStarting(null); }
   };
   const pick = async (src: Source) => {
     setStartError(null);
     const a = await ensureAccount();
     if (a) score(src, a);
   };
+  // Plaid Link opens right away; a new demo account is created in parallel while the visitor logs
+  // in to the bank (it used to be created first, adding its whole creation time before Link).
   const connectBank = async () => {
     setStartError(null);
-    const a = await ensureAccount();
-    if (!a) return;
+    const accountReady = ensureAccount(true);
     try {
       setStarting('Opening Plaid Link…');
-      const [Plaid, r] = await Promise.all([loadPlaid(), fetch('/api/plaid/link', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: a }) })]);
+      const [Plaid, r] = await Promise.all([loadPlaid(), fetch('/api/plaid/link', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(acct ? { accountId: acct } : {}) })]);
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'Plaid Link is not available right now.');
       setStarting(null);
       const h = Plaid.create({
         token: j.linkToken,
-        onSuccess: (publicToken) => { h.destroy(); score({ borrower: 'plaid', publicToken }, a); },
+        onSuccess: async (publicToken) => {
+          h.destroy();
+          setStarting('Setting up your demo account…');
+          const a = await accountReady;
+          setStarting(null);
+          if (a) score({ borrower: 'plaid', publicToken }, a);
+        },
         onExit: () => h.destroy(),
       });
       h.open();
@@ -240,6 +247,19 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   const shortBy = loan?.state === 'Active' && usdcBal !== null && usdcBal < due ? due - usdcBal : 0n;
   const canDefault = loan?.state === 'Active' && now > dueMs + graceMs;
   const scoredAt = sc ? msOf(sc.issued_at) : 0;
+  // The ladder in the borrower's own band, capped by their income (band B: $75, $187.50, $375, $750).
+  const ladder = sc ? [1, 2, 3, 4].map((l) => limitAt(l, sc.band, BigInt(sc.income_cap))) : [];
+  // A new step starts when the loan changes (issued, repaid, defaulted): clear the previous step's
+  // transaction status so "Confirmed. Transaction …" of the last borrow doesn't sit under the new
+  // Borrow form (and a confirmed "Repaid" doesn't disable the next loan's Repay button).
+  const loanKey = `${loan?.due_at ?? ''}:${loan?.state ?? ''}`;
+  const prevLoanKey = useRef(loanKey);
+  useEffect(() => {
+    if (prevLoanKey.current === loanKey) return;
+    prevLoanKey.current = loanKey;
+    for (const t of [borrowTx, repayTx, defaultTx]) if (!t.busy) t.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loanKey]);
   const history: LoanRecord[] = useMemo(() => (acct ? loanHistory(record?.events ?? [], acct, loan) : []), [record, acct, loan]);
   // Rule 13 made visible: when repaying this loan raises the limit (DESIGN 7.8, live countdown).
   const plan = loan?.state === 'Active' && sc && cfg && b ? levelPlan({
@@ -534,11 +554,11 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                     {isLatest && isCurrent && (
                       <>
                         <div className="level" aria-label="Limit levels">
-                          {[100, 250, 500, 1000].map((v, k) => (
-                            <div key={v} className={b && b.level > k ? 'on' : ''}><i style={{ height: [24, 44, 70, 100][k] }} />${v.toLocaleString('en-US')}</div>
+                          {ladder.map((v, k) => (
+                            <div key={k} className={b && b.level > k ? 'on' : ''}><i style={{ height: [24, 44, 70, 100][k] }} />{usd(v, { cents: v % 1_000_000n !== 0n })}</div>
                           ))}
                         </div>
-                        <p>Level {b?.level}. Your next note can be up to <b className="roll" key={b?.limit}>{usd(limit)}</b>. Limits grow only after a loan held at least half its term and at least half your limit.</p>
+                        <p>Level {b?.level}. Your next note can be up to <b className="roll" key={b?.limit}>{usd(limit)}</b>. Limits grow only after a loan held at least half its term and at least half your limit.{sc && BigInt(sc.income_cap) < limitAt(4, sc.band, 10n ** 15n) ? ` Band ${sc.band} levels, capped by your income at ${usd(sc.income_cap, { cents: false })}.` : sc ? ` Band ${sc.band} levels.` : ''}</p>
                       </>
                     )}
                     {r.closedHash && <p className="txline">Transaction <HashLink hash={r.closedHash} /></p>}

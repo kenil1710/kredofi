@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server';
 import { checkCustom, customProfile, profileFor, type BorrowerKey, type CustomInputs } from '@/lib/borrowers';
 import { KREDOFI_CONTRACT } from '@/lib/config';
 import { call, isTestnetAccount, rateLimited, scorerAccount } from '@/server/near';
-import { checkPinned, runScorer, saveExtra, saveSubmitted } from '@/server/scorer';
+import { checkPinned, saveExtra, saveSubmitted, startScorer } from '@/server/scorer';
 import { recordSoon } from '@/server/ledger';
 
 export const runtime = 'nodejs';
@@ -26,16 +26,27 @@ export async function POST(req: Request) {
   if (typeof replyPubkey !== 'string' || !/^[0-9a-f]{64}$/.test(replyPubkey)) return NextResponse.json({ error: 'Missing reply key.' }, { status: 400 });
   if (rateLimited(`score:${accountId}`, 30_000)) return NextResponse.json({ error: 'A score was just requested for this account. Wait 30 seconds and try again.' }, { status: 429 });
 
+  const t0 = Date.now(), lap: Record<string, number> = {};
+  const mark = (k: string) => { lap[k] = Date.now() - t0; };
   try {
-    const version = await checkPinned();
+    const version = await checkPinned(); mark('pinned');
     const tag = createHash('sha256').update(accountId).digest('hex').slice(0, 4);
     const input = borrower === 'plaid'
       ? { op: 'score', public_token: publicToken, reply_pubkey: replyPubkey }
       : { op: 'score', profile: borrower === 'custom' ? customProfile(custom as CustomInputs, tag) : profileFor(borrower as BorrowerKey, tag), reply_pubkey: replyPubkey };
     // `extra` (demo build: fetch receipt + AI summary, sealed to the borrower) never goes on-chain.
-    const { extra, ...output } = await runScorer(input, accountId);
+    // Demo builds print the on-chain output as soon as the score exists, then remove the bank
+    // connection and ask for the AI summary; the submit runs in parallel with that tail.
+    const run = startScorer(input, accountId);
+    const { extra: _early, ...output } = await run.first; mark('scored');
     const scorer = scorerAccount();
-    const r = await call(scorer, KREDOFI_CONTRACT, 'dev_submit_score', { borrower: accountId, output });
+    const [r, fin] = await Promise.all([
+      call(scorer, KREDOFI_CONTRACT, 'dev_submit_score', { borrower: accountId, output }, 30n, 0n, true).then((x) => { mark('submit'); return x; }),
+      run.done.then((x) => { mark('tail'); return x; }).catch((e) => { console.error(`scorer tail failed after the score: ${e instanceof Error ? e.message : e}`); return null; }),
+    ]);
+    const extra = fin?.extra;
+    // Server log only: where the time goes (no data).
+    console.log(`score timing ${borrower}: ${Object.entries(lap).map(([k, v]) => `${k}=${v}ms`).join(' ')}`);
     recordSoon(r.hash, scorer.accountId);
     if (!r.ok) {
       const error = /already used by another borrower/.test(r.error ?? '')
