@@ -119,6 +119,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["stage", "create", "secrets", "push"])
     ap.add_argument("--space", help="<hf user>/<space name>, e.g. kenil1710/kredofi")
+    ap.add_argument("--hardware", default=None, help="create on paid hardware, e.g. cpu-upgrade (billed to the account)")
     a = ap.parse_args()
     if a.cmd != "stage" and not (a.space and re.fullmatch(r"[\w.-]+/[\w.-]+", a.space)):
         die("--space <user>/<name> is required")
@@ -126,7 +127,8 @@ def main():
     if a.cmd == "stage":
         stage()
     elif a.cmd == "create":
-        url = api().create_repo(a.space, repo_type="space", space_sdk="docker", private=False, exist_ok=True)
+        url = api().create_repo(a.space, repo_type="space", space_sdk="docker", private=False, exist_ok=True,
+                                space_hardware=a.hardware)
         print(f"Space ready: {url}")
     elif a.cmd == "secrets":
         web = read_env(ROOT / "web" / ".env.local")
