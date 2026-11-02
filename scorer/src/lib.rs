@@ -347,6 +347,7 @@ pub mod demo {
     thread_local! {
         static PLAID_TXS: Cell<usize> = const { Cell::new(0) };
         static PLAID_ACCOUNTS: Cell<usize> = const { Cell::new(0) };
+        static STABLE: Cell<(usize, u32)> = const { Cell::new((0, 0)) };
     }
     /// Called by the Plaid client: how many transactions and accounts Plaid sent (counts only).
     pub fn note_sync(transactions: usize) { PLAID_TXS.with(|c| c.set(transactions)); }
@@ -417,18 +418,27 @@ pub mod demo {
     #[cfg(not(target_os = "wasi"))]
     fn ask_nearai(_req: &Value) -> Option<String> { None }
 
-    /// Testnet speed-up for the sync completion rule (demo builds): once Plaid says the historical
-    /// update is complete AND the delivered transactions already reach back to the first month of
-    /// the scoring window, the history is complete; no need for the quiet polls. When they don't
-    /// reach that far (the Nov 1 sandbox case: status complete, only recent transactions), the
-    /// normal `SyncProgress` rule still applies.
+    /// Testnet speed-up for the sync completion rule (demo builds). Done early only when Plaid says
+    /// the historical update is complete, EVERY month of the scoring window already has transactions,
+    /// and the count stayed the same over 2 more complete polls (about 3 s; the normal rule waits 5).
+    /// A first version stopped as soon as the history merely reached back to the window: on the
+    /// hosted server (polling faster) the sandbox was caught mid-delivery and Riya scored C instead
+    /// of A (live, Nov 2). Anything else falls through to the normal `SyncProgress` rule.
     pub fn covers_window<'a>(txs: impl Iterator<Item = &'a Value>) -> bool {
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        covers_window_at(txs, now)
+        let txs: Vec<&Value> = txs.collect();
+        let full = covers_window_at(txs.iter().copied(), now);
+        STABLE.with(|c| {
+            let (last, n) = c.get();
+            let next = if full && txs.len() == last { n + 1 } else { 0 };
+            c.set((txs.len(), next));
+            next >= 2
+        })
     }
+    /// Every month of the scoring window has at least one transaction.
     pub fn covers_window_at<'a>(txs: impl Iterator<Item = &'a Value>, now_unix: u64) -> bool {
-        let first = window(now_unix)[0].clone(); // "YYYY-MM"
-        txs.filter_map(|t| t["date"].as_str()).filter_map(|d| d.get(..7)).any(|m| m <= first.as_str())
+        let months: std::collections::BTreeSet<&str> = txs.filter_map(|t| t["date"].as_str()).filter_map(|d| d.get(..7)).collect();
+        window(now_unix).iter().all(|m| months.contains(m.as_str()))
     }
 
     /// Testnet: print the on-chain output as soon as the score exists, so the Dev-mode server can
