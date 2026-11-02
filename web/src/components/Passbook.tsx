@@ -244,6 +244,11 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       updateSession({ scoringSince: undefined });
       setScoring((s) => (s?.resumed ? { ...s, step: 'sealed', elapsed: Math.round((Date.now() - since) / 1000) } : s));
       setPress((x) => x + 1);
+      // The server saves the scorer output just after the score lands: read it again shortly so the
+      // rule results (sealed to this browser) appear.
+      // (Not tied to this effect's cleanup: clearing scoringSince re-runs the effect right away.)
+      setTimeout(() => refresh().catch(() => {}), 2500);
+      setTimeout(() => refresh().catch(() => {}), 8000);
       return;
     }
     if (Date.now() - since > 150_000) {
