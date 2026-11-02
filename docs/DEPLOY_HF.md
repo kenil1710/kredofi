@@ -1,6 +1,6 @@
 # Deploy KredoFi to a Hugging Face Space (testnet)
 
-> **Blocked (Nov 2):** creating the Space returned `402 Payment Required`: "Static Spaces are free for everyone, but hosting Gradio and Docker Spaces on free cpu-basic requires a PRO subscription." Nothing was created and no secret was sent. Everything below works as soon as the account has PRO (or another host is chosen).
+> **Live (Nov 2):** https://kenil1710-kredofi.hf.space, Space `kenil1710/kredofi` (public, Docker). The free tier refused Docker (`402 Payment Required`: Docker Spaces on free cpu-basic need PRO), so it runs on paid **cpu-upgrade** hardware (8 vCPU, 32 GB, $0.03/hour) billed to the account's prepaid HF credits, with sleep **off** (`hf_space.py create --hardware cpu-upgrade`, then sleep time set to never). No PRO, no card. $20 of credits lasts about 666 hours (27 days) running continuously. Because it never sleeps, the uptime pinger is optional (still useful as a down alert).
 
 Decided Nov 2: a public **Docker Space** on the free CPU tier (2 vCPU, 16 GB RAM, no persistent disk,
 sleeps after 48 h without visits). Fly.io (`docs/DEPLOY.md`) stays ready for when a card is available.
