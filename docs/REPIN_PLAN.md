@@ -1,6 +1,8 @@
-# Mainnet re-pin: reproducible scorer build (PREPARED, NOT EXECUTED)
+# Mainnet re-pin: reproducible scorer build (DONE, Nov 2)
 
-Status: waiting for the owner's explicit yes. Nothing below has been signed or sent on mainnet.
+Status: executed on Nov 2 after the owner's yes, with a different final hash than first planned: the build also includes the stricter Plaid history check, so mainnet and testnet share the scoring logic. Final production hash `7048cc92a708564df3acdececd9a9880c3054f6d9ff0b4cebedd51ac268dc978` (two CI runs identical). Public WASM: commit `f174d555cc79f009d4275b32ad9f4e533c823531`. Transactions: add_version [3MKpCgQs…](https://nearblocks.io/txns/3MKpCgQsJeXYF8zMK5yVnWfdckFBW3YToGirX4ZznCqs) (0.0056 NEAR), update_access [CCE14Fyq…](https://nearblocks.io/txns/CCE14Fyq76Xhhh6yPzRCv8zhF4gQfXLi9n431f31dNLi) (0.0011), set_scorer_version [AtYo7XWz…](https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn) (0.0002), request_score [CNsoyGSj…](https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7) (0.0039; band A 1000 inside OutLayer, 7.6 s). Total 0.0108 NEAR.
+
+The plan as prepared (hash `39eec3ba…` then) follows.
 
 ## What changes
 

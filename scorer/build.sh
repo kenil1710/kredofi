@@ -3,8 +3,8 @@
 #   ./build.sh         production build (pin this one): out/kredofi_scorer.wasm
 #   ./build.sh demo    + demo profiles: out/kredofi_scorer_demo.wasm (local / testnet Dev mode)
 #   ./build.sh debug   + demo + debug: out/kredofi_scorer_debug.wasm (local only, never deploy)
-#   ./build.sh legacy  production build WITHOUT path remapping: reproduces the scorer pinned on
-#                      mainnet until Nov 2026 (87ceab66...), only on the machine that built it.
+#   ./build.sh legacy  production build WITHOUT path remapping (historical: the Nov 1 mainnet pin
+#                      87ceab66... was built this way, on macOS, from the Nov 1 source).
 #
 # Reproducible on any machine: absolute paths (this folder, the Cargo home) are rewritten to fixed
 # ones, so panic locations embed /kredofi/scorer/... and /cargo/... instead of the builder's paths.

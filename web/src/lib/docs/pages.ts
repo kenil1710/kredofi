@@ -5,12 +5,14 @@
 
 export type DocPage = { slug: string; title: string; summary: string; body: string };
 
-const MAINNET_SCORER = '87ceab664ebf5596ee1a78f84e7f3817faa452dcb67c5f98cac1ad724a3e1587';
-const TESTNET_SCORER = '7f57898102233ceaa9990eef9d4abde214a58c11f3ecfa850e7a5b532a51ecb9';
-const TX_SCORE = 'https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu';
+const MAINNET_SCORER = '7048cc92a708564df3acdececd9a9880c3054f6d9ff0b4cebedd51ac268dc978';
+const TESTNET_SCORER = 'ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9';
+const TX_SCORE = 'https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7';
+const TX_SCORE_NOV1 = 'https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu';
+const TX_PIN = 'https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn';
 const TX_DEPLOY = 'https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp';
 const TX_MIGRATE = 'https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34';
-const WASM_URL = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/78235f1146672e48b042768f25c921ceb23731e5/kredofi_scorer.wasm';
+const WASM_URL = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/f174d555cc79f009d4275b32ad9f4e533c823531/kredofi_scorer.wasm';
 
 export const DOC_PAGES: DocPage[] = [
   {
@@ -23,7 +25,7 @@ KredoFi lends USDC on NEAR against your income instead of collateral. A program 
 ## What is live
 
 - **Testnet demo**, open to anyone with no wallet: [Check my limit](/borrow). It uses Plaid's public sandbox bank and test USDC.
-- **Mainnet contract** \`kredofi.near\`, configured to score inside Intel TDX through OutLayer. A real score was computed there ([transaction](${TX_SCORE})). No mainnet loans have been made yet, and the mainnet pool is empty.
+- **Mainnet contract** \`kredofi.near\`, configured to score inside Intel TDX through OutLayer. A real score was computed there with the current scorer ([transaction](${TX_SCORE})). No mainnet loans have been made yet, and the mainnet pool is empty.
 
 The differences are spelled out in [Testnet vs mainnet](/docs/testnet-vs-mainnet).
 
@@ -307,7 +309,7 @@ Expected: \`${MAINNET_SCORER}\`. OutLayer downloads the scorer from this commit-
 
 ## 3. Did a real score come from the enclave?
 
-Open [the scoring transaction](${TX_SCORE}) (mainnet, 1 November 2026). Its receipts show \`request_score\`, the request to \`outlayer.near\` with the pinned version, the private callback \`on_score\`, the event \`score_issued\` (band A, 1,000) and the unused fee refunded to the borrower.
+Open [the scoring transaction](${TX_SCORE}) (mainnet, 2 November 2026, with the current scorer; the first, on 1 November with the earlier build, is [here](${TX_SCORE_NOV1})). Its receipts show \`request_score\`, the request to \`outlayer.near\` with the pinned version, the private callback \`on_score\`, the event \`score_issued\` (band A, 1,000) and the unused fee refunded to the borrower.
 
 ## 4. Can anyone else write a score?
 
@@ -315,9 +317,7 @@ No. On mainnet the contract is in OutLayer mode, so \`dev_submit_score\` is refu
 
 ## 5. Does the WASM come from this source?
 
-The source is in the repository (\`scorer/\`). The canonical build runs on x86_64 Linux in a pinned Rust image: \`./scorer/build-docker.sh\` gives \`39eec3ba1e0208f838cfa7d5cb32ff0f8112594217fd44cb5703cd5954fa2975\` on any x86_64 machine with Docker, and the repository's GitHub workflow prints the same hash (two separate runs matched). Builds on macOS or ARM Linux give other hashes for the same source, which is why one platform is canonical.
-
-One honest gap: mainnet still pins \`${MAINNET_SCORER.slice(0, 8)}…\`, built on macOS before this, so that exact file rebuilds byte for byte only on the original machine. Its code is the same; only the build changed. Moving mainnet to the reproducible build is prepared and waits for approval (see the [roadmap](/docs/roadmap)).
+The source is in the repository (\`scorer/\`). The pinned build is made on x86_64 Linux in a pinned Rust image: \`./scorer/build-docker.sh\` gives \`${MAINNET_SCORER}\` on any x86_64 machine with Docker, and the repository's GitHub workflow prints the same hash (two separate runs matched). Builds on macOS or ARM Linux give other hashes for the same source, which is why one platform is canonical.
 
 ## 6. The testnet demo
 
@@ -462,7 +462,7 @@ The demo's server routes (\`/api/score\`, \`/api/relay\`, \`/api/demo\`, \`/api/
 - **Fingerprints rely on identity data.** Someone with accounts at several banks could become several borrowers.
 - **A missed deadline releases your name.** After the due date plus grace, anyone can mark the default; that is the deterrent by design.
 - **Partial bank history.** Plaid's sandbox sometimes reports the history as complete before it has arrived. The scorer waits for it (and the testnet scorer also checks every month is present); a partial history can lower a score, never raise it.
-- **The mainnet scorer can't yet be rebuilt byte for byte elsewhere.** Scorer builds are now reproducible on x86_64 Linux in a pinned image, but mainnet still pins the earlier macOS build until it is re-pinned. See [Verify it yourself](/docs/verify).
+- **Rebuilding the scorer needs x86_64 Linux.** The pinned file rebuilds byte for byte in the pinned Docker image on x86_64 (or in the repository's GitHub workflow); macOS and ARM builds give other bytes. See [Verify it yourself](/docs/verify).
 - **Demo accounts live in your browser.** Their key is in local storage; anything that can run script on the page could take it. They hold only test funds.
 
 ## Known limits
@@ -491,10 +491,11 @@ The full write-up is \`THREAT_MODEL.md\` in the repository.
 | AI summary | yes, generated on our server | no |
 | Extras in the scorer | prepared borrowers (Riya, Sam, Max, build your own); the shared sandbox login is tied to your account; a fetch receipt | none |
 
-## Proof of the mainnet path (1 November 2026)
+## Proof of the mainnet path
 
 - Contract deployed in OutLayer mode: [transaction](${TX_DEPLOY}).
-- A real score computed inside OutLayer and stored by the contract's callback (band A, 1,000, scorer \`${MAINNET_SCORER.slice(0, 8)}…\`), with the unused fee refunded to the borrower: [transaction](${TX_SCORE}).
+- A real score computed inside OutLayer and stored by the contract's callback (band A, 1,000), with the unused fee refunded to the borrower: [transaction](${TX_SCORE_NOV1}) (1 November, earlier build).
+- Re-pinned to the reproducible build \`${MAINNET_SCORER.slice(0, 8)}…\` ([transaction](${TX_PIN})) and scored again inside OutLayer with it (band A, 1,000, 7.6 seconds): [transaction](${TX_SCORE}) (2 November).
 - Contract upgraded with a state migration: [transaction](${TX_MIGRATE}).
 
 How to check these yourself: [Verify it yourself](/docs/verify).
@@ -562,12 +563,11 @@ No owner method can move lender cash, loans or the reserve. But the contract key
 Nothing on this page is built yet; it is the plan, roughly in order.
 
 1. **Lock the contract keys** behind a time-locked upgrade path or a DAO, so code can't change silently.
-2. **Pin the reproducible scorer build on mainnet** (built on x86_64 Linux and checked; waiting for approval), so anyone can rebuild the exact pinned file.
-3. **Generate the sealing key inside the enclave** and never export it; a real recovery partner with its own key.
-4. **Plaid production access** and a licensed lending partner; Plaid's persistent account IDs for fingerprints.
-5. **First mainnet loans** with small amounts.
-6. **Live cross-chain deposits** through NEAR Intents (the demo shows dry-run quotes only).
-7. **The AI summary inside the enclave** on mainnet, with the model's attestation checked.
+2. **Generate the sealing key inside the enclave** and never export it; a real recovery partner with its own key.
+3. **Plaid production access** and a licensed lending partner; Plaid's persistent account IDs for fingerprints.
+4. **First mainnet loans** with small amounts.
+5. **Live cross-chain deposits** through NEAR Intents (the demo shows dry-run quotes only).
+6. **The AI summary inside the enclave** on mainnet, with the model's attestation checked.
 
 Progress is logged in the repository (\`docs/LOG.md\`).
 `,

@@ -117,8 +117,8 @@ export function LedgerPage() {
             <dt>Pinned scorer</dt><dd>{data?.config.scorer_version ?? '…'}</dd>
           </dl>
           <p className="hint">On mainnet, kredofi.near pins a scorer you can check yourself:</p>
-          <code>curl -sL https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/78235f1146672e48b042768f25c921ceb23731e5/kredofi_scorer.wasm | shasum -a 256</code>
-          <p className="hint">It must print 87ceab664ebf5596…3e1587, the version kredofi.near pins.</p>
+          <code>curl -sL https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/f174d555cc79f009d4275b32ad9f4e533c823531/kredofi_scorer.wasm | shasum -a 256</code>
+          <p className="hint">It must print 7048cc92a708564d…68dc978, the version kredofi.near pins.</p>
         </div>
       </div>
     </main>

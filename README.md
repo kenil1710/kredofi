@@ -28,7 +28,7 @@ You can't borrow on-chain without locking up more collateral than you borrow, an
 |---|---|---|
 | Contract | [`kredofi.kency.testnet`](https://testnet.nearblocks.io/address/kredofi.kency.testnet) | [`kredofi.near`](https://nearblocks.io/address/kredofi.near) |
 | Where the scorer runs | **Dev mode**: the pinned scorer runs on our server with wasmtime, outside an enclave, and the server submits its output (`dev_submit_score`) | **OutLayer** (Intel TDX): the contract calls OutLayer itself and accepts the score only in its own callback (`on_score`) |
-| Pinned scorer (SHA-256) | demo build `7f578981…` (adds sandbox profiles, the AI summary and the fetch receipt) | production build `87ceab66…`, [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm) |
+| Pinned scorer (SHA-256) | demo build `ac8e2a9c…` (same scoring logic, plus sandbox profiles, the AI summary and the fetch receipt) | production build `7048cc92…`, [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm); both built reproducibly on x86_64 Linux ([VERIFY.md](VERIFY.md)) |
 | Bank data | Plaid sandbox (public test logins) | Plaid sandbox (no production access yet) |
 | Money | mock USDC (`musdc.kency.testnet`), test NEAR | real USDC contract configured; no loans made yet |
 | AI summary | NEAR AI Cloud, generated on our server, sealed to your browser | not in the production build |
@@ -37,6 +37,7 @@ You can't borrow on-chain without locking up more collateral than you borrow, an
 Mainnet proof, all on `kredofi.near` (Nov 1, 2026):
 - Deployed in OutLayer mode: [tx Ags89jDR…](https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp); upgraded with a state migration: [tx 5fqzZSKC…](https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34).
 - A real score computed inside OutLayer and stored by `on_score` (band A, 1000, scorer `87ceab66…`), unused fee refunded to the borrower: [tx 4dgHrA97…](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu).
+- Nov 2: re-pinned to the reproducible build `7048cc92…` (OutLayer version [tx 3MKpCgQs…](https://nearblocks.io/txns/3MKpCgQsJeXYF8zMK5yVnWfdckFBW3YToGirX4ZznCqs), secrets lock [tx CCE14Fyq…](https://nearblocks.io/txns/CCE14Fyq76Xhhh6yPzRCv8zhF4gQfXLi9n431f31dNLi), contract pin [tx AtYo7XWz…](https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn)) and scored again inside OutLayer with it (band A, 1000, 7.6 s): [tx CNsoyGSj…](https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7).
 - Two earlier attempts refused by OutLayer's secrets access rule before it was fixed (no score stored): [tx BCdtpGjj…](https://nearblocks.io/txns/BCdtpGjjqPeBFqjnPf7FvbgShyagerNWMM8KCFSY8qEP), [tx 2AjMgECA…](https://nearblocks.io/txns/2AjMgECA6PFJaMTQkbP5vZ3dpKATAoapWAqCocidDP4F).
 
 How to check all of this yourself: [VERIFY.md](VERIFY.md). What is protected and what isn't: [THREAT_MODEL.md](THREAT_MODEL.md). The short version for visitors: [/trust](https://kenil1710-kredofi.hf.space/trust).
@@ -98,7 +99,7 @@ Every security rule in [SPEC section 7](docs/SPEC.md) has a test. Build and run 
 - The live demo is testnet in Dev mode: the scorer runs on our server, not in an enclave. Only mainnet uses OutLayer, and no mainnet loan has been made.
 - Testnet scoring requires a one-time challenge signed by the account's own key (NEP-413), so nobody can re-score another account (`web/src/lib/ownership.ts`).
 - On testnet every judge can use the shared sandbox login because the testnet scorer ties the sandbox identity to your NEAR account ([SPEC 8c](docs/SPEC.md)); the mainnet build keeps the strict one-identity rule.
-- Scorer builds are now reproducible on x86_64 Linux in a pinned image (`./scorer/build-docker.sh` and a GitHub workflow give `39eec3ba…`; macOS and ARM builds differ), but mainnet still pins the earlier macOS build `87ceab66…` until the prepared re-pin is approved ([VERIFY.md](VERIFY.md) section 3, [docs/REPIN_PLAN.md](docs/REPIN_PLAN.md)).
+- The scorer is built reproducibly on x86_64 Linux in a pinned image: `./scorer/build-docker.sh` (or the GitHub workflow) gives the exact pinned bytes; builds on macOS or ARM give other hashes ([VERIFY.md](VERIFY.md) section 3).
 - Both contract accounts still have their full-access keys, so the owner can redeploy the code. Owner methods can't move lender funds or the reserve (rule 10, tested), but a redeploy could. See [THREAT_MODEL.md](THREAT_MODEL.md).
 - Trust assumptions: Intel TDX, OutLayer's worker registration, Plaid, NEAR AI Cloud (summary only; the score never depends on it).
 

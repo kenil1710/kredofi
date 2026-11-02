@@ -70,10 +70,10 @@ cd scorer && cargo test
 cd scorer && ./build.sh          # production (pin this): out/kredofi_scorer.wasm, rejects profiles and debug
 cd scorer && ./build.sh demo     # + demo profiles: out/kredofi_scorer_demo.wasm (local / testnet Dev mode)
 cd scorer && ./build.sh debug    # + debug features on stderr: local only, never deploy
-cd scorer && ./build.sh legacy   # production WITHOUT path remapping: reproduces the current mainnet pin 87ceab66 (this machine only)
+cd scorer && ./build.sh legacy   # production WITHOUT path remapping (only for historical builds such as 87ceab66, from their own commit)
 # other modes rewrite machine paths, but bytes still depend on host OS/CPU: pinned builds come from x86_64 Linux,
 # i.e. ./scorer/build-docker.sh on x86_64 or the GitHub workflow 'scorer reproducible build' (artifact scorer-wasm):
-#   gh run download <run id> -n scorer-wasm -D scorer/out   # 39eec3ba production, 7f578981 testnet demo
+#   gh run download <run id> -n scorer-wasm -D scorer/out   # 7048cc92 production (mainnet pin), ac8e2a9c testnet demo
 # demo borrowers -> scorer/out/borrowers/{good,risky,cheater}.json (ready scorer inputs)
 python3 scripts/gen_borrowers.py
 # run locally: keys from .env, passed to wasmtime by NAME only (never values on the command line)
