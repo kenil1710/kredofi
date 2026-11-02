@@ -9,7 +9,9 @@ cd "$(dirname "$0")/.."
 NET=testnet; POOL=kredofi.kency.testnet; USDC=musdc.kency.testnet; OWNER=kency.testnet; RELAYER=relayer.kency.testnet
 v() { node --input-type=module -e "import {view} from './scripts/lib/near.mjs'; console.log(JSON.stringify(await view('$1','$2',$3)))"; }
 
-(cd scorer && ./build.sh demo >/dev/null)
+# The demo scorer must be the canonical CI build (x86_64 Linux): a local macOS build has another hash.
+# Get it with: gh run download <run id> -n scorer-wasm -D scorer/out   (never rebuild it here)
+test -f scorer/out/kredofi_scorer_demo.wasm || { echo 'scorer/out/kredofi_scorer_demo.wasm missing: download the CI artifact'; exit 1; }
 HASH=$(shasum -a 256 scorer/out/kredofi_scorer_demo.wasm | cut -d' ' -f1)
 PINNED=$(v $POOL get_config '{}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["scorer_version"])')
 if [[ "$PINNED" != "$HASH" ]]; then

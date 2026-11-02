@@ -123,14 +123,21 @@ You repay the whole amount due in one transfer: principal plus interest. A $100 
 
 ## Growing your limit
 
-When you repay, your level goes up by one if all of these hold:
+When you repay, your level goes up by one if all of these hold. The values come from the contract's own settings (\`min_hold_ns\`, \`loan_term_ns\`):
 
-- you held the loan at least the minimum hold (half the term);
-- you borrowed at least half of your limit at the time;
-- your last level-up was at least one loan term ago;
-- you aren't already at level 4.
+| Level-up rule | Mainnet | Testnet demo |
+|---|---|---|
+| Hold the loan at least | 15 days (half the term) | 1 minute |
+| Borrow at least | half your limit at the time | half your limit at the time |
+| Your limit can rise at most once per | 30 days (one term) | 2 minutes (one term) |
+| Highest level | 4 | 4 |
 
-The passbook shows a countdown: "Repay after 0:52 to level up to $187.50", then "Repaying now levels you up". If a repayment doesn't level you up, the passbook says which condition wasn't met.
+What the app says, built from those settings:
+
+- Mainnet: "Hold at least 15 days and borrow at least half your limit to level up. Limits can rise at most once per term (30 days)."
+- Testnet: "Hold your next loan at least 1 minute to level up."
+
+While a loan is open, the passbook shows a countdown box ("Level up in 0:42"), then "Repay now to level up to $187.50". After a repayment, "Borrow again" takes you to the next loan. If a repayment doesn't level you up, the passbook says which condition wasn't met.
 
 ## Your score
 

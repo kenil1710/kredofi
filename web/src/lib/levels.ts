@@ -51,3 +51,21 @@ export function mmss(ms: number): string {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
+
+/** Nanoseconds (as the contract stores them) in words: "1 minute", "2 minutes", "15 days", "1 hour". */
+export function durationWords(ns: string | bigint): string {
+  const s = Number(BigInt(ns) / 1_000_000_000n);
+  const unit = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  if (s % 86_400 === 0) return unit(s / 86_400, 'day');
+  if (s % 3_600 === 0) return unit(s / 3_600, 'hour');
+  if (s % 60 === 0) return unit(s / 60, 'minute');
+  return unit(s, 'second');
+}
+
+/** The level-up rule in plain words, from the live contract settings (min_hold_ns, loan_term_ns). */
+export function levelRuleText(network: 'testnet' | 'mainnet', cfg: { min_hold_ns: string; loan_term_ns: string }): string {
+  const hold = durationWords(cfg.min_hold_ns), term = durationWords(cfg.loan_term_ns);
+  return network === 'testnet'
+    ? `Hold your next loan at least ${hold} to level up.`
+    : `Hold at least ${hold} and borrow at least half your limit to level up. Limits can rise at most once per term (${term}).`;
+}

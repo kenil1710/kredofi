@@ -25,13 +25,15 @@ import { newKeypair, openSealed } from '@/lib/seal';
 import { PART_KEYS, PART_NAMES, reason, whatWouldChange, type Parts } from '@/lib/reasons';
 import { primaryAction } from '@/lib/primaryAction';
 import { usableSummary } from '@/lib/aiSummary';
-import { levelPlan, limitAt, mmss, noLevelUpReason } from '@/lib/levels';
+import { openWithAny, rememberSecret } from '@/lib/replyKey';
+import { durationWords, levelPlan, levelRuleText, limitAt, mmss, noLevelUpReason } from '@/lib/levels';
+import { NETWORK } from '@/lib/config';
 import { loanHistory, type LoanRecord } from '@/lib/history';
 import type { LedgerEvent } from '@/lib/events';
 
 type Who = BorrowerKey | 'custom' | 'plaid';
 type Source = { borrower: Who; custom?: CustomInputs; publicToken?: string };
-type Session = { who?: Who; replySecret?: string; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number; scoringSince?: number; prevIssued?: string };
+type Session = { who?: Who; replySecret?: string; replySecrets?: string[]; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number; scoringSince?: number; prevIssued?: string };
 type Record_ = { events: LedgerEvent[]; output: Record<string, unknown> | null; extra: string | null; scoreHash: string | null };
 /** Testnet extras, sealed to the borrower (demo scorer build): real fetch counts and the AI summary. */
 type Extra = { receipt?: { plaid_transactions: number; plaid_accounts: number; read_transactions: number; months: number }; summary?: string; summary_by?: string };
@@ -148,9 +150,12 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     const acctId = forAccount ?? acct;
     if (!acctId) return;
     const who = src.borrower;
-    const kp = newKeypair();
+    // Wallets: a reply key the wallet can re-derive anywhere; demo accounts: a fresh key in this browser.
+    let kp: { secret: string; public: string };
+    try { kp = (account.kind === 'wallet' ? await account.walletReplyKey(acctId) : null) ?? newKeypair(); }
+    catch { kp = newKeypair(); }
     // `scoringSince` lets a reload mid-scoring pick the result up (the server keeps going).
-    updateSession({ who, replySecret: kp.secret, output: undefined, extra: undefined, scoreHash: undefined, scoredIn: undefined, scoringSince: Date.now(), prevIssued: b?.score?.issued_at ?? '0' }, acctId);
+    updateSession({ who, replySecret: kp.secret, replySecrets: rememberSecret(loadSession(acctId).replySecrets, kp.secret), output: undefined, extra: undefined, scoreHash: undefined, scoredIn: undefined, scoringSince: Date.now(), prevIssued: b?.score?.issued_at ?? '0' }, acctId);
     scoringLive.current = true;
     const started = Date.now();
     setScoring({ step: 'sent', elapsed: 0 });
@@ -165,7 +170,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'Scoring failed.');
       clearInterval(timer);
-      updateSession({ who, replySecret: kp.secret, output: j.output, extra: j.extra, scoreHash: j.hash, scoredIn: Math.round((Date.now() - started) / 1000), scoringSince: undefined }, acctId);
+      updateSession({ who, replySecret: kp.secret, replySecrets: rememberSecret(loadSession(acctId).replySecrets, kp.secret), output: j.output, extra: j.extra, scoreHash: j.hash, scoredIn: Math.round((Date.now() - started) / 1000), scoringSince: undefined }, acctId);
       setScoring({ step: 'reading', elapsed: Math.round((Date.now() - started) / 1000), hash: j.hash });
       for (let i = 0; i < 30; i++) {
         const { value: bb, height } = await getBorrowerAt(acctId);
@@ -271,16 +276,29 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     const t = setInterval(() => { refresh().catch(() => {}); setNow(Date.now()); }, 2000);
     return () => clearInterval(t);
   }, [resuming, refresh]);
+  // Every reply secret this browser holds for the account (newest first): an older score still opens.
+  const secrets = useMemo(() => [...new Set([sess.replySecret, ...(sess.replySecrets ?? [])].filter((s): s is string => !!s))], [sess.replySecret, sess.replySecrets]);
   const extra: Extra | null = useMemo(() => {
-    if (!sess.replySecret || typeof sealedExtra !== 'string') return null;
-    try { return JSON.parse(openSealed(sess.replySecret, sealedExtra)) as Extra; } catch { return null; }
-  }, [sess.replySecret, sealedExtra]);
+    if (!secrets.length || typeof sealedExtra !== 'string') return null;
+    return openWithAny(secrets, sealedExtra, (s, x) => JSON.parse(openSealed(s, x)) as Extra);
+  }, [secrets, sealedExtra]);
   const scoreHash = sess.scoreHash ?? record?.scoreHash ?? undefined;
   const parts: Parts | null = useMemo(() => {
     const reply = output?.reply;
-    if (!sess.replySecret || typeof reply !== 'string') return null;
-    try { return JSON.parse(openSealed(sess.replySecret, reply)).parts as Parts; } catch { return null; }
-  }, [sess.replySecret, output]);
+    if (!secrets.length || typeof reply !== 'string') return null;
+    return openWithAny(secrets, reply, (s, r) => JSON.parse(openSealed(s, r)).parts as Parts);
+  }, [secrets, output]);
+  const [unlockMsg, setUnlockMsg] = useState<string | null>(null);
+  const unlockWithWallet = async () => {
+    if (!acct) return;
+    setUnlockMsg('Waiting for your wallet…');
+    try {
+      const kp = await account.walletReplyKey(acct, { refresh: true });
+      if (!kp) { setUnlockMsg(null); return; }
+      updateSession({ replySecrets: rememberSecret(loadSession(acct).replySecrets, kp.secret) });
+      setUnlockMsg(null);
+    } catch (e) { setUnlockMsg(e instanceof Error ? e.message : 'The wallet did not sign.'); }
+  };
   const who = sess.who;
   const loan = b?.loan ?? null;
   const limit = b ? BigInt(b.limit) : 0n;
@@ -334,7 +352,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   const noteDollars = Number((defaulted && loan ? ns(loan.principal) : limit) / 1_000_000n);
   const noteData = sc && {
     name: acct ?? '', band: sc.band, amount: noteDollars, words: amountInWords(noteDollars),
-    repay: denied ? 'Not issued' : defaulted && loan ? `${absoluteDate(loan.due_at)}, ${usd(due)}, not repaid` : loan?.state === 'Active' ? `${absoluteDate(loan.due_at)}, ${usd(due)}` : `${Math.round(termMs / 60000)} minutes after you borrow, ${usd(limit + ceilBps(limit, INTEREST_BPS[sc.band]))}`,
+    repay: denied ? 'Not issued' : defaulted && loan ? `${absoluteDate(loan.due_at)}, ${usd(due)}, not repaid` : loan?.state === 'Active' ? `${absoluteDate(loan.due_at)}, ${usd(due)}` : `${cfg ? durationWords(cfg.loan_term_ns) : 'one term'} after you borrow, ${usd(limit + ceilBps(limit, INTEREST_BPS[sc.band]))}`,
     serial: serialFromFingerprint(sc.fingerprint),
     proof: scoreHash ? `Scored by the pinned scorer (testnet), transaction ${scoreHash.slice(0, 6)}…${scoreHash.slice(-3)}` : 'Scored by the pinned scorer (testnet)',
     denied: false,
@@ -541,9 +559,17 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 {parts ? (
                   <Tally play={press} rows={PART_KEYS.map((k) => ({ label: PART_NAMES[k], detail: reason(k, parts[k]), points: parts[k] }))} />
                 ) : (
+                  account.kind === 'wallet' && acct === account.accountId ? (
+                    <div className="hint">
+                      <p>Your rule results are sealed to a key your wallet can unlock in any browser.</p>
+                      <p style={{ marginTop: 8 }}><button type="button" className="btn btn-line" onClick={unlockWithWallet}>Show my rule results</button>{unlockMsg && <span style={{ marginLeft: 10 }}>{unlockMsg}</span>}</p>
+                      <p style={{ marginTop: 6 }}>Scores made before Nov 3, or with another key of your wallet, can&apos;t be unlocked this way: check your limit again to see them.</p>
+                    </div>
+                  ) : (
                   <p className="hint">Rule results aren&apos;t available for this score. {!b?.has_active_loan && !b?.blocked && (who || !scenarios)
                     ? <button type="button" className="linkbtn" onClick={() => (who ? retry() : connectBank())}>Check your limit again</button>
                     : 'Check your limit again'} to see them.</p>
+                  )
                 )}
               </div>
               {usableSummary(extra?.summary) && (
@@ -590,10 +616,22 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                     <TxButton tx={repayTx.state} label={`Repay ${usd(due)}`} doneLabel="Repaid" onClick={repay} variant="ink" disabled={shortBy > 0n} />
                     {canDefault && <TxButton tx={defaultTx.state} label="Mark as defaulted" onClick={markDefault} variant="red" />}
                   </div>
-                  {levelText && <p className="hint num" aria-live="off">{levelText}</p>}
+                  {plan && (plan.kind === 'wait' || plan.kind === 'ready') ? (
+                    <div className={`levelup ${plan.kind}`} role="status" aria-live="off">
+                      {plan.kind === 'wait' ? (
+                        <>
+                          <p className="levelup-title">Level up in <b className="num">{mmss(plan.atMs - now)}</b></p>
+                          <p>Repay after the timer to raise your limit to <b>{usd(plan.next)}</b>. Repaying earlier is fine, but your limit stays the same.</p>
+                          <i className="levelup-bar" style={{ ['--p' as string]: `${Math.max(0, Math.min(1, 1 - (plan.atMs - now) / Math.max(1, plan.atMs - msOf(loan.issued_at))))}` }} aria-hidden="true" />
+                        </>
+                      ) : (
+                        <p className="levelup-title">Repay now to level up to <b>{usd(plan.next)}</b></p>
+                      )}
+                    </div>
+                  ) : levelText && <p className="hint num" aria-live="off">{levelText}</p>}
                   <TxStatus tx={repayTx.state} />
                   <TxStatus tx={defaultTx.state} />
-                  {who === 'max' && !canDefault && <p className="hint">Max won&apos;t repay. After the due date and a {Math.round(graceMs / 60000)}-minute grace period anyone can mark the loan as defaulted; the contract checks the dates itself.</p>}
+                  {who === 'max' && !canDefault && <p className="hint">Max won&apos;t repay. After the due date and a grace period of {cfg ? durationWords(cfg.grace_ns) : '…'} anyone can mark the loan as defaulted; the contract checks the dates itself.</p>}
                 </Entry>
                 ) : (
                   <Entry when={clock(r.issuedMs)} sub={day(r.issuedMs)} title="Loan issued">
@@ -608,6 +646,12 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                       <p>{usd(r.principal + r.interest)} paid: {usd(toPool)} of the interest went to lenders, {usd(r.interest - toPool)} to the KredoFi treasury.</p>
                       {isLatest && <Stamp kind="paid" small press={press} shakeRef={loanBox} style={{ position: 'absolute', right: 0, top: -44 }}>PAID</Stamp>}
                     </div>
+                    {isLatest && isCurrent && showBorrow && (
+                      <div className="next-step">
+                        <button type="button" className="btn btn-violet" onClick={() => document.getElementById('pa-borrow')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>Borrow again</button>
+                        {cfg && <p className="hint">{levelRuleText(NETWORK, cfg)}</p>}
+                      </div>
+                    )}
                     {leveled === true && <p>Your limit rose to level {r.levelAfter ?? b?.level}.</p>}
                     {leveled === false && r.closedMs !== undefined && cfg && (
                       <p>No level-up. {noLevelUpReason({ levelBefore: r.levelAtBorrow ?? b?.level ?? 1, principal: r.principal, limitAtBorrow: r.limitAtBorrow, heldMs: r.closedMs - r.issuedMs, minHoldMs: msOf(cfg.min_hold_ns) })}</p>
@@ -619,7 +663,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                             <div key={k} className={b && b.level > k ? 'on' : ''}><i style={{ height: [24, 44, 70, 100][k] }} />{usd(v, { cents: v % 1_000_000n !== 0n })}</div>
                           ))}
                         </div>
-                        <p>Level {b?.level}. Your next note can be up to <b className="roll" key={b?.limit}>{usd(limit)}</b>. Limits grow only after a loan held at least half its term and at least half your limit.{sc && BigInt(sc.income_cap) < limitAt(4, sc.band, 10n ** 15n) ? ` Band ${sc.band} levels, capped by your income at ${usd(sc.income_cap, { cents: false })}.` : sc ? ` Band ${sc.band} levels.` : ''}</p>
+                        <p>Level {b?.level}. Your next note can be up to <b className="roll" key={b?.limit}>{usd(limit)}</b>. {cfg ? levelRuleText(NETWORK, cfg) : ''}{sc && BigInt(sc.income_cap) < limitAt(4, sc.band, 10n ** 15n) ? ` Band ${sc.band} levels, capped by your income at ${usd(sc.income_cap, { cents: false })}.` : sc ? ` Band ${sc.band} levels.` : ''}</p>
                       </>
                     )}
                     {r.closedHash && <p className="txline">Transaction <HashLink hash={r.closedHash} /></p>}
@@ -671,8 +715,9 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
               </div>
               <dl className="terms">
                 <dt>Interest</dt><dd>{usd(interest)} flat ({Number(INTEREST_BPS[sc.band]) / 100}%)</dd>
-                <dt>You repay</dt><dd>{amount !== null ? usd(amount + interest) : '—'} within {Math.round(termMs / 60000)} minutes (testnet term)</dd>
-                <dt>If you don&apos;t repay</dt><dd className="plain">After a {Math.round(graceMs / 60000)}-minute grace period anyone can mark the loan as defaulted. The reserve pays lenders first, your name is released to the recovery partner, and you can&apos;t borrow again.</dd>
+                <dt>You repay</dt><dd>{amount !== null ? usd(amount + interest) : '—'} within {cfg ? durationWords(cfg.loan_term_ns) : '…'}{NETWORK === 'testnet' ? ' (testnet term)' : ''}</dd>
+                <dt>To level up</dt><dd className="plain">{cfg ? levelRuleText(NETWORK, cfg) : '…'}</dd>
+                <dt>If you don&apos;t repay</dt><dd className="plain">After a grace period of {cfg ? durationWords(cfg.grace_ns) : '…'} anyone can mark the loan as defaulted. The reserve pays lenders first, your name is released to the recovery partner, and you can&apos;t borrow again.</dd>
               </dl>
               <TxStatus tx={borrowTx.state} />
             </Entry>

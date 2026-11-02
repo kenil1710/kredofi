@@ -5,7 +5,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { functionCall, useWallet } from './wallet';
 import { RPC } from '../config';
-import { b64, fromB64, scoreMessage } from '../ownership';
+import { b64, fromB64, scoreMessage, signatureBytes } from '../ownership';
+import { replyKeyFromSignature, unlockMessage, UNLOCK_NONCE } from '../replyKey';
+import { KREDOFI_CONTRACT } from '../config';
 
 type Action = ReturnType<typeof functionCall>;
 type Demo = { accountId: string; secretKey: string };
@@ -14,6 +16,8 @@ type AccountCtx = {
   kind: 'wallet' | 'demo' | null;
   signAndSend: (receiverId: string, actions: Action[]) => Promise<unknown>;
   createDemo: () => Promise<string>;
+  /** Wallet accounts: the reply key derived from a fixed signed message (same in any browser). Null for demo accounts. */
+  walletReplyKey: (accountId: string, opts?: { refresh?: boolean }) => Promise<{ secret: string; public: string } | null>;
   /** Proof for /api/score that this browser controls `accountId` (NEP-413 signed challenge). */
   proveScore: (accountId: string, replyPubkey: string) => Promise<{ nonce: string; publicKey: string; signature: string }>;
   /** Forget this slot's demo account (its key stays nowhere), so the next start creates a fresh one. */
@@ -78,6 +82,18 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
     throw new Error('This browser does not hold the key for this account.');
   }, [slot, wallet]);
 
+  const walletReplyKey = useCallback(async (accountId: string, opts?: { refresh?: boolean }) => {
+    if (slot || wallet.accountId !== accountId) return null;
+    const cacheKey = `kredofi:replykey:${accountId}`;
+    if (!opts?.refresh) { try { const c = JSON.parse(localStorage.getItem(cacheKey) ?? 'null'); if (c?.secret && c?.public) return c; } catch { /* none */ } }
+    const out = await wallet.signMessage({ message: unlockMessage(accountId), recipient: KREDOFI_CONTRACT, nonce: UNLOCK_NONCE });
+    const sig = signatureBytes(out.signature);
+    if (!sig) throw new Error('The wallet returned an unreadable signature.');
+    const kp = replyKeyFromSignature(sig);
+    try { localStorage.setItem(cacheKey, JSON.stringify(kp)); } catch { /* private mode: derive again next time */ }
+    return kp;
+  }, [slot, wallet]);
+
   const relay = useCallback(async (d: Demo, receiverId: string, acts: Action[]) => {
     const { Account, JsonRpcProvider, actions, encodeSignedDelegate } = await import('near-api-js');
     const account = new Account(d.accountId, new JsonRpcProvider({ url: RPC }), d.secretKey as `ed25519:${string}`);
@@ -111,12 +127,13 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
       },
       createDemo,
       proveScore,
+      walletReplyKey,
       resetDemo,
       slot,
       connectWallet: wallet.connect,
       signOut: async () => { if (kind === 'wallet') await wallet.disconnect(); },
     };
-  }, [wallet, demo, createDemo, proveScore, resetDemo, relay, slot]);
+  }, [wallet, demo, createDemo, proveScore, walletReplyKey, resetDemo, relay, slot]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

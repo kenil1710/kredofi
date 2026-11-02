@@ -46,7 +46,7 @@ test('the docs never contain developer account details or secret-looking values'
 
 test('key numbers match the contract and scorer', () => {
   const all = DOC_PAGES.map((p) => p.body).join('\n');
-  for (const s of ['$100, $250, $500 and $1,000', 'A 100%, B 75%, C 50%', 'A 4%, B 6%, C 8%', '$104.00', '10% of the pool', '800 to 1,000', '650 to 799', '500 to 649', '250 minus 60']) {
+  for (const s of ['$100, $250, $500 and $1,000', 'A 100%, B 75%, C 50%', 'A 4%, B 6%, C 8%', '$104.00', '10% of the pool', '800 to 1,000', '650 to 799', '500 to 649', '250 minus 60', '15 days (half the term)', 'Hold your next loan at least 1 minute to level up.', 'Limits can rise at most once per term (30 days).']) {
     assert.ok(all.includes(s), s);
   }
 });

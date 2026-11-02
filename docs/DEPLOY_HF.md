@@ -53,6 +53,8 @@ A free Space sleeps after 48 h without visits; a ping every few minutes keeps it
    `/api/health` makes no chain or Plaid calls, so pings cost nothing.
 3. Optional backup: https://cron-job.org (free), same URL every 15 minutes.
 
+Add a second monitor, type **Keyword**, same URL, keyword `"reserveLow":true`, alert when it **exists**: `/api/health` reports the testnet reserve, and this emails you when judge testing has pushed it below $200. Then run `./scripts/reserve_guard.sh` (tops it up to $500).
+
 UptimeRobot also emails you if the Space goes down (for example after an HF restart or a failed build).
 
 ## kredofi.xyz -> the Space (redirect)

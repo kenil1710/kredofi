@@ -370,3 +370,15 @@ button{font-family:inherit}
 .connect-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-top:6px}
 .trust{max-width:860px;padding-block:40px 96px}
 .trust-receipt{margin:0 0 16px;border-left:3px solid var(--violet-ink);padding:6px 0 6px 14px;font-size:16px;color:#2C4A41;background:var(--paper)}
+
+/* Level-up countdown and next step after a repayment */
+.levelup{border:2px solid var(--violet-ink);background:rgba(74,44,140,.06);padding:14px 16px;margin:8px 0 12px;max-width:560px}
+.levelup.ready{background:var(--violet-ink);color:#F3F0FA}
+.levelup-title{font-family:var(--display);font-size:24px;line-height:1.2;color:var(--ink)}
+.levelup.ready .levelup-title{color:#F3F0FA}
+.levelup-title b{font-variant-numeric:tabular-nums}
+.levelup p + p{margin-top:4px;font-size:14.5px;color:#2C4A41}
+.levelup-bar{display:block;height:6px;margin-top:10px;background:rgba(74,44,140,.15);position:relative;overflow:hidden}
+.levelup-bar::after{content:"";position:absolute;inset:0;transform-origin:left;transform:scaleX(var(--p,0));background:var(--violet-ink);transition:transform 1s linear}
+.next-step{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin:6px 0 10px}
+@media (prefers-reduced-motion: reduce){.levelup-bar::after{transition:none}}

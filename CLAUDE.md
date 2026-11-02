@@ -84,6 +84,7 @@ wasmtime run -S http --env PLAID_CLIENT_ID --env PLAID_SECRET --env SEAL_KEY --e
 # testnet (Dev mode): one-time owner setup (pin demo scorer build, seed reserve), then the SPEC 8 demo
 cd scripts && npm install && cd ..
 ./scripts/testnet_setup.sh
+./scripts/reserve_guard.sh        # testnet reserve below $200 -> top up to $500 (MIN_USD / TARGET_USD); run before judging
 set -a; source .env; set +a; node scripts/demo.mjs
 node scripts/dev_scorer.mjs score <borrower> <input.json> [reply_pubkey]   # or: release <borrower>
 node --test scripts/seal.test.mjs   # JS <-> Rust seal compatibility
