@@ -2,7 +2,7 @@
 // Borrower passbook (DESIGN 3, 7.2-7.8; docs/passbook-reference.html), wired to testnet.
 // Every state is read from the chain, so a refresh never loses it (DESIGN 7.3). The browser keeps
 // only the reply key and the scorer output for this account, to show the five rule results.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CreditNote } from './CreditNote';
 import { Stamp } from './Stamp';
 import { Tally } from './Tally';
@@ -14,17 +14,21 @@ import { functionCall } from '@/lib/near/wallet';
 import { useAccount } from '@/lib/near/account';
 import { useTx } from '@/lib/useTx';
 import { BORROWERS, CUSTOM_LIMITS, checkCustom, type BorrowerKey, type CustomInputs } from '@/lib/borrowers';
-import { getBorrower, getConfig, getPool, usdcBalance, type BorrowerView, type ConfigView, type PoolView } from '@/lib/chain';
+import { getBorrowerAt, getConfig, getPool, usdcBalance, type BorrowerView, type ConfigView, type PoolView } from '@/lib/chain';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
 import { absoluteDate, amountInWords, parseUsd, usd } from '@/lib/format';
 import { serialFromFingerprint } from '@/lib/drawNote';
 import { newKeypair, openSealed } from '@/lib/seal';
 import { PART_KEYS, PART_NAMES, reason, whatWouldChange, type Parts } from '@/lib/reasons';
 import { primaryAction } from '@/lib/primaryAction';
+import { levelPlan, mmss, noLevelUpReason } from '@/lib/levels';
+import { loanHistory, type LoanRecord } from '@/lib/history';
+import type { LedgerEvent } from '@/lib/events';
 
 type Who = BorrowerKey | 'custom' | 'plaid';
 type Source = { borrower: Who; custom?: CustomInputs; publicToken?: string };
-type Session = { who?: Who; replySecret?: string; output?: Record<string, unknown>; scoreHash?: string };
+type Session = { who?: Who; replySecret?: string; output?: Record<string, unknown>; scoreHash?: string; scoredIn?: number };
+type Record_ = { events: LedgerEvent[]; output: Record<string, unknown> | null; scoreHash: string | null };
 const whoName = (w?: Who) => (w === 'custom' ? 'your test borrower' : w === 'plaid' ? 'the sandbox bank user' : w ? BORROWERS[w].name.split(' ')[0] : '');
 
 // Plaid Link (SPEC 8c), loaded only when the judge asks for it.
@@ -57,9 +61,9 @@ function span(ms: number) {
   return s >= 120 ? `${Math.ceil(s / 60)} min` : s >= 60 ? `1 min ${s - 60} s` : `${s} s`;
 }
 
-function Entry({ when, sub, title, children }: { when: string; sub?: string; title: string; children: React.ReactNode }) {
+function Entry({ when, sub, title, children, liRef }: { when: string; sub?: string; title: string; children: React.ReactNode; liRef?: React.Ref<HTMLLIElement> }) {
   return (
-    <li className="entry">
+    <li className="entry" ref={liRef}>
       <div className="when">{when}{sub && <small>{sub}</small>}</div>
       <div className="body"><h2>{title}</h2>{children}</div>
     </li>
@@ -90,25 +94,46 @@ export function Passbook() {
   const [amountText, setAmountText] = useState('');
   const [faucetMsg, setFaucetMsg] = useState<string | null>(null);
   const [releaseMsg, setReleaseMsg] = useState<string | null>(null);
+  const [record, setRecord] = useState<Record_ | null>(null);
+  const scoringBox = useRef<HTMLLIElement>(null);
+  const seen = useRef<{ acct: string | null; height: number }>({ acct: null, height: 0 });
   const resultBox = useRef<HTMLDivElement>(null);
   const loanBox = useRef<HTMLDivElement>(null);
   const borrowTx = useTx(), repayTx = useTx(), defaultTx = useTx(), releaseTx = useTx();
 
+  // Reads the account at call time: score() outlives the render that started it, and a stale closure
+  // holding the pre-demo-account `null` used to wipe the fresh score (setB(null)) right after scoring.
+  const acctRef = useRef(acct);
+  acctRef.current = acct;
   const refresh = useCallback(async () => {
+    const acct = acctRef.current;
     const [p, c] = await Promise.all([getPool(), getConfig()]);
     setPool(p); setCfg(c);
+    if (acct !== acctRef.current) return;
     if (!acct) { setB(null); return; }
-    const [bb, u] = await Promise.all([getBorrower(acct), usdcBalance(acct).catch(() => '0')]);
-    setB(bb); setUsdcBal(BigInt(u));
+    const [bAt, u, rec] = await Promise.all([
+      getBorrowerAt(acct), usdcBalance(acct).catch(() => '0'),
+      fetch(`/api/passbook?account=${encodeURIComponent(acct)}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+    // Never step back: a lagging RPC node can answer from an older block (it hid a fresh score).
+    if (acct !== acctRef.current || (seen.current.acct === acct && bAt.height < seen.current.height)) return;
+    seen.current = { acct, height: bAt.height };
+    setB(bAt.value); setUsdcBal(BigInt(u)); if (rec) setRecord(rec);
   }, [acct]);
 
-  useEffect(() => { setSess(acct ? loadSession(acct) : {}); setB(undefined); refresh().catch(() => setB(null)); }, [acct, refresh]);
+  useEffect(() => { setSess(acct ? loadSession(acct) : {}); setB(undefined); setRecord(null); refresh().catch(() => setB(null)); }, [acct, refresh]);
 
   // Tick once a second while something time-based is on screen (scoring timer, loan countdown).
   const ticking = !!scoring && scoring.step !== 'sealed' && scoring.step !== 'failed' || !!b?.has_active_loan;
   useEffect(() => { if (!ticking) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [ticking]);
 
-  const updateSession = (patch: Session) => { if (!acct) return; const s = { ...loadSession(acct), ...patch }; saveSession(acct, s); setSess(s); };
+  // Keyed by the account the action is for: a demo account created a moment ago is not in `acct` yet,
+  // and saving under the old (empty) id lost the reply key and the output.
+  const updateSession = (patch: Session, forAccount?: string | null) => {
+    const id = forAccount ?? acct;
+    if (!id) return;
+    const s = { ...loadSession(id), ...patch }; saveSession(id, s); setSess(s);
+  };
 
   // ---------------------------------------------------------------- scoring (testnet Dev mode)
   const score = useCallback(async (src: Source, forAccount?: string) => {
@@ -116,9 +141,10 @@ export function Passbook() {
     if (!acctId) return;
     const who = src.borrower;
     const kp = newKeypair();
-    updateSession({ who, replySecret: kp.secret, output: undefined, scoreHash: undefined });
+    updateSession({ who, replySecret: kp.secret, output: undefined, scoreHash: undefined, scoredIn: undefined }, acctId);
     const started = Date.now();
     setScoring({ step: 'sent', elapsed: 0 });
+    setTimeout(() => scoringBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
     const timer = setInterval(() => setScoring((s) => (s && s.step === 'sent' ? { ...s, elapsed: Math.round((Date.now() - started) / 1000) } : s)), 1000);
     try {
       const f = account.kind === 'demo' ? null : await fetch('/api/faucet', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId }) });
@@ -127,11 +153,11 @@ export function Passbook() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'Scoring failed.');
       clearInterval(timer);
-      updateSession({ who, replySecret: kp.secret, output: j.output, scoreHash: j.hash });
+      updateSession({ who, replySecret: kp.secret, output: j.output, scoreHash: j.hash, scoredIn: Math.round((Date.now() - started) / 1000) }, acctId);
       setScoring({ step: 'reading', elapsed: Math.round((Date.now() - started) / 1000), hash: j.hash });
-      for (let i = 0; i < 10; i++) {
-        const bb = await getBorrower(acctId);
-        if (bb?.score && bb.score.fingerprint === j.output.fingerprint) { setB(bb); break; }
+      for (let i = 0; i < 30; i++) {
+        const { value: bb, height } = await getBorrowerAt(acctId);
+        if (bb?.score && bb.score.fingerprint === j.output.fingerprint) { seen.current = { acct: acctId, height: Math.max(height, seen.current.acct === acctId ? seen.current.height : 0) }; setB(bb); break; }
         await new Promise((res) => setTimeout(res, 1000));
       }
       setScoring((s) => (s ? { ...s, step: 'sealed' } : s));
@@ -178,13 +204,20 @@ export function Passbook() {
   void pendingWho; void setPendingWho;
 
   // ---------------------------------------------------------------- derived
+  const sc = b?.score ?? null;
+  // The scorer output behind the on-chain score: this browser's copy, else the public copy the server
+  // kept (it is the dev_submit_score argument). Only one whose fingerprint matches the chain counts.
+  const output = useMemo(() => {
+    const ok = (o?: Record<string, unknown> | null) => !!o && (!sc || o.fingerprint === sc.fingerprint);
+    return ok(sess.output) ? sess.output! : ok(record?.output) ? record!.output! : null;
+  }, [sess.output, record, sc]);
+  const scoreHash = sess.scoreHash ?? record?.scoreHash ?? undefined;
   const parts: Parts | null = useMemo(() => {
-    const reply = sess.output?.reply;
+    const reply = output?.reply;
     if (!sess.replySecret || typeof reply !== 'string') return null;
     try { return JSON.parse(openSealed(sess.replySecret, reply)).parts as Parts; } catch { return null; }
-  }, [sess]);
+  }, [sess.replySecret, output]);
   const who = sess.who;
-  const sc = b?.score ?? null;
   const loan = b?.loan ?? null;
   const limit = b ? BigInt(b.limit) : 0n;
   const termMs = cfg ? msOf(cfg.loan_term_ns) : 0;
@@ -198,6 +231,18 @@ export function Passbook() {
   const shortBy = loan?.state === 'Active' && usdcBal !== null && usdcBal < due ? due - usdcBal : 0n;
   const canDefault = loan?.state === 'Active' && now > dueMs + graceMs;
   const scoredAt = sc ? msOf(sc.issued_at) : 0;
+  const history: LoanRecord[] = useMemo(() => (acct ? loanHistory(record?.events ?? [], acct, loan) : []), [record, acct, loan]);
+  // Rule 13 made visible: when repaying this loan raises the limit (DESIGN 7.8, live countdown).
+  const plan = loan?.state === 'Active' && sc && cfg && b ? levelPlan({
+    level: b.level, band: sc.band, incomeCap: BigInt(sc.income_cap), principal: ns(loan.principal), limitAtBorrow: ns(loan.limit_at_borrow),
+    issuedMs: msOf(loan.issued_at), minHoldMs: msOf(cfg.min_hold_ns), lastLevelUpMs: b.last_level_up === '0' ? 0 : msOf(b.last_level_up), termMs, nowMs: now,
+  }) : null;
+  const levelText = !plan ? null
+    : plan.kind === 'wait' ? `${plan.why === 'recent' ? 'Your limit rose less than one term ago. ' : ''}Repay after ${mmss(plan.atMs - now)} to level up to ${usd(plan.next)}.`
+    : plan.kind === 'ready' ? `Repaying now levels you up to ${usd(plan.next)}.`
+    : plan.kind === 'small' ? `This loan is under half your limit (${usd(plan.half)}), so repaying it won't raise your limit.`
+    : plan.kind === 'capped' ? `Your income caps your limit at ${usd(plan.limit)}, so repaying won't raise it.`
+    : 'You are at the top level.';
   const showPick = !scoring && b !== undefined && !sc && !b?.blocked;
   const showBorrow = !!sc && !denied && !sc.expired && !b?.has_active_loan && !b?.blocked && limit > 0n;
 
@@ -208,7 +253,7 @@ export function Passbook() {
     name: acct ?? '', band: sc.band, amount: noteDollars, words: amountInWords(noteDollars),
     repay: denied ? 'Not issued' : defaulted && loan ? `${absoluteDate(loan.due_at)}, ${usd(due)}, not repaid` : loan?.state === 'Active' ? `${absoluteDate(loan.due_at)}, ${usd(due)}` : `${Math.round(termMs / 60000)} minutes after you borrow, ${usd(limit + ceilBps(limit, INTEREST_BPS[sc.band]))}`,
     serial: serialFromFingerprint(sc.fingerprint),
-    proof: sess.scoreHash ? `Scored by the pinned scorer (testnet), transaction ${sess.scoreHash.slice(0, 6)}…${sess.scoreHash.slice(-3)}` : 'Scored by the pinned scorer (testnet)',
+    proof: scoreHash ? `Scored by the pinned scorer (testnet), transaction ${scoreHash.slice(0, 6)}…${scoreHash.slice(-3)}` : 'Scored by the pinned scorer (testnet)',
     denied: false,
   };
 
@@ -268,7 +313,7 @@ export function Passbook() {
   const bar = primary === 'start' ? { text: 'No wallet needed. Or pick another borrower above.', button: <button type="button" className="btn btn-violet" onClick={() => pick({ borrower: firstKey })}>Use {BORROWERS[firstKey].name.split(' ')[0]}</button> }
     : primary === 'retry' ? { text: scoring?.error ?? 'Scoring failed. Nothing changed on-chain.', button: <button type="button" className="btn btn-ink" onClick={retry}>Check my limit again</button> }
     : primary === 'borrow' ? { text: amountError ?? `Band ${sc?.band}, limit ${usd(limit)}`, button: <TxButton tx={borrowTx.state} label={`Borrow ${amount !== null ? usd(amount) : ''}`} onClick={borrow} disabled={!!amountError} /> }
-    : primary === 'repay' ? { text: shortBy > 0n ? `You need ${usd(shortBy)} more test USDC` : now < dueMs ? `Due in ${span(dueMs - now)}` : 'Overdue', button: <TxButton tx={repayTx.state} label={`Repay ${usd(due)}`} doneLabel="Repaid" onClick={repay} variant="ink" disabled={shortBy > 0n} /> }
+    : primary === 'repay' ? { text: shortBy > 0n ? `You need ${usd(shortBy)} more test USDC` : plan?.kind === 'wait' ? `Repay after ${mmss(plan.atMs - now)} to level up to ${usd(plan.next)}` : plan?.kind === 'ready' ? `Repaying now levels you up to ${usd(plan.next)}` : now < dueMs ? `Due in ${span(dueMs - now)}` : 'Overdue', button: <TxButton tx={repayTx.state} label={`Repay ${usd(due)}`} doneLabel="Repaid" onClick={repay} variant="ink" disabled={shortBy > 0n} /> }
     : primary === 'default' ? { text: 'Grace period over. Anyone can mark it.', button: <TxButton tx={defaultTx.state} label="Mark as defaulted" onClick={markDefault} variant="red" /> }
     : primary === 'release' ? { text: 'Defaulted. The name is still sealed.', button: <TxButton tx={releaseTx.state} label="Release the name" onClick={release} variant="red" /> }
     : null;
@@ -285,7 +330,9 @@ export function Passbook() {
   }, [primary]);
 
   // ---------------------------------------------------------------- render
-  const outputJson = sess.output ? JSON.stringify({ ...sess.output, reply: sess.output.reply ? `${String(sess.output.reply).slice(0, 12)}…` : undefined, sealed_identity: `${String(sess.output.sealed_identity).slice(0, 12)}…` }, null, 2) : null;
+  const outputJson = output
+    ? JSON.stringify({ ...output, reply: output.reply ? `${String(output.reply).slice(0, 12)}…` : undefined, sealed_identity: `${String(output.sealed_identity).slice(0, 12)}…` }, null, 2)
+    : sc ? JSON.stringify({ band: sc.band, score: sc.score, income_cap: sc.income_cap, fingerprint: sc.fingerprint, sealed_identity: '(stored by the contract, never shown by its views)' }, null, 2) : null;
 
   return (
     <main className={`wrap layout${bar ? ' has-bar' : ''}`} id="top">
@@ -358,12 +405,13 @@ export function Passbook() {
             </Entry>
           )}
 
-          {scoring && scoring.step !== 'sealed' && (
-            <Entry when={clock(now)} sub="Now" title="Checking your limit">
-              <EnclavePanel step={scoring.step} elapsed={scoring.elapsed} labels={DEV_PHASES} timerAt={1} failedAt={1}
-                txHash={scoring.hash} failure={scoring.error} rows={who === 'sam' ? DECOR_ROWS.irregular : DECOR_ROWS.steady}
+          {(scoring || (sc && scoreHash)) && (
+            <Entry liRef={scoringBox} when={scoring && scoring.step !== 'sealed' ? clock(now) : clock(scoredAt)} sub={scoring && scoring.step !== 'sealed' ? 'Now' : day(scoredAt)}
+              title={!scoring || scoring.step === 'sealed' ? `Limit checked${(scoring?.elapsed ?? sess.scoredIn) ? ` in ${scoring?.elapsed ?? sess.scoredIn} s` : ''}` : scoring.step === 'failed' ? 'Scoring failed' : 'Checking your limit'}>
+              <EnclavePanel step={scoring?.step ?? 'sealed'} elapsed={scoring?.elapsed ?? sess.scoredIn ?? 0} labels={DEV_PHASES} timerAt={1} failedAt={1}
+                txHash={scoring?.hash ?? scoreHash} failure={scoring?.error} rows={who === 'sam' ? DECOR_ROWS.irregular : DECOR_ROWS.steady}
                 note="Testnet: the pinned scorer runs on our server, outside the enclave. On mainnet the same code runs inside Intel TDX through OutLayer." />
-              {scoring.step === 'failed' && who && (
+              {scoring?.step === 'failed' && who && (
                 <p id="pa-retry"><button type="button" className="btn btn-ink" onClick={retry}>Check my limit again</button></p>
               )}
             </Entry>
@@ -399,62 +447,92 @@ export function Passbook() {
             </Entry>
           )}
 
-          {b?.blocked && loan?.state === 'Defaulted' && (
-            <Entry when={clock(dueMs + graceMs)} sub={day(dueMs)} title="Defaulted">
-              <div ref={loanBox} style={{ position: 'relative' }}>
-                <ul className="chain">
-                  <li><span>Loan marked as defaulted</span><span>{usd(loan.principal)}</span></li>
-                  <li><span>Reserve paid the pool back first</span><span>up to {usd(loan.principal)}</span></li>
-                  <li><span>Name released to the recovery partner</span><span>{b.released_identity ? 'sealed, then opened' : 'pending'}</span></li>
-                  <li><span>Can borrow again</span><span>Never</span></li>
-                </ul>
-              </div>
-              {!b.released_identity && (
-                <>
-                  <span id="pa-release" />
-                  <TxButton tx={releaseTx.state} label="Release the name to the recovery partner" onClick={release} variant="red" />
-                  {releaseMsg && <p className="hint">{releaseMsg}</p>}
-                  <TxStatus tx={releaseTx.state} />
-                </>
-              )}
-              <p className="txline">The bank fingerprint stays taken, so this bank identity can&apos;t start over with a new account.</p>
-            </Entry>
-          )}
+          {history.map((r, i) => {
+            const isCurrent = !!loan && r.dueAt === loan.due_at;
+            const isLatest = i === history.length - 1;
+            const toPool = r.toPool ?? ceilBps(r.principal, INTEREST_BPS[r.band] / 2n);
+            const leveled = r.leveledUp ?? (isCurrent && b ? ns(b.last_level_up) >= ns(loan!.issued_at) : undefined);
+            return (
+              <Fragment key={r.dueAt}>
+                {r.state === 'Active' && isCurrent && loan ? (
+                <Entry when={clock(msOf(loan.issued_at))} sub={day(msOf(loan.issued_at))} title="Loan issued">
+                  <p>{usd(loan.principal)} USDC arrived in {acct}. Repay {usd(due)} by {absoluteDate(loan.due_at)}, {clock(dueMs)}.</p>
+                  <dl className="terms">
+                    <dt>Interest</dt><dd>{usd(loan.interest)} flat</dd>
+                    <dt>Due</dt><dd className="num">{now < dueMs ? `in ${span(dueMs - now)}` : now < dueMs + graceMs ? `overdue, grace ends in ${span(dueMs + graceMs - now)}` : 'grace period over'}</dd>
+                  </dl>
+                  {shortBy > 0n ? (
+                    <p className="hint err">You need {usd(shortBy)} more test USDC to repay. <button type="button" className="linkbtn" onClick={faucet}>Get test USDC</button>{faucetMsg && ` ${faucetMsg}`}</p>
+                  ) : null}
+                  <div className="form" id="pa-repay">
+                    <TxButton tx={repayTx.state} label={`Repay ${usd(due)}`} doneLabel="Repaid" onClick={repay} variant="ink" disabled={shortBy > 0n} />
+                    {canDefault && <TxButton tx={defaultTx.state} label="Mark as defaulted" onClick={markDefault} variant="red" />}
+                  </div>
+                  {levelText && <p className="hint num" aria-live="off">{levelText}</p>}
+                  <TxStatus tx={repayTx.state} />
+                  <TxStatus tx={defaultTx.state} />
+                  {who === 'max' && !canDefault && <p className="hint">Max won&apos;t repay. After the due date and a {Math.round(graceMs / 60000)}-minute grace period anyone can mark the loan as defaulted; the contract checks the dates itself.</p>}
+                </Entry>
+                ) : (
+                  <Entry when={clock(r.issuedMs)} sub={day(r.issuedMs)} title="Loan issued">
+                    <p>{usd(r.principal)} USDC arrived in {acct}. Repay {usd(r.principal + r.interest)} by {absoluteDate(r.dueAt)}, {clock(msOf(r.dueAt))}.</p>
+                    {r.issuedHash && <p className="txline">Transaction <HashLink hash={r.issuedHash} /></p>}
+                  </Entry>
+                )}
 
-          {loan?.state === 'Active' && (
-            <Entry when={clock(msOf(loan.issued_at))} sub={day(msOf(loan.issued_at))} title="Loan issued">
-              <p>{usd(loan.principal)} USDC arrived in {acct}. Repay {usd(due)} by {absoluteDate(loan.due_at)}, {clock(dueMs)}.</p>
-              <dl className="terms">
-                <dt>Interest</dt><dd>{usd(loan.interest)} flat</dd>
-                <dt>Due</dt><dd className="num">{now < dueMs ? `in ${span(dueMs - now)}` : now < dueMs + graceMs ? `overdue, grace ends in ${span(dueMs + graceMs - now)}` : 'grace period over'}</dd>
-              </dl>
-              {shortBy > 0n ? (
-                <p className="hint err">You need {usd(shortBy)} more test USDC to repay. <button type="button" className="linkbtn" onClick={faucet}>Get test USDC</button>{faucetMsg && ` ${faucetMsg}`}</p>
-              ) : null}
-              <div className="form" id="pa-repay">
-                <TxButton tx={repayTx.state} label={`Repay ${usd(due)}`} doneLabel="Repaid" onClick={repay} variant="ink" disabled={shortBy > 0n} />
-                {canDefault && <TxButton tx={defaultTx.state} label="Mark as defaulted" onClick={markDefault} variant="red" />}
-              </div>
-              <TxStatus tx={repayTx.state} />
-              <TxStatus tx={defaultTx.state} />
-              {who === 'max' && !canDefault && <p className="hint">Max won&apos;t repay. After the due date and a {Math.round(graceMs / 60000)}-minute grace period anyone can mark the loan as defaulted; the contract checks the dates itself.</p>}
-            </Entry>
-          )}
+                {r.state === 'Repaid' && (
+                  <Entry when={clock(r.closedMs ?? now)} sub={r.closedMs ? day(r.closedMs) : 'Latest'} title="Repaid">
+                    <div ref={isLatest ? loanBox : undefined} style={{ position: 'relative' }}>
+                      <p>{usd(r.principal + r.interest)} paid: {usd(toPool)} of the interest went to lenders, {usd(r.interest - toPool)} to the KredoFi treasury.</p>
+                      {isLatest && <Stamp kind="paid" small press={press} shakeRef={loanBox} style={{ position: 'absolute', right: 0, top: -44 }}>PAID</Stamp>}
+                    </div>
+                    {leveled === true && <p>Your limit rose to level {r.levelAfter ?? b?.level}.</p>}
+                    {leveled === false && r.closedMs !== undefined && cfg && (
+                      <p>No level-up. {noLevelUpReason({ levelBefore: r.levelAtBorrow ?? b?.level ?? 1, principal: r.principal, limitAtBorrow: r.limitAtBorrow, heldMs: r.closedMs - r.issuedMs, minHoldMs: msOf(cfg.min_hold_ns) })}</p>
+                    )}
+                    {isLatest && isCurrent && (
+                      <>
+                        <div className="level" aria-label="Limit levels">
+                          {[100, 250, 500, 1000].map((v, k) => (
+                            <div key={v} className={b && b.level > k ? 'on' : ''}><i style={{ height: [24, 44, 70, 100][k] }} />${v.toLocaleString('en-US')}</div>
+                          ))}
+                        </div>
+                        <p>Level {b?.level}. Your next note can be up to <b className="roll" key={b?.limit}>{usd(limit)}</b>. Limits grow only after a loan held at least half its term and at least half your limit.</p>
+                      </>
+                    )}
+                    {r.closedHash && <p className="txline">Transaction <HashLink hash={r.closedHash} /></p>}
+                  </Entry>
+                )}
 
-          {loan?.state === 'Repaid' && (
-            <Entry when={clock(now)} sub="Latest" title="Repaid">
-              <div ref={loanBox} style={{ position: 'relative' }}>
-                <p>{usd(due)} paid: {usd(ceilBps(ns(loan.principal), INTEREST_BPS[loan.band] / 2n))} of the interest went to lenders, the rest to the KredoFi treasury.</p>
-                <Stamp kind="paid" small press={press} shakeRef={loanBox} style={{ position: 'absolute', right: 0, top: -44 }}>PAID</Stamp>
-              </div>
-              <div className="level" aria-label="Limit levels">
-                {[100, 250, 500, 1000].map((v, i) => (
-                  <div key={v} className={b && b.level > i ? 'on' : ''}><i style={{ height: [24, 44, 70, 100][i] }} />${v.toLocaleString('en-US')}</div>
+                {r.state === 'Defaulted' && (isCurrent && b?.blocked && loan ? (
+                <Entry when={clock(dueMs + graceMs)} sub={day(dueMs)} title="Defaulted">
+                  <div ref={loanBox} style={{ position: 'relative' }}>
+                    <ul className="chain">
+                      <li><span>Loan marked as defaulted</span><span>{usd(loan.principal)}</span></li>
+                      <li><span>Reserve paid the pool back first</span><span>up to {usd(loan.principal)}</span></li>
+                      <li><span>Name released to the recovery partner</span><span>{b.released_identity ? 'sealed, then opened' : 'pending'}</span></li>
+                      <li><span>Can borrow again</span><span>Never</span></li>
+                    </ul>
+                  </div>
+                  {!b.released_identity && (
+                    <>
+                      <span id="pa-release" />
+                      <TxButton tx={releaseTx.state} label="Release the name to the recovery partner" onClick={release} variant="red" />
+                      {releaseMsg && <p className="hint">{releaseMsg}</p>}
+                      <TxStatus tx={releaseTx.state} />
+                    </>
+                  )}
+                  <p className="txline">The bank fingerprint stays taken, so this bank identity can&apos;t start over with a new account.</p>
+                </Entry>
+                ) : (
+                  <Entry when={clock(r.closedMs ?? now)} sub={r.closedMs ? day(r.closedMs) : ''} title="Defaulted">
+                    <p>{usd(r.principal)} not repaid.</p>
+                    {r.closedHash && <p className="txline">Transaction <HashLink hash={r.closedHash} /></p>}
+                  </Entry>
                 ))}
-              </div>
-              <p>Level {b?.level}. Your next note can be up to <b className="roll" key={b?.limit}>{usd(limit)}</b>. Limits grow only after a loan held at least half its term and at least half your limit.</p>
-            </Entry>
-          )}
+              </Fragment>
+            );
+          })}
 
           {showBorrow && sc && (
             <Entry when="Now" title="Borrow">
@@ -491,7 +569,7 @@ export function Passbook() {
                 <li>30 transactions, six months</li><li>Balances</li><li>Your name</li><li>The bank access token</li>
               </ul>
               <pre>{outputJson}</pre>
-              {sess.scoreHash && <p className="txline" style={{ marginTop: 8 }}>On-chain in <HashLink hash={sess.scoreHash} /></p>}
+              {scoreHash && <p className="txline" style={{ marginTop: 8 }}>On-chain in <HashLink hash={scoreHash} /></p>}
             </>
           ) : <pre>Nothing yet. Pick a test borrower to start.</pre>}
         </div>

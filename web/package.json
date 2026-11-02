@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types --no-warnings src/lib/format.test.ts src/lib/tx.test.ts src/lib/seal.test.ts src/lib/reasons.test.ts src/lib/relayPolicy.test.ts src/lib/events.test.ts src/lib/primaryAction.test.ts src/lib/intents.test.ts"
+    "test": "node --test --experimental-strip-types --no-warnings src/lib/format.test.ts src/lib/tx.test.ts src/lib/seal.test.ts src/lib/reasons.test.ts src/lib/relayPolicy.test.ts src/lib/events.test.ts src/lib/primaryAction.test.ts src/lib/intents.test.ts src/lib/levels.test.ts src/lib/history.test.ts"
   },
   "dependencies": {
     "@hot-labs/near-connect": "0.11.4",

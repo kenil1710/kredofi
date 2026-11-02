@@ -2,6 +2,11 @@
 import { KREDOFI_CONTRACT, RPC, USDC_CONTRACT } from './config';
 
 export async function view<T>(contractId: string, method: string, args: object = {}): Promise<T> {
+  return (await viewAt<T>(contractId, method, args)).value;
+}
+
+/** A view plus the block height it was read at (RPC nodes can lag; callers drop older reads). */
+export async function viewAt<T>(contractId: string, method: string, args: object = {}): Promise<{ value: T; height: number }> {
   const res = await fetch(RPC, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 'kf', method: 'query', params: {
@@ -11,7 +16,7 @@ export async function view<T>(contractId: string, method: string, args: object =
   });
   const j = await res.json();
   if (j.error || j.result?.error) throw new Error(j.error?.data ?? j.result?.error ?? 'RPC error');
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result))) as T;
+  return { value: JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result))) as T, height: Number(j.result.block_height ?? 0) };
 }
 
 export type ScoreView = { band: 'A' | 'B' | 'C' | 'D'; score: number; income_cap: string; fingerprint: string; issued_at: string; expires_at: string; scorer_version: string; expired: boolean };
@@ -21,6 +26,7 @@ export type PoolView = { cash: string; outstanding: string; total_shares: string
 export type ConfigView = { scorer_mode: 'Dev' | 'OutLayer'; scorer_version: string; loan_term_ns: string; grace_ns: string; min_hold_ns: string; max_borrower_share_bps: number; partner_pubkey: string };
 
 export const getBorrower = (id: string) => view<BorrowerView | null>(KREDOFI_CONTRACT, 'get_borrower', { account_id: id });
+export const getBorrowerAt = (id: string) => viewAt<BorrowerView | null>(KREDOFI_CONTRACT, 'get_borrower', { account_id: id });
 export const getPool = () => view<PoolView>(KREDOFI_CONTRACT, 'get_pool');
 export const getConfig = () => view<ConfigView>(KREDOFI_CONTRACT, 'get_config');
 export const usdcBalance = (id: string) => view<string>(USDC_CONTRACT, 'ft_balance_of', { account_id: id });
