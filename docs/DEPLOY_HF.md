@@ -9,7 +9,7 @@ sleeps after 48 h without visits). Fly.io (`docs/DEPLOY.md`) stays ready for whe
 
 | Where | What |
 |---|---|
-| Space files (public) | `Dockerfile` (from `deploy/hf/`), `README.md` (Space card), the **git-tracked** files under `web/` (no `.env*`, no tests), and the pinned demo scorer `scorer/out/kredofi_scorer_demo.wasm` (`17d394d4…`). Built by `scripts/hf_space.py stage` into `build/hf-space/` (git-ignored), which then scans every staged byte for every secret value in `.env` and `web/.env.local` and refuses on any hit (tested with a planted key). |
+| Space files (public) | `Dockerfile` (from `deploy/hf/`), `README.md` (Space card), the **git-tracked** files under `web/` (no `.env*`, no tests), and the pinned demo scorer `scorer/out/kredofi_scorer_demo.wasm` (`9606e925…`). Built by `scripts/hf_space.py stage` into `build/hf-space/` (git-ignored), which then scans every staged byte for every secret value in `.env` and `web/.env.local` and refuses on any hit (tested with a planted key). |
 | Space secrets (encrypted, runtime env only) | `PLAID_CLIENT_ID`, `PLAID_SECRET`, `SEAL_KEY` (**testnet** key from `web/.env.local`; the script refuses the mainnet one), `NEARAI_KEY`, `DEV_SCORER_ACCOUNT_ID`, `DEV_SCORER_KEY`, `RELAYER_ACCOUNT_ID`, `RELAYER_KEY`, `NEAR_RPC_URLS`. |
 | Image settings | wasmtime 50.0.0 (checksum-verified), runs as uid 1000, port 7860, scorer outputs and ledger cache under `/home/node/data` (lost on restart: the ledger re-reads the chain; a borrower who defaulted before a restart can't release their name until they score again). |
 

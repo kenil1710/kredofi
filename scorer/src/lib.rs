@@ -348,6 +348,7 @@ pub mod demo {
         static PLAID_TXS: Cell<usize> = const { Cell::new(0) };
         static PLAID_ACCOUNTS: Cell<usize> = const { Cell::new(0) };
         static STABLE: Cell<(usize, u32)> = const { Cell::new((0, 0)) };
+        static WAIT_SINCE: Cell<u64> = const { Cell::new(0) };
     }
     /// Called by the Plaid client: how many transactions and accounts Plaid sent (counts only).
     pub fn note_sync(transactions: usize) { PLAID_TXS.with(|c| c.set(transactions)); }
@@ -435,22 +436,26 @@ pub mod demo {
             next >= 2
         })
     }
-    /// Called at every sync checkpoint (demo builds). Returns true to finish early (complete, all
-    /// months present, stable). While Plaid says complete but the window is NOT covered, it pauses
-    /// 3 s so the normal rule's 5 "quiet" polls span about 20 s: on a fast host those 5 polls took
-    /// only ~6.5 s and the sandbox's historical batch hadn't arrived, so Riya was scored on 6 of her
-    /// 30 transactions (band C instead of A, live Nov 2). A genuinely short history still finishes,
-    /// just later.
-    pub fn checkpoint_done<'a>(status_complete: bool, txs: impl Iterator<Item = &'a Value>) -> bool {
+    pub enum Step { Done, Repoll, Normal }
+    /// Called at every sync checkpoint (demo builds), before the normal `SyncProgress` rule.
+    /// - complete, every window month present, count stable over 2 polls: Done (fast path);
+    /// - complete but the window NOT covered: re-poll without letting the normal rule decide, for up
+    ///   to 25 s. Live (Nov 2, fast host): the sandbox flagged HISTORICAL_UPDATE_COMPLETE, then the
+    ///   first 30-day batch (6 transactions) arrived on a later page, which the normal rule takes as
+    ///   "the historical batch arrived" and scored Riya C on 6 of her 30 transactions;
+    /// - otherwise (not complete yet, or the 25 s are used up): the normal rule decides.
+    pub fn checkpoint_step<'a>(status_complete: bool, txs: impl Iterator<Item = &'a Value>) -> Step {
         if !status_complete {
             STABLE.with(|c| c.set((0, 0)));
-            return false;
+            return Step::Normal;
         }
-        if covers_window(txs) {
-            return true;
+        let txs: Vec<&Value> = txs.collect();
+        if covers_window(txs.iter().copied()) {
+            return Step::Done;
         }
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        false
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+        let started = WAIT_SINCE.with(|c| { if c.get() == 0 { c.set(now); } c.get() });
+        if now.saturating_sub(started) < 25_000 && !covers_window_at(txs.iter().copied(), now / 1000) { Step::Repoll } else { Step::Normal }
     }
 
     /// Every month of the scoring window has at least one transaction.

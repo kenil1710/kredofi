@@ -12,7 +12,7 @@ Private, income-based stablecoin loans on NEAR. Bank data is scored inside a TEE
 | Scorer mode | **Dev**: the pinned scorer runs on our server, outside the enclave | **OutLayer**: the scorer runs in Intel TDX |
 | Money | mock USDC, test NEAR | real USDC (no loans yet) |
 | Live web app (testnet) | [kenil1710-kredofi.hf.space](https://kenil1710-kredofi.hf.space) (Hugging Face Space; full Connect-your-bank flow tested Nov 2) | not deployed |
-| Pinned scorer (SHA-256) | demo build `17d394d4…` | production build `87ceab66…` ([public wasm](https://github.com/kenil1710/kredofi-scorer-wasm)) |
+| Pinned scorer (SHA-256) | demo build `9606e925…` | production build `87ceab66…` ([public wasm](https://github.com/kenil1710/kredofi-scorer-wasm)) |
 
 Proof of the mainnet path: a real `request_score` scored inside OutLayer and stored by `on_score`, with the unused fee refunded to the borrower: [tx 4dgHrA97…](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu).
 
