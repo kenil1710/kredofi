@@ -23,10 +23,17 @@ export async function rpc<T = unknown>(method: string, params: unknown): Promise
   throw new Error(`RPC ${method} failed: ${JSON.stringify(last)?.slice(0, 200)}`);
 }
 
+// One Account object per signer for the whole process: near-api-js keeps the next nonce in the
+// Account's nonce manager, so a fresh Account per request re-read the nonce from the chain and two
+// quick transactions (create account, then faucet, then a relayed deposit) could reuse one. The
+// failover provider then reported "Exceeded 2 providers" instead of the retryable nonce error.
+const accounts = new Map<string, Account>();
 function account(idVar: string, keyVar: string) {
   const id = process.env[idVar], key = process.env[keyVar];
   if (!id || !key) throw new Error(`${idVar}/${keyVar} not configured`);
-  return new Account(id, provider, key as `ed25519:${string}`);
+  let a = accounts.get(id);
+  if (!a) { a = new Account(id, provider, key as `ed25519:${string}`); accounts.set(id, a); }
+  return a;
 }
 export const scorerAccount = () => account('DEV_SCORER_ACCOUNT_ID', 'DEV_SCORER_KEY');
 export const relayerAccount = () => account('RELAYER_ACCOUNT_ID', 'RELAYER_KEY');

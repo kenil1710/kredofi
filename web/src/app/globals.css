@@ -312,3 +312,4 @@ button{font-family:inherit}
 
 /* Touch targets at least 44 px on touch screens (DESIGN 7.8) */
 @media (pointer:coarse){.copy,.hash button{min-height:44px;min-width:44px}}
+.terms dd{overflow-wrap:anywhere;min-width:0}
