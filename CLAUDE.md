@@ -86,6 +86,9 @@ cd scripts && npm install && cd ..
 ./scripts/testnet_setup.sh
 ./scripts/reserve_guard.sh        # testnet reserve below $200 -> top up to $500 (MIN_USD / TARGET_USD); run before judging
 set -a; source .env; set +a; node scripts/demo.mjs
+# seeded ledger (SPEC 8d): plan/setup/status locally; tick runs on GitHub Actions (.github/workflows/seed-tick.yml,
+# off until the repo variable SEED_CONTRACT is set; testnet secrets only, see docs/LEDGER_PLAN.md)
+node --experimental-strip-types scripts/seed_ledger.mjs plan && node --experimental-strip-types --test scripts/seed_ledger.test.mjs
 node scripts/dev_scorer.mjs score <borrower> <input.json> [reply_pubkey]   # or: release <borrower>
 node --test scripts/seal.test.mjs   # JS <-> Rust seal compatibility
 # web (Next.js 16): lib unit tests, typecheck, production build; component sheet at /dev/components
