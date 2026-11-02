@@ -399,7 +399,7 @@ export function Landing() {
             <Link href="/lend">Lend</Link>
             <Link href="/ledger">Public ledger</Link>
           </nav>
-          <Link className="btn btn-light magnetic" href="/borrow">Try the demo</Link>
+          <Link className="btn btn-light magnetic" href="/borrow">Check my limit</Link>
         </div>
       </header>
 
@@ -415,10 +415,10 @@ export function Landing() {
                   <h1><span className="ln"><span>Borrow against</span></span><span className="ln"><span>your payslip.</span></span></h1>
                   <p className="lede">KredoFi reads six months of your bank history inside a sealed computer, works out a limit, and lends you USDC on NEAR. Lenders never see your statements. Neither do we.</p>
                   <div className="ctas">
-                    <Link className="btn btn-light magnetic" href="/borrow">Try it with a test borrower</Link>
+                    <Link className="btn btn-light magnetic" href="/borrow">Check my limit</Link>
                     <a className="btn btn-ghost magnetic" href="#check">How the privacy works</a>
                   </div>
-                  <p className="small">{NETWORK === 'testnet' ? 'Testnet demo. No wallet needed; we pay the network fees.' : 'Mainnet.'}</p>
+                  <p className="small">{NETWORK === 'testnet' ? 'Testnet demo with Plaid\'s sandbox bank. No wallet needed; we pay the network fees.' : 'Mainnet.'}</p>
                 </div>
               </div>
             </div>
@@ -517,9 +517,9 @@ export function Landing() {
           <div className="wrap">
             <h2 id="cta-h">Borrow against your payslip.</h2>
             <div className="row">
-              <p>Try it with Riya, Sam or Max, three test borrowers with six months of history at a sandbox bank. The whole loop takes about three minutes.</p>
+              <p>Connect Plaid&apos;s sandbox bank with its public test login and see your limit in about a minute. Borrow, repay, and watch your limit grow. No wallet needed.</p>
               <div className="ctas">
-                <Link className="btn btn-light btn-big magnetic" href="/borrow">Pick a test borrower</Link>
+                <Link className="btn btn-light btn-big magnetic" href="/borrow">Check my limit</Link>
                 <Link className="btn btn-ghost btn-big magnetic" href="/lend">Lend to the pool</Link>
               </div>
             </div>
@@ -530,7 +530,7 @@ export function Landing() {
       <footer>
         <div className="wrap">
           <p>KredoFi, built for NEAR HACKATHON in November 2026. Plaid sandbox data only; not a lending offer.</p>
-          <p><a href={MAINNET_TX}>A real mainnet score</a> · <Link href="/ledger">Public ledger</Link></p>
+          <p><a href={MAINNET_TX}>A real mainnet score</a> · <Link href="/ledger">Public ledger</Link> · <Link href="/scenarios">Demo scenarios</Link></p>
         </div>
       </footer>
     </div>

@@ -13,21 +13,27 @@ type AccountCtx = {
   kind: 'wallet' | 'demo' | null;
   signAndSend: (receiverId: string, actions: Action[]) => Promise<unknown>;
   createDemo: () => Promise<string>;
+  /** Forget this slot's demo account (its key stays nowhere), so the next start creates a fresh one. */
+  resetDemo: () => void;
+  /** 'scenarios' = the separate demo account used by /scenarios (prepared borrowers). */
+  slot: string | null;
   connectWallet: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
-const DEMO_KEY = 'kredofi:demo-account';
-const loadDemo = (): Demo | null => { try { return JSON.parse(localStorage.getItem(DEMO_KEY) ?? 'null'); } catch { return null; } };
+const demoKey = (slot: string | null) => (slot ? `kredofi:demo-account:${slot}` : 'kredofi:demo-account');
+const loadDemo = (slot: string | null): Demo | null => { try { return JSON.parse(localStorage.getItem(demoKey(slot)) ?? 'null'); } catch { return null; } };
 const Ctx = createContext<AccountCtx | null>(null);
 
-export function AccountProvider({ children }: { children: React.ReactNode }) {
+// `slot` keeps a second, independent demo account (the /scenarios page), so a prepared borrower
+// (e.g. Max, who defaults and is blocked for good) never touches the visitor's own passbook.
+export function AccountProvider({ children, slot = null }: { children: React.ReactNode; slot?: string | null }) {
   const wallet = useWallet();
   const [demo, setDemo] = useState<Demo | null>(null);
-  useEffect(() => setDemo(loadDemo()), []);
+  useEffect(() => setDemo(loadDemo(slot)), [slot]);
 
   const createDemo = useCallback(async () => {
-    const existing = loadDemo();
+    const existing = loadDemo(slot);
     if (existing) { setDemo(existing); return existing.accountId; }
     const { KeyPair } = await import('near-api-js');
     const kp = KeyPair.fromRandom('ed25519');
@@ -35,10 +41,14 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     const j = await r.json();
     if (!r.ok) throw new Error(j.error ?? 'Could not create a demo account.');
     const d = { accountId: j.accountId as string, secretKey: kp.toString() };
-    try { localStorage.setItem(DEMO_KEY, JSON.stringify(d)); } catch { /* private mode: the account lasts this tab */ }
+    try { localStorage.setItem(demoKey(slot), JSON.stringify(d)); } catch { /* private mode: the account lasts this tab */ }
     setDemo(d);
     return d.accountId;
-  }, []);
+  }, [slot]);
+  const resetDemo = useCallback(() => {
+    try { localStorage.removeItem(demoKey(slot)); } catch { /* private mode */ }
+    setDemo(null);
+  }, [slot]);
 
   const relay = useCallback(async (d: Demo, receiverId: string, acts: Action[]) => {
     const { Account, JsonRpcProvider, actions, encodeSignedDelegate } = await import('near-api-js');
@@ -57,9 +67,11 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AccountCtx>(() => {
-    const kind = wallet.accountId ? 'wallet' : demo ? 'demo' : null;
+    // The scenarios slot always uses its own demo account, even when a wallet is connected.
+    const walletId = slot ? null : wallet.accountId;
+    const kind = walletId ? 'wallet' : demo ? 'demo' : null;
     return {
-      accountId: wallet.accountId ?? demo?.accountId ?? null,
+      accountId: walletId ?? demo?.accountId ?? null,
       kind,
       signAndSend: async (receiverId, acts) => {
         if (kind !== 'wallet') return demo ? relay(demo, receiverId, acts) : Promise.reject(new Error('No account yet.'));
@@ -70,10 +82,12 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         return out;
       },
       createDemo,
+      resetDemo,
+      slot,
       connectWallet: wallet.connect,
       signOut: async () => { if (kind === 'wallet') await wallet.disconnect(); },
     };
-  }, [wallet, demo, createDemo, relay]);
+  }, [wallet, demo, createDemo, resetDemo, relay, slot]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

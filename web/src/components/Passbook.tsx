@@ -10,6 +10,7 @@ import { GuillocheStrip } from './GuillocheStrip';
 import { EnclavePanel, DECOR_ROWS, DEV_PHASES, type EnclaveStep } from './EnclavePanel';
 import { TxButton, TxStatus } from './TxButton';
 import { HashLink } from './HashLink';
+import { CopyButton } from './CopyButton';
 import { functionCall } from '@/lib/near/wallet';
 import { useAccount } from '@/lib/near/account';
 import { useTx } from '@/lib/useTx';
@@ -72,7 +73,8 @@ function Entry({ when, sub, title, children, liRef }: { when: string; sub?: stri
   );
 }
 
-export function Passbook() {
+export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
+  const scenarios = mode === 'scenarios';
   const account = useAccount();
   // Development only: ?as=<account> renders any testnet account's passbook read-only, for visual
   // checks without a wallet. Compiled out of production builds; signing still needs a wallet.
@@ -317,7 +319,9 @@ export function Passbook() {
     releasePending: defaulted && !b?.released_identity,
   });
   const firstKey = Object.keys(BORROWERS)[0] as BorrowerKey;
-  const bar = primary === 'start' ? { text: 'No wallet needed. Or pick another borrower above.', button: <button type="button" className="btn btn-violet" onClick={() => pick({ borrower: firstKey })}>Use {BORROWERS[firstKey].name.split(' ')[0]}</button> }
+  const bar = primary === 'start' ? (scenarios
+      ? { text: 'Or pick another borrower above.', button: <button type="button" className="btn btn-violet" onClick={() => pick({ borrower: firstKey })}>Use {BORROWERS[firstKey].name.split(' ')[0]}</button> }
+      : { text: 'Test login: user_good / pass_good', button: <button type="button" className="btn btn-violet" onClick={connectBank} disabled={!!starting}>Connect your bank</button> })
     : primary === 'retry' ? { text: scoring?.error ?? 'Scoring failed. Nothing changed on-chain.', button: <button type="button" className="btn btn-ink" onClick={retry}>Check my limit again</button> }
     : primary === 'borrow' ? { text: amountError ?? `Band ${sc?.band}, limit ${usd(limit)}`, button: <TxButton tx={borrowTx.state} label={`Borrow ${amount !== null ? usd(amount) : ''}`} onClick={borrow} disabled={!!amountError} /> }
     : primary === 'repay' ? { text: shortBy > 0n ? `You need ${usd(shortBy)} more test USDC` : plan?.kind === 'wait' ? `Repay after ${mmss(plan.atMs - now)} to level up to ${usd(plan.next)}` : plan?.kind === 'ready' ? `Repaying now levels you up to ${usd(plan.next)}` : now < dueMs ? `Due in ${span(dueMs - now)}` : 'Overdue', button: <TxButton tx={repayTx.state} label={`Repay ${usd(due)}`} doneLabel="Repaid" onClick={repay} variant="ink" disabled={shortBy > 0n} /> }
@@ -345,15 +349,37 @@ export function Passbook() {
     <main className={`wrap layout${bar ? ' has-bar' : ''}`} id="top">
       <div>
         <div className="title">
-          <h1>Your passbook</h1>
-          <p>{acct && who
-            ? `You are ${whoName(who)}. Every step lands here as an entry, read from the chain.`
-            : 'Pick a test borrower. Each step lands here as an entry, like a bank passbook. Your bank data never appears on this page or on-chain.'}</p>
+          <h1>{scenarios ? 'Demo scenarios' : 'Your passbook'}</h1>
+          <p>{scenarios
+            ? (acct && who && who !== 'plaid' ? `You are ${whoName(who)}, a prepared borrower. Every step lands here as an entry, read from the chain.` : 'Prepared borrowers at Plaid\'s sandbox bank: an approval, a rejection with its reasons, and a default. They use a separate demo account, so your own passbook is untouched.')
+            : acct && sc ? 'Every step lands here as an entry, read from the chain. Your bank data never appears on this page or on-chain.'
+            : 'Connect a bank to see your limit. Each step lands here as an entry, like a bank passbook. Your bank data never appears on this page or on-chain.'}</p>
         </div>
 
-        {showPick && (
-          <section aria-label="Pick a test borrower">
-            <div className="pick" id="pa-start">
+        {showPick && !scenarios && (
+          <section aria-label="Connect your bank" className="bankstart">
+            <article className="who connect" id="pa-start">
+              <GuillocheStrip />
+              <h3>Connect your bank (sandbox)</h3>
+              <p>Log in to a test bank through Plaid Link. The scorer fetches six months of history, works out your limit, and keeps none of it.</p>
+              <dl className="login" aria-label="Plaid sandbox login">
+                <dt>Username</dt><dd><code>user_good</code><CopyButton text="user_good" label="username" /></dd>
+                <dt>Password</dt><dd><code>pass_good</code><CopyButton text="pass_good" label="password" /></dd>
+              </dl>
+              <p className="expect">This is Plaid&apos;s public sandbox login: a test bank with test money, the same for everyone. Pick any bank in the list.</p>
+              <button type="button" className="btn btn-violet btn-big" disabled={!!starting} onClick={connectBank}>Connect your bank (sandbox)</button>
+            </article>
+            {starting && <p className="acct" aria-live="polite">{starting}</p>}
+            {startError && <p className="hint err" role="alert" style={{ marginTop: 12 }}>{startError}</p>}
+            <p className="acct">
+              {acct ? `Signed in as ${acct}. We pay the network and scoring fees.` : <>No wallet needed: we create a demo account and pay its network fees. <button type="button" className="linkbtn" onClick={account.connectWallet}>Connect a wallet instead</button></>}
+            </p>
+          </section>
+        )}
+
+        {showPick && scenarios && (
+          <section aria-label="Pick a prepared borrower">
+            <div className="pick" id={scenarios ? 'pa-start' : undefined}>
               {(Object.keys(BORROWERS) as BorrowerKey[]).map((k, i) => (
                 <article key={k} className="who">
                   <GuillocheStrip />
@@ -381,21 +407,15 @@ export function Passbook() {
                 {checkCustom(custom) && <p className="hint err">{checkCustom(custom)}</p>}
                 <button type="button" className="btn btn-line" disabled={!!starting || !!checkCustom(custom)} onClick={() => pick({ borrower: 'custom', custom })}>Score this borrower</button>
               </article>
-              <article className="who">
-                <GuillocheStrip />
-                <h3>Connect a sandbox bank yourself</h3>
-                <p>Open Plaid Link and log in to a test bank. The scorer fetches that account live.</p>
-                <p className="expect">Test login: username <b>user_good</b>, password <b>pass_good</b>. Pick any bank.</p>
-                <p className="expect">On testnet each account gets its own copy of the sandbox identity, so every judge can use the same login.</p>
-                <button type="button" className="btn btn-line" disabled={!!starting} onClick={connectBank}>Connect a sandbox bank</button>
-              </article>
             </div>
             {starting && <p className="acct" aria-live="polite">{starting}</p>}
             {startError && <p className="hint err" role="alert" style={{ marginTop: 12 }}>{startError}</p>}
-            <p className="acct">
-              {acct ? `Signed in as ${acct}. We pay the network and scoring fees.` : <>No wallet needed: we create a demo account and pay its network fees. <button type="button" className="linkbtn" onClick={account.connectWallet}>Connect a wallet instead</button></>}
-            </p>
+            <p className="acct">{acct ? `Scenario account ${acct}. We pay the network and scoring fees.` : 'Each scenario runs on its own demo account, separate from your passbook. We pay its network fees.'}</p>
           </section>
+        )}
+
+        {scenarios && acct && !showPick && b !== undefined && !(scoring && scoring.step !== 'sealed' && scoring.step !== 'failed') && (
+          <p className="acct"><button type="button" className="btn btn-line" onClick={() => { account.resetDemo(); setScoring(null); }}>Try another scenario</button> Starts a fresh demo account.</p>
         )}
 
         {acct && b === undefined && <p className="hint" style={{ marginTop: 40 }}><span className="placeholder">Reading your passbook from the chain</span></p>}
@@ -408,7 +428,7 @@ export function Passbook() {
           )}
           {acct && (sc || scoring) && (
             <Entry when={clock(scoredAt || now)} sub={day(scoredAt || now)} title="Bank connected">
-              <p>{who === 'plaid' ? 'Your sandbox bank, connected through Plaid Link' : 'First Platypus Bank, checking account'}. Plaid sandbox, read-only{who && who !== 'plaid' ? `, with ${whoName(who)}'s test history` : ''}. KredoFi never sees a bank login.</p>
+              <p>{who === 'plaid' ? 'Your sandbox bank, connected through Plaid Link' : 'First Platypus Bank, checking account'}. Plaid sandbox, read-only{who && who !== 'plaid' ? `, with ${whoName(who)}'s test history` : ''}. The scorer removes the connection after one fetch. KredoFi never sees a bank login.</p>
             </Entry>
           )}
 
@@ -418,6 +438,11 @@ export function Passbook() {
               <EnclavePanel step={scoring?.step ?? 'sealed'} elapsed={scoring?.elapsed ?? sess.scoredIn ?? 0} labels={DEV_PHASES} timerAt={1} failedAt={1}
                 txHash={scoring?.hash ?? scoreHash} failure={scoring?.error} rows={who === 'sam' ? DECOR_ROWS.irregular : DECOR_ROWS.steady}
                 note="Testnet: the pinned scorer runs on our server, outside the enclave. On mainnet the same code runs inside Intel TDX through OutLayer." />
+              {extra?.receipt && (!scoring || scoring.step === 'sealed') && (
+                <p className="receipt">
+                  Plaid sent {extra.receipt.plaid_transactions} transactions from {extra.receipt.plaid_accounts} account{extra.receipt.plaid_accounts === 1 ? '' : 's'}; the scorer read the last {extra.receipt.months} months ({extra.receipt.read_transactions} transactions from your main account), and none of it left.
+                </p>
+              )}
               {scoring?.step === 'failed' && who && (
                 <p id="pa-retry"><button type="button" className="btn btn-ink" onClick={retry}>Check my limit again</button></p>
               )}
@@ -580,12 +605,12 @@ export function Passbook() {
           {outputJson ? (
             <>
               <ul className="stayed" aria-label="Stayed inside">
-                <li>30 transactions, six months</li><li>Balances</li><li>Your name</li><li>The bank access token</li>
+                <li>{extra?.receipt ? `${extra.receipt.plaid_transactions} transactions from Plaid` : 'Your bank transactions'}</li><li>Balances</li><li>Your name</li><li>The bank access token</li>
               </ul>
               <pre>{outputJson}</pre>
               {scoreHash && <p className="txline" style={{ marginTop: 8 }}>On-chain in <HashLink hash={scoreHash} /></p>}
             </>
-          ) : <pre>Nothing yet. Pick a test borrower to start.</pre>}
+          ) : <pre>{scenarios ? 'Nothing yet. Pick a prepared borrower to start.' : 'Nothing yet. Connect your bank to start.'}</pre>}
         </div>
         <div className="card">
           <h3>Verify</h3>

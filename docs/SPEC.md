@@ -322,6 +322,8 @@ So judges see a real bank connection, not only prepared people. The pick screen 
 
 **One sandbox login, many judges (testnet only).** Plaid's sandbox returns the same identity for `user_good` to everyone, so under rule 6 only the first judge could ever be scored. The demo scorer build (testnet, Dev mode) therefore scopes the bank identity to the borrower's account before fingerprinting: `fingerprint = HMAC(SEAL_KEY, institution_id#account | owner name | mask)` (`scope_identity_to_account`, `scorer/src/lib.rs`). Every judge gets their own fingerprint; one account keeps a stable one. The production build pinned on OutLayer mainnet does not contain this code (its SHA-256 is unchanged, `87ceab66…`), so mainnet keeps the strict rule: one real bank identity, one borrower, whatever the account. Tests: `mainnet_mode_same_bank_identity_same_fingerprint_for_any_account` and `testnet_mode_scopes_sandbox_identity_per_account`. Testnet uses its own `SEAL_KEY` (never the mainnet one).
 
+Main path (Nov 2): the landing's "Check my limit" leads to `/borrow`, whose only start is **Connect your bank (sandbox)** (real Plaid Link; the public sandbox login `user_good` / `pass_good` is shown with copy buttons). After scoring, the passbook shows a fetch receipt with real counts from the scorer (transactions and accounts Plaid sent, transactions read in the 6-month window), never the transactions. Prepared borrowers (Riya, Sam, Max) and build-your-own live on `/scenarios`, linked only from footers, on a separate demo account so a scenario (e.g. Max's default) never touches the visitor's own passbook.
+
 ---
 
 ## 9. Known limits (state them in the README)
