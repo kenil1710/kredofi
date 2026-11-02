@@ -1,0 +1,130 @@
+# Seeded demo activity for the testnet ledger (SPEC 8d, docs/LEDGER_PLAN.md): runs
+# `scripts/seed_ledger.mjs tick` every 3 hours on GitHub's runners, so seeding never depends on a laptop
+# being awake. Testnet only. Does nothing until the repository variable SEED_CONTRACT is set (that is
+# the switch, set only after the owner's yes), and stops by itself after Nov 13.
+#
+# Secrets (repository secrets, set from .env and ~/.near-credentials with `gh secret set` via stdin, never
+# printed): PLAID_CLIENT_ID, PLAID_SECRET (Plaid sandbox), SEAL_KEY_TESTNET (never the mainnet SEAL_KEY),
+# SEED_TESTNET_KEYS (JSON {account: private key} for the 24 seeded borrowers, their lender and
+# scorer.kency.testnet; testnet accounts only, no owner, relayer or mainnet key).
+# State: the done-list lives on the `seed-state` branch; each step is also checked on-chain first.
+name: seed tick (testnet)
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      contract:
+        description: "testnet contract (default: vars.SEED_CONTRACT); a throwaway kredofi-seedtest-*.testnet for test runs"
+        required: false
+      seed_only:
+        description: "borrower numbers, e.g. 2,3 (test runs only)"
+        required: false
+      day_ms:
+        description: "SEED_DAY_MS (0 = everything due now; throwaway contracts only)"
+        required: false
+      start:
+        description: "SEED_START (ISO) if this contract has no state yet"
+        required: false
+permissions:
+  contents: write # the seed-state branch
+  actions: read # the pinned scorer artifact
+concurrency:
+  group: seed-tick
+  cancel-in-progress: false
+jobs:
+  tick:
+    if: github.event_name == 'workflow_dispatch' || vars.SEED_CONTRACT != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      KREDOFI_CONTRACT: ${{ inputs.contract || vars.SEED_CONTRACT }}
+      SEED_START: ${{ inputs.start || vars.SEED_START }}
+      SEED_ONLY: ${{ inputs.seed_only }}
+      DAY_MS_INPUT: ${{ inputs.day_ms }}
+      SEED_UNTIL: "2026-11-13T23:59:00Z"
+      # Canonical CI build of the testnet demo scorer (run 41438833584, artifact kept until 2027-01-31).
+      SCORER_RUN: "41438833584"
+      SCORER_SHA: ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9
+      WASMTIME_SHA: 77c19ee0437991f9ac7837b9c269d9c7076744f85dad263fea5214cc2723c7ff
+    steps:
+      - name: guard (testnet only, demo or throwaway contract, before the freeze)
+        id: guard
+        run: |
+          case "$KREDOFI_CONTRACT" in
+            app.kency.testnet|kredofi-seedtest-*.testnet) ;;
+            *) echo "refusing contract '$KREDOFI_CONTRACT'"; exit 1 ;;
+          esac
+          if [ -n "$DAY_MS_INPUT" ] && [ "$KREDOFI_CONTRACT" = app.kency.testnet ]; then echo "day_ms is for throwaway contracts"; exit 1; fi
+          if [ "$(date -u +%s)" -gt "$(date -u -d "$SEED_UNTIL" +%s)" ]; then echo "past $SEED_UNTIL: seeding is frozen"; echo "run=no" >> "$GITHUB_OUTPUT"; else echo "run=yes" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.guard.outputs.run == 'yes'
+        uses: actions/checkout@v4
+      - if: steps.guard.outputs.run == 'yes'
+        name: state from the seed-state branch
+        run: |
+          mkdir -p scripts/.seed
+          if git fetch -q origin seed-state; then
+            git show "origin/seed-state:$KREDOFI_CONTRACT.json" > "scripts/.seed/$KREDOFI_CONTRACT.json" 2>/dev/null || rm -f "scripts/.seed/$KREDOFI_CONTRACT.json"
+          fi
+          ls scripts/.seed
+      - if: steps.guard.outputs.run == 'yes'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - if: steps.guard.outputs.run == 'yes'
+        run: cd scripts && npm ci --no-audit --no-fund
+      - if: steps.guard.outputs.run == 'yes'
+        name: wasmtime 50.0.0 (hash-checked)
+        run: |
+          curl -sSLf -o /tmp/wt.tar.xz https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.0/wasmtime-v50.0.0-x86_64-linux.tar.xz
+          echo "$WASMTIME_SHA  /tmp/wt.tar.xz" | sha256sum -c -
+          tar xf /tmp/wt.tar.xz -C /tmp && echo /tmp/wasmtime-v50.0.0-x86_64-linux >> "$GITHUB_PATH"
+      - if: steps.guard.outputs.run == 'yes'
+        uses: actions/download-artifact@v4
+        with:
+          name: scorer-wasm
+          path: scorer/out
+          run-id: ${{ env.SCORER_RUN }}
+          github-token: ${{ github.token }}
+      - if: steps.guard.outputs.run == 'yes'
+        name: pinned demo scorer
+        run: echo "$SCORER_SHA  scorer/out/kredofi_scorer_demo.wasm" | sha256sum -c -
+      - if: steps.guard.outputs.run == 'yes'
+        name: testnet keys into the runner's NEAR keychain (never printed)
+        env:
+          SEED_TESTNET_KEYS: ${{ secrets.SEED_TESTNET_KEYS }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          d = os.path.expanduser('~/.near-credentials/testnet'); os.makedirs(d, mode=0o700, exist_ok=True)
+          keys = json.loads(os.environ['SEED_TESTNET_KEYS'])
+          ok = re.compile(r'^((borrower-\d{2}|lender)\.kredofi-seed|scorer\.kency)\.testnet$')
+          for acct, pk in keys.items():
+              if not ok.match(acct): raise SystemExit(f'unexpected account in SEED_TESTNET_KEYS: {acct}')
+              p = os.path.join(d, acct + '.json')
+              with open(os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w') as f: json.dump({'account_id': acct, 'private_key': pk}, f)
+          print(f'{len(keys)} testnet keys installed')
+          PY
+      - if: steps.guard.outputs.run == 'yes'
+        name: tick
+        env:
+          PLAID_CLIENT_ID: ${{ secrets.PLAID_CLIENT_ID }}
+          PLAID_SECRET: ${{ secrets.PLAID_SECRET }}
+          SEAL_KEY_TESTNET: ${{ secrets.SEAL_KEY_TESTNET }}
+        run: |
+          if [ -n "$DAY_MS_INPUT" ]; then export SEED_DAY_MS="$DAY_MS_INPUT"; fi
+          node --experimental-strip-types scripts/seed_ledger.mjs tick
+          node --experimental-strip-types scripts/seed_ledger.mjs status
+      - if: always() && steps.guard.outputs.run == 'yes'
+        name: save state to the seed-state branch
+        run: |
+          f="scripts/.seed/$KREDOFI_CONTRACT.json"; [ -f "$f" ] || exit 0
+          cp "$f" /tmp/state.json
+          git config user.name "kredofi-seed-bot"; git config user.email "actions@users.noreply.github.com"
+          if git rev-parse -q --verify origin/seed-state >/dev/null; then git checkout -q -B seed-state origin/seed-state; else git checkout -q --orphan seed-state; git rm -rqf . ; fi
+          cp /tmp/state.json "$KREDOFI_CONTRACT.json"
+          git add "$KREDOFI_CONTRACT.json"
+          git diff --cached --quiet || { git commit -qm "seed state: $KREDOFI_CONTRACT"; git push -q origin seed-state; }
+      - if: always()
+        name: remove keys
+        run: rm -rf ~/.near-credentials

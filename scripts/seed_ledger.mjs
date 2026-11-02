@@ -13,6 +13,10 @@
 //          SEED_MAX_LOANS (loans per tick, default 6), SEED_ONLY (borrower numbers, e.g. "1,21,22": test runs).
 // Keys: the parent's key in ~/.near-credentials/testnet (create it with the faucet, see `setup`);
 // Plaid keys and SEAL_KEY_TESTNET from .env (set -a; source .env; set +a). Never printed.
+// `tick` runs on GitHub Actions (.github/workflows/seed-tick.yml, every 3 hours, testnet only), not on a
+// laptop: keys come from repository secrets, SEED_START from a repository variable, and the done-list
+// lives on the `seed-state` branch. Each step is also checked on-chain first (chainState), so a lost
+// state file or a run killed mid-loan never repeats or strands a loan.
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -121,24 +125,47 @@ async function runLoan(step, cfg) {
   const max = limit < cap ? limit : cap;
   const amount = (max * BigInt(Math.round(step.share * 1000)) / 1000n) / 1_000_000n * 1_000_000n; // whole dollars
   const half = (limit + 1n) / 2n;
-  const amt = amount < half && half <= max ? half : amount; // at least half the limit (level-ups)
+  if (half > max) throw new Error(`pool too small for a level-up loan to ${acct} (half the limit ${fmtUsd(half)} > ${fmtUsd(max)})`);
+  const amt = amount < half ? half : amount; // at least half the limit, so every planned loan levels up
   const br = await call(who, POOL, 'borrow', { amount: amt.toString() }, { gas: 40n, deposit: 1n });
   if (!br.ok || br.receiptErrors.length) throw new Error(`borrow failed for ${acct}: ${br.error ?? br.receiptErrors[0]}`);
   console.log(`  ${acct} borrowed ${fmtUsd(amt)} (band ${step.band}, limit ${fmtUsd(limit)}) ${EXPLORER}${br.hash}`);
+  await finishLoan(step, cfg);
+}
+
+/** Repay after the minimum hold, or (planned defaulters) mark the default after term + grace.
+ *  Also used to resume a loan a killed run left open: timing comes from the loan on-chain. */
+async function finishLoan(step, cfg) {
+  const acct = step.borrower, who = account(acct);
+  const loan = (await view(POOL, 'get_borrower', { account_id: acct })).loan;
+  const nowNs = BigInt(Date.now()) * 1_000_000n;
   if (step.defaults) {
-    const waitMs = Number(BigInt(cfg.loan_term_ns) + BigInt(cfg.grace_ns)) / 1e6 + 5000;
+    const at = BigInt(loan.due_at) + BigInt(cfg.grace_ns) + 5_000_000_000n;
+    const waitMs = at > nowNs ? Number((at - nowNs) / 1_000_000n) : 0;
     console.log(`  ${acct} will not repay; marking the default in ${Math.round(waitMs / 1000)} s`); await sleep(waitMs);
     const d = await call(account(LENDER), POOL, 'mark_default', { borrower: acct }, { gas: 40n });
     if (!d.ok) throw new Error(`mark_default failed: ${d.error}`);
     console.log(`  default marked, reserve paid the pool first ${EXPLORER}${d.hash}`);
     return;
   }
-  await sleep(Number(BigInt(cfg.min_hold_ns)) / 1e6 + 4000 + Math.floor(Math.random() * 20_000));
-  const loan = (await view(POOL, 'get_borrower', { account_id: acct })).loan;
+  const at = BigInt(loan.issued_at) + BigInt(cfg.min_hold_ns) + 4_000_000_000n;
+  await sleep((at > nowNs ? Number((at - nowNs) / 1_000_000n) : 0) + Math.floor(Math.random() * 20_000));
   const due = (BigInt(loan.principal) + BigInt(loan.interest)).toString();
   const rp = await call(who, USDC_ID, 'ft_transfer_call', { receiver_id: POOL, amount: due, msg: 'repay' }, { gas: 60n, deposit: 1n });
   if (!rp.ok || rp.receiptErrors.length) throw new Error(`repay failed for ${acct}: ${rp.error ?? rp.receiptErrors[0]}`);
   console.log(`  ${acct} repaid ${fmtUsd(due)} ${EXPLORER}${rp.hash}`);
+}
+
+/** What the chain says about a step, so a lost or stale state file never repeats a loan:
+ *  'done', 'open' (a loan is active: finish it) or 'todo'. A first loan is done once the borrower has
+ *  any closed loan; a second once they reached level 3 (each planned loan levels up: >= half the
+ *  limit, held past the minimum hold); a defaulter once a default is on record. */
+export function chainState(step, b) {
+  if (step.kind === 'score') return b?.score ? 'done' : 'todo';
+  if (b?.has_active_loan) return 'open';
+  if (step.defaults) return (b?.defaults ?? 0) > 0 ? 'done' : 'todo';
+  if (step.second) return (b?.level ?? 1) >= 3 ? 'done' : 'todo';
+  return b?.loan ? 'done' : 'todo';
 }
 
 async function setup() {
@@ -170,7 +197,8 @@ async function setup() {
 async function tick() {
   guard();
   const s = load();
-  if (!s.start) throw new Error('run setup first');
+  if (!s.start && process.env.SEED_START) { s.start = Date.parse(process.env.SEED_START); if (!s.start) throw new Error('SEED_START is not a date'); save(s); }
+  if (!s.start) throw new Error('run setup first (or set SEED_START)');
   const cfg = await view(POOL, 'get_config');
   const day = DAY_MS ? Math.floor((Date.now() - s.start) / DAY_MS) : Infinity;
   const due = plan().filter((x) => x.day <= day && !s.done[x.i] && (!ONLY || ONLY.has(x.n)));
@@ -179,6 +207,10 @@ async function tick() {
   for (const step of due) {
     if (step.kind === 'loan' && loans >= MAX_LOANS) break;
     try {
+      const b = await view(POOL, 'get_borrower', { account_id: step.borrower }).catch(() => null);
+      const st = chainState(step, b);
+      if (st === 'done') { console.log(`  step ${step.i} (${step.borrower}) already on-chain, marked done`); s.done[step.i] = Date.now(); save(s); continue; }
+      if (st === 'open') { console.log(`  ${step.borrower} has an open loan from an earlier run, finishing it`); await finishLoan(step, cfg); loans++; s.done[step.i] = Date.now(); save(s); continue; }
       if (step.kind === 'score') { const out = await scoreBorrower(step.n); console.log(`  ${step.borrower} scored band ${out.band} ${out.score} (band D: no loan, as the rules say)`); }
       else { await runLoan(step, cfg); loans++; }
       s.done[step.i] = Date.now(); save(s);
@@ -214,7 +246,7 @@ function printPlan(scoreCheck) {
 }
 
 const cmd = process.argv[2] ?? 'plan';
-try {
+if (/seed_ledger\.mjs$/.test(process.argv[1] ?? '')) try {
   if (cmd === 'plan') printPlan(process.argv.includes('--score-check'));
   else if (cmd === 'setup') await setup();
   else if (cmd === 'tick') await tick();
