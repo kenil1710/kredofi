@@ -6,7 +6,7 @@ use crate::*;
 use near_sdk::base64::Engine;
 use near_sdk::base64::engine::general_purpose::STANDARD as B64;
 use near_sdk::serde_json::{Value, json};
-use near_sdk::{PromiseError, PromiseResult, RuntimeFeesConfig, testing_env};
+use near_sdk::{PromiseResult, RuntimeFeesConfig, testing_env};
 
 const USDC: u128 = 1_000_000;
 const DAY: u64 = 24 * 3600 * 1_000_000_000;
@@ -539,11 +539,11 @@ fn outlayer_release_failure_clears_pending_and_allows_retry() {
     );
     let _ = c.request_identity_release(max());
     set(pool_id());
-    assert!(!c.on_release(max(), Err(PromiseError::Failed)));
+    assert!(!c.finish_release(max(), Err("OutLayer execution failed".to_string())));
     assert!(!c.get_borrower(max()).unwrap().pending_request);
     assert!(c.is_release_allowed(max()));
 
-    assert!(c.on_release(max(), Ok(Some(release_out()))));
+    assert!(c.finish_release(max(), Ok(Some(release_out()))));
     assert!(c.get_borrower(max()).unwrap().released_identity.is_some());
 }
 

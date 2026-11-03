@@ -91,7 +91,7 @@ Rules (SPEC 6): income level (250 points), steady income (250), on-time payments
 ## Run the tests
 
 ```bash
-cargo test --workspace                   # contracts: 121 unit + 3 mock-usdc + 35 near-workspaces sandbox tests
+cargo test --workspace                   # contracts: 128 unit + 3 mock-usdc + 36 near-workspaces sandbox tests
 (cd scorer && cargo test)                # scorer: 36 tests (reproduces the SPEC 6 table: Riya 1000/A, Sam 270/D, Max 1000/A)
 (cd web && npm install && npm test)      # web: 47 tests (incl. a check that every docs link works)
 (cd scripts && npm install && node --test seal.test.mjs)   # JS and Rust seal compatibility
@@ -101,13 +101,14 @@ Every security rule in [SPEC section 7](docs/SPEC.md) has a test. Build and run 
 
 ## Known limits
 
-- Bank data is Plaid sandbox only. Real banks need Plaid production access and a licensed lending partner.
+- Bank data is Plaid sandbox only. Real banks need Plaid production access and a licensed lending partner. On mainnet this means a score proves nothing yet: anyone can log in to the Plaid sandbox as a custom user with made-up income and get band A. The mainnet pool must not take real deposits until Plaid production access exists (it holds $0 today).
 - The live demo is testnet in Dev mode: the scorer runs on our server, not in an enclave. Only mainnet uses OutLayer, and no mainnet loan has been made.
 - Testnet scoring requires a one-time challenge signed by the account's own key (NEP-413), so nobody can re-score another account (`web/src/lib/ownership.ts`).
 - On testnet every judge can use the shared sandbox login because the testnet scorer ties the sandbox identity to your NEAR account ([SPEC 8c](docs/SPEC.md)); the mainnet build keeps the strict one-identity rule.
 - The scorer is built reproducibly on x86_64 Linux in a pinned image: `./scorer/build-docker.sh` (or the GitHub workflow) gives the exact pinned bytes; builds on macOS or ARM give other hashes ([VERIFY.md](VERIFY.md) section 3).
 - Both contract accounts still have their full-access keys, so the owner can redeploy the code. Owner methods can't move lender funds or the reserve (rule 10, tested), but a redeploy could. See [THREAT_MODEL.md](THREAT_MODEL.md).
 - The developer generated the sealing keys and also holds the Plaid keys the enclave uses. The one-time Plaid token in `request_score` is visible on-chain for 30 minutes, so the developer could exchange it first and read that bank data (the score would then fail), and could open sealed names. Production would create both inside the enclave.
+- That on-chain token is also not tied to the account that sent it (mainnet only; testnet tokens go to our server with a signed challenge). If a borrower's `request_score` is refused (deposit too small, a request already pending), anyone who copies the token within 30 minutes can have the enclave score that bank for their own account, which then owns that bank identity. Planned fix: the browser encrypts the token to a key held only by the enclave, bound to the borrower's account, and the scorer checks it (new scorer build, needs a mainnet re-pin). [SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)
 - Trust assumptions: Intel TDX, OutLayer's worker registration, Plaid, NEAR AI Cloud (summary only; the score never depends on it).
 
 Built for NEAR HACKATHON, November 2026. Specification: [docs/SPEC.md](docs/SPEC.md). Build log: [docs/LOG.md](docs/LOG.md).

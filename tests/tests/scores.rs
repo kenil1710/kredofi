@@ -365,3 +365,44 @@ async fn rule6_one_fingerprint_one_borrower_outlayer() -> anyhow::Result<()> {
     assert_eq!(b["pending_request"], false);
     Ok(())
 }
+
+/// Audit M1 (regression of the auditor's proof): the contract runs nearly out of storage between
+/// `request_score` and `on_score`, so `on_score` fails as a whole and `pending_request` stays set.
+/// The borrower can now clear it with `cancel_pending_score` and score again once the contract is
+/// topped up. Also: a lender deposit under 1 USDC (dust that only buys contract storage) is refused.
+#[tokio::test]
+async fn storage_starved_callback_is_recoverable() -> anyhow::Result<()> {
+    let env = setup_outlayer().await?;
+    set_mock(&env, Some(output("$SIGNER", "A", 1000, 1000, 0x11)), false).await?;
+
+    let dust = new_user(&env, "dust", 1).await?;
+    let r = transfer_call(&dust, &env.usdc, env.pool.id(), USDC - 1, "deposit").await?;
+    assert_eq!(balance(&env.usdc, dust.id()).await?, USDC, "dust deposit refunded: {:?}", r.logs());
+
+    // Leave the contract ~300 bytes of free storage.
+    let acct = env.pool.view_account().await?;
+    let (bal, used) = (acct.balance.as_yoctonear(), acct.storage_usage as u128);
+    let send = bal - used * 10u128.pow(19) - 60 * 10u128.pow(19) - NearToken::from_millinear(1).as_yoctonear();
+    env.pool.as_account().transfer_near(env.owner.id(), NearToken::from_yoctonear(send)).await?.into_result()?;
+
+    let victim = new_user(&env, "victim", 0).await?;
+    let _ = request_score(&victim, &env).await?;
+    let b = borrower(&env, victim.id()).await?;
+    assert_eq!(b["pending_request"], true, "on_score failed on storage");
+    assert!(b["score"].is_null());
+
+    env.owner.transfer_near(env.pool.id(), NearToken::from_near(5)).await?.into_result()?;
+    let r = request_score(&victim, &env).await?;
+    assert!(failure_text(&r).contains("already pending"));
+
+    let r = victim.call(env.pool.id(), "cancel_pending_score").transact().await?;
+    assert!(r.is_success(), "{:?}", r.failures());
+    assert!(event_names(&r).contains(&"score_failed".to_string()));
+    assert_eq!(borrower(&env, victim.id()).await?["pending_request"], false);
+
+    let r = request_score(&victim, &env).await?;
+    assert!(r.is_success(), "{:?}", r.failures());
+    let b = borrower(&env, victim.id()).await?;
+    assert_eq!((b["pending_request"].clone(), b["score"]["band"].clone()), (json!(false), json!("A")));
+    Ok(())
+}

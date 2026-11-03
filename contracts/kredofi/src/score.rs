@@ -22,6 +22,8 @@ pub const MAX_SCORE: u16 = 1_000;
 /// A sealed 25-character name is about 73 bytes; leave room, but bound storage.
 pub const MAX_SEALED_BYTES: usize = 256;
 pub const MAX_PUBLIC_TOKEN_LEN: usize = 256;
+/// Largest OutLayer callback result read (the scorer's output is under 900 bytes).
+pub const MAX_OUTLAYER_RESULT_BYTES: usize = 16 * 1024;
 
 /// OutLayer fee deposit (SPEC 4).
 pub const MIN_SCORE_DEPOSIT: NearToken = NearToken::from_millinear(10);
@@ -309,19 +311,39 @@ impl Contract {
 
     /// OutLayer's answer. `#[private]`: only this contract's own request can land here (rule 1).
     /// Never panics after reading the borrower: a panic would undo clearing `pending_request`.
-    /// Any failure only clears `pending_request` and emits `score_failed` (rule 4).
+    /// Any failure only clears `pending_request` and emits `score_failed` (rule 4). The result
+    /// bytes are read raw (`outlayer_callback_result`), so even a non-JSON or empty answer is a
+    /// recorded failure, not a panic that would leave the request pending (audit M1).
     #[private]
-    pub fn on_score(
-        &mut self,
-        borrower: AccountId,
-        #[callback_result] result: Result<Option<Value>, PromiseError>,
-    ) -> bool {
+    pub fn on_score(&mut self, borrower: AccountId) -> bool {
+        self.finish_score(borrower, outlayer_callback_result())
+    }
+
+    /// A borrower clears their own pending score request, e.g. when the OutLayer callback never
+    /// completed (the contract ran out of storage or gas) and the flag would otherwise stay set
+    /// forever (audit M1). Score requests only: a blocked (defaulted) borrower's pending identity
+    /// release can't be cancelled. A late answer for the cancelled request is still accepted by
+    /// `on_score` (it is the pinned scorer's result for this borrower), so nothing can be gained.
+    pub fn cancel_pending_score(&mut self) {
+        let borrower = env::predecessor_account_id();
+        let mut b = self.borrowers.get(&borrower).cloned().unwrap_or_else(|| env::panic_str("Unknown borrower"));
+        require!(b.pending_request, "No score request is pending");
+        require!(!b.blocked, "A pending identity release can't be cancelled");
+        b.pending_request = false;
+        self.borrowers.insert(borrower.clone(), b);
+        events::emit("score_failed", json!({ "borrower": borrower, "reason": "Cancelled by the borrower" }));
+    }
+}
+
+impl Contract {
+    /// `on_score`'s logic for an already-read result (unit tests call it directly).
+    pub(crate) fn finish_score(&mut self, borrower: AccountId, result: Result<Option<Value>, String>) -> bool {
         let mut b = self.borrower_or_new(&borrower);
         b.pending_request = false;
         self.borrowers.insert(borrower.clone(), b);
 
         let accepted = match result {
-            Err(_) => Err("OutLayer execution failed".to_string()),
+            Err(e) => Err(e),
             Ok(None) => Err("OutLayer returned null".to_string()),
             Ok(Some(v)) => unwrap_outlayer_result(v)
                 .and_then(|o| parse_output(&o))
@@ -336,6 +358,10 @@ impl Contract {
         }
     }
 
+}
+
+#[near]
+impl Contract {
     /// Dev mode only: the configured `dev_scorer` submits the scorer's JSON output
     /// (the same scorer WASM, run locally with wasmtime). Panics in OutLayer mode.
     pub fn dev_submit_score(&mut self, borrower: AccountId, output: Value) {
@@ -508,6 +534,24 @@ pub fn outlayer_limits() -> Value {
 /// OutLayer's success payload is the scorer's stdout parsed as JSON. The exact envelope on
 /// mainnet is confirmed on day 6, so accept the raw output object, a JSON string holding it,
 /// or a wrapper `{ "output": ... }`. A wrapper with `"success": false` is a failure.
+/// The callback's promise result read as raw bytes (audit M1): a failed promise, an empty answer
+/// or bytes that are not JSON all come back as `Err`/`Ok(None)` instead of panicking in the
+/// generated `#[callback_result]` deserializer, which would leave `pending_request` set.
+pub(crate) fn outlayer_callback_result() -> Result<Option<Value>, String> {
+    if env::promise_results_count() != 1 {
+        return Err("No OutLayer result".into());
+    }
+    // Bounded read: the scorer's output is under 900 bytes; anything far larger is refused
+    // before it is copied, so the callback can't run out of gas on a huge answer.
+    match env::promise_result_checked(0, MAX_OUTLAYER_RESULT_BYTES) {
+        Ok(bytes) if bytes.is_empty() => Ok(None),
+        Ok(bytes) => near_sdk::serde_json::from_slice::<Option<Value>>(&bytes)
+            .map_err(|_| "OutLayer result is not JSON".to_string()),
+        Err(PromiseError::TooLong(_)) => Err("OutLayer result is too long".into()),
+        Err(_) => Err("OutLayer execution failed".into()),
+    }
+}
+
 pub fn unwrap_outlayer_result(v: Value) -> Result<Value, String> {
     fn step(v: Value, depth: u8) -> Result<Value, String> {
         if depth > 2 {

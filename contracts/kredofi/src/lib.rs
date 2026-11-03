@@ -41,6 +41,9 @@ const GAS_CALLBACK: Gas = Gas::from_tgas(15);
 
 pub const MSG_DEPOSIT: &str = "deposit";
 pub const MSG_SEED_RESERVE: &str = "seed_reserve";
+/// Smallest lender deposit, $1. The contract pays storage for every lender record, so dust
+/// deposits from many accounts could use up its storage (audit M1).
+pub const MIN_DEPOSIT: u128 = 1_000_000;
 
 #[derive(BorshStorageKey)]
 #[near]
@@ -333,6 +336,7 @@ impl Contract {
 
 impl Contract {
     fn internal_deposit(&mut self, lender: AccountId, amount: u128) {
+        require!(amount >= MIN_DEPOSIT, "Deposit at least 1 USDC");
         let shares =
             math::shares_for_deposit(amount, self.pool.value(), self.pool.total_shares);
         require!(shares > 0, "Deposit too small for one share");

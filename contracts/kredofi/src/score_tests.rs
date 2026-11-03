@@ -6,7 +6,7 @@ use crate::*;
 use near_sdk::base64::Engine;
 use near_sdk::base64::engine::general_purpose::STANDARD as B64;
 use near_sdk::serde_json::{Value, json};
-use near_sdk::{PromiseError, testing_env};
+use near_sdk::testing_env;
 
 const USDC: u128 = 1_000_000;
 const DAY: u64 = 24 * 3600 * 1_000_000_000;
@@ -380,7 +380,7 @@ fn on_score_success_stores_and_clears_pending() {
     let mut c = outlayer_contract();
     request(&mut c, riya());
     set(pool_id());
-    assert!(c.on_score(riya(), Ok(Some(riya_output()))));
+    assert!(c.finish_score(riya(), Ok(Some(riya_output()))));
     let b = c.get_borrower(riya()).unwrap();
     assert!(!b.pending_request);
     assert_eq!(b.score.unwrap().band, Band::A);
@@ -392,7 +392,7 @@ fn on_score_accepts_wrapped_output() {
     let mut c = outlayer_contract();
     request(&mut c, riya());
     set(pool_id());
-    assert!(c.on_score(riya(), Ok(Some(json!({"success": true, "output": riya_output()})))));
+    assert!(c.finish_score(riya(), Ok(Some(json!({"success": true, "output": riya_output()})))));
     assert!(c.get_borrower(riya()).unwrap().score.is_some());
 }
 
@@ -400,8 +400,8 @@ fn on_score_accepts_wrapped_output() {
 /// `pending_request`, emits `score_failed`, and never panics.
 #[test]
 fn rule4_failed_results_change_nothing_but_pending() {
-    let failures: Vec<(&str, Result<Option<Value>, PromiseError>)> = vec![
-        ("execution failed", Err(PromiseError::Failed)),
+    let failures: Vec<(&str, Result<Option<Value>, String>)> = vec![
+        ("execution failed", Err("OutLayer execution failed".to_string())),
         ("returned null", Ok(None)),
         ("Scorer run failed", Ok(Some(json!({"success": false, "error": "timeout"})))),
         ("Unrecognised", Ok(Some(json!({"weird": true})))),
@@ -421,7 +421,7 @@ fn rule4_failed_results_change_nothing_but_pending() {
 
         request(&mut c, riya());
         set(pool_id());
-        assert!(!c.on_score(riya(), result), "{want}");
+        assert!(!c.finish_score(riya(), result), "{want}");
 
         let b = c.get_borrower(riya()).unwrap();
         assert!(!b.pending_request, "{want}: pending cleared");
@@ -495,4 +495,79 @@ fn accepts_real_scorer_output() {
     let sam = acc("sam.kency.testnet");
     dev_submit(&mut c, sam.clone(), v);
     assert_eq!(c.get_limit(sam).0, 0, "band D");
+}
+
+// ------------------------------------------------------------------ audit M1: raw callback, cancel
+
+/// The real `on_score` entry point with raw promise bytes: invalid JSON, empty bytes and a failed
+/// promise each clear `pending_request` and emit `score_failed` instead of panicking.
+#[test]
+fn on_score_raw_bytes_never_leave_request_pending() {
+    use near_sdk::PromiseResult;
+    let cases: Vec<(&str, PromiseResult)> = vec![
+        ("not JSON", PromiseResult::Successful(b"<html>502</html>".to_vec())),
+        ("returned null", PromiseResult::Successful(vec![])),
+        ("returned null", PromiseResult::Successful(b"null".to_vec())),
+        ("execution failed", PromiseResult::Failed),
+        ("too long", PromiseResult::Successful(vec![b' '; MAX_OUTLAYER_RESULT_BYTES + 1])),
+    ];
+    for (want, raw) in cases {
+        near_sdk::mock::with_mocked_blockchain(|b| drop(b.take_storage()));
+        let mut c = outlayer_contract();
+        request(&mut c, riya());
+        assert!(c.get_borrower(riya()).unwrap().pending_request);
+        set_callback(raw);
+        assert!(!c.on_score(riya()), "{want}");
+        assert!(!c.get_borrower(riya()).unwrap().pending_request, "{want}");
+        let ev = events_named("score_failed");
+        assert!(ev.len() == 1 && ev[0].contains(want), "{want}: {ev:?}");
+    }
+}
+
+#[test]
+fn on_score_raw_bytes_accepts_a_valid_answer() {
+    let mut c = outlayer_contract();
+    request(&mut c, riya());
+    let bytes = near_sdk::serde_json::to_vec(&json!({"success": true, "output": riya_output()})).unwrap();
+    set_callback(near_sdk::PromiseResult::Successful(bytes));
+    assert!(c.on_score(riya()));
+    let b = c.get_borrower(riya()).unwrap();
+    assert!(!b.pending_request && b.score.is_some());
+}
+
+/// A borrower whose callback never completed (storage or gas ran out) can clear the flag and
+/// score again; a late answer for the cancelled request is still the pinned scorer's own.
+#[test]
+fn borrower_cancels_stuck_score_request() {
+    let mut c = outlayer_contract();
+    request(&mut c, riya());
+    set(riya());
+    c.cancel_pending_score();
+    let b = c.get_borrower(riya()).unwrap();
+    assert!(!b.pending_request && b.score.is_none());
+    assert!(events_named("score_failed").iter().any(|e| e.contains("Cancelled by the borrower")));
+    request(&mut c, riya());
+    assert!(c.get_borrower(riya()).unwrap().pending_request, "can request again");
+    set(pool_id());
+    assert!(c.finish_score(riya(), Ok(Some(riya_output()))));
+}
+
+#[test]
+#[should_panic(expected = "No score request is pending")]
+fn cancel_without_pending_request_panics() {
+    let mut c = outlayer_contract();
+    request(&mut c, riya());
+    set(pool_id());
+    assert!(c.finish_score(riya(), Ok(Some(riya_output()))));
+    set(riya());
+    c.cancel_pending_score();
+}
+
+#[test]
+#[should_panic(expected = "Unknown borrower")]
+fn cancel_by_stranger_panics() {
+    let mut c = outlayer_contract();
+    request(&mut c, riya());
+    set(max());
+    c.cancel_pending_score();
 }

@@ -1,7 +1,6 @@
 //! Loans, repayment, defaults and identity release (SPEC 4, 4a; rules 7, 11, 12, 13).
 
 use crate::*;
-use near_sdk::PromiseError;
 use near_sdk::base64::Engine;
 use near_sdk::base64::engine::general_purpose::STANDARD as B64;
 use near_sdk::serde_json::Value;
@@ -251,15 +250,18 @@ impl Contract {
         )
     }
 
-    /// OutLayer answer for a release. Never panics after clearing the pending flag.
+    /// OutLayer answer for a release. Never panics after clearing the pending flag; the result is
+    /// read raw like `on_score`'s (audit M1).
     #[private]
-    pub fn on_release(
-        &mut self,
-        borrower: AccountId,
-        #[callback_result] result: Result<Option<Value>, PromiseError>,
-    ) -> bool {
+    pub fn on_release(&mut self, borrower: AccountId) -> bool {
+        self.finish_release(borrower, crate::score::outlayer_callback_result())
+    }
+}
+
+impl Contract {
+    pub(crate) fn finish_release(&mut self, borrower: AccountId, result: Result<Option<Value>, String>) -> bool {
         let parsed = match result {
-            Err(_) => Err("OutLayer execution failed".to_string()),
+            Err(e) => Err(e),
             Ok(None) => Err("OutLayer returned null".to_string()),
             Ok(Some(v)) => unwrap_outlayer_result(v).and_then(|o| parse_release(&o)),
         };
@@ -278,6 +280,10 @@ impl Contract {
         }
     }
 
+}
+
+#[near]
+impl Contract {
     /// Dev mode: `dev_scorer` submits the release output `{"v":1,"released":"<base64>"}`.
     pub fn dev_submit_release(&mut self, borrower: AccountId, output: Value) {
         require!(

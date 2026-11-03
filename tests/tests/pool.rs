@@ -214,6 +214,8 @@ async fn owner_cannot_move_lender_funds_or_reserve() -> anyhow::Result<()> {
         "withdraw",
         "request_score",
         "dev_submit_score",
+        // Clears only the caller's own pending score flag (audit M1); no tokens, no other account.
+        "cancel_pending_score",
         "set_scorer_version",
         // borrow pays only the caller, within limit, cash and the 10% cap;
         // mark_default moves reserve INTO pool cash, never out of the contract.

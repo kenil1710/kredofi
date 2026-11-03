@@ -226,9 +226,24 @@ fn deposit_into_wiped_out_pool_rejected() {
 #[should_panic(expected = "Deposit too small for one share")]
 fn dust_deposit_that_mints_zero_shares_rejected() {
     let mut c = new_contract();
-    deposit(&mut c, alice(), 100);
-    c.pool.cash += 1_000; // price 11 base units per share
-    deposit(&mut c, bob(), 5);
+    deposit(&mut c, alice(), USDC);
+    c.pool.cash += 1_000_000 * USDC; // price just over 1 USDC per base-unit share
+    deposit(&mut c, bob(), USDC);
+}
+
+/// Audit M1: the contract pays storage for each lender record, so dust deposits are refused.
+#[test]
+#[should_panic(expected = "Deposit at least 1 USDC")]
+fn deposit_under_one_usdc_rejected() {
+    let mut c = new_contract();
+    deposit(&mut c, alice(), USDC - 1);
+}
+
+#[test]
+fn deposit_of_exactly_one_usdc_accepted() {
+    let mut c = new_contract();
+    deposit(&mut c, alice(), USDC);
+    assert_eq!(c.get_lender(alice()).value.0, USDC);
 }
 
 // ------------------------------------------------------------------ seed_reserve
