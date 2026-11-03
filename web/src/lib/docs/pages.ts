@@ -649,12 +649,23 @@ No owner method can move lender cash, loans or the reserve. But the contract key
     body: `
 Nothing on this page is built yet; it is the plan, roughly in order.
 
-1. **Lock the contract keys** behind a time-locked upgrade path or a DAO, so code can't change silently.
+1. **Lock the mainnet contract**, in the order below.
 2. **Generate the sealing key inside the enclave** and never export it; a real recovery partner with its own key.
 3. **Plaid production access** and a licensed lending partner; Plaid's persistent account IDs for fingerprints.
 4. **First mainnet loans** with small amounts.
 5. **Live cross-chain deposits** through NEAR Intents (the demo shows dry-run quotes only).
 6. **The AI summary inside the enclave** on mainnet, with the model's attestation checked.
+
+## Locking the mainnet contract
+
+The contract account \`kredofi.near\` still has a full-access key. Whoever holds it could deploy new code, and new code could move any funds; owner methods can't (tested). Deleting that key now would also block every fix, so the lock comes last:
+
+1. Deploy the **final audited build**, with the fixes from the 3 November security audit (\`docs/SECURITY_AUDIT.md\` in the repository).
+2. Move the **owner role to a multisig**, so several keys must sign every owner call.
+3. Add a **time lock on scorer re-pins**: a new \`set_scorer_version\` takes effect only after a delay, so lenders and borrowers can leave before a new scorer build applies.
+4. **Lock**: delete the contract account's full-access key, so the code can never change again.
+
+Not done yet: today the mainnet pool holds no money.
 
 Progress is logged in the repository (\`docs/LOG.md\`).
 `,

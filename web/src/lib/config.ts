@@ -2,6 +2,10 @@
 export const NETWORK = (process.env.NEXT_PUBLIC_NEAR_NETWORK ?? 'testnet') as 'testnet' | 'mainnet';
 /** The public address (Cloudflare Worker in front of the Hugging Face Space). */
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kredofi.xyz';
+/** How this deployment scores: 'outlayer' = inside the enclave (OutLayer), 'dev' = the same scorer on our
+ *  server (testnet Dev mode). Privacy claims in the copy follow this, not the network name. */
+export const SCORER_MODE = (process.env.NEXT_PUBLIC_SCORER_MODE ?? (NETWORK === 'mainnet' ? 'outlayer' : 'dev')) as 'outlayer' | 'dev';
+export const IN_ENCLAVE = SCORER_MODE === 'outlayer';
 export const KREDOFI_CONTRACT = process.env.NEXT_PUBLIC_KREDOFI_CONTRACT ?? 'kredofi.kency.testnet';
 export const USDC_CONTRACT = process.env.NEXT_PUBLIC_USDC_CONTRACT ?? 'musdc.kency.testnet';
 export const EXPLORER = NETWORK === 'mainnet' ? 'https://nearblocks.io/txns/' : 'https://testnet.nearblocks.io/txns/';

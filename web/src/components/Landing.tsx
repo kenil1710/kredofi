@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { drawNote, type Ovi } from '@/lib/drawNote';
 import { display, body } from '@/lib/fonts';
 import { describe, lostByLenders, type LedgerEvent } from '@/lib/events';
-import { KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
+import { IN_ENCLAVE, KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
 import { relativeTime, usd } from '@/lib/format';
 import { GuillocheStrip } from './GuillocheStrip';
 
@@ -29,9 +29,15 @@ const FN = ['Income level', 'Steady income', 'On-time payments', 'Money left ove
 const FV = [250, 250, 250, 150, 100];
 const MONTHS = ['October', 'September', 'August', 'July', 'June', 'May'];
 // Hero copy per network (SPEC 2: never claim more privacy than the network the visitor uses gives).
-const HERO_LEDE = NETWORK === 'testnet'
-  ? 'First use: no-collateral USDC loans. A pinned scorer reads six months of bank history, applies five published rules and puts only a band and a limit on NEAR. On mainnet it runs inside a sealed enclave. On this testnet demo it runs on our server with Plaid\'s test bank, so our server sees that test data while it scores.'
-  : 'First use: no-collateral USDC loans. A pinned scorer reads six months of your bank history inside a sealed enclave, applies five published rules and puts only a band and a limit on NEAR. Lenders never see your statements.';
+// The hero leads with the product; the Dev-mode caveat is the small note under the buttons (and /trust).
+const HERO_LEDE = IN_ENCLAVE
+  ? 'First use: no-collateral USDC loans. A pinned scorer reads six months of your bank history inside a sealed enclave, applies five published rules and puts only a band and a limit on NEAR. Lenders never see your statements.'
+  : 'First use: no-collateral USDC loans. A pinned scorer reads six months of bank history, applies five published rules and puts only a band and a limit on NEAR. On mainnet it runs inside a sealed enclave.';
+const HERO_NOTE = NETWORK === 'mainnet'
+  ? 'Mainnet.'
+  : IN_ENCLAVE
+    ? 'Testnet demo with Plaid\'s sandbox bank, scored inside the same enclave as mainnet. No wallet needed; we pay the network fees.'
+    : 'Testnet demo with Plaid\'s sandbox bank. No wallet needed; we pay the network fees. On this demo the scorer runs on our server, so our server sees the test bank data while it scores.';
 const RULES_SUB = NETWORK === 'testnet'
   ? 'Five rules decide the band, and they\'re published as code. On mainnet the contract takes a score only from the enclave, so nobody at KredoFi can nudge it. On this testnet demo our server runs the same scorer and submits the result.'
   : 'Five rules decide the band, and they\'re published as code. The contract takes a score only from the enclave, so nobody at KredoFi can nudge it up or down.';
@@ -445,7 +451,7 @@ export function Landing() {
                     <Link className="btn btn-light magnetic" href="/borrow">Check my limit</Link>
                     <a className="btn btn-ghost magnetic" href="#check">How the privacy works</a>
                   </div>
-                  <p className="small">{NETWORK === 'testnet' ? 'Testnet demo with Plaid\'s sandbox bank. No wallet needed; we pay the network fees.' : 'Mainnet.'}</p>
+                  <p className="small">{HERO_NOTE}{!IN_ENCLAVE && <> <Link href="/trust">Who sees what</Link></>}</p>
                 </div>
               </div>
             </div>
