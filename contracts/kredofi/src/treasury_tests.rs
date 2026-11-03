@@ -135,42 +135,53 @@ fn reserve_gets_no_interest_and_still_covers_defaults() {
     assert_eq!(c.get_pool().reserve.0, 300 * USDC);
 }
 
-// ------------------------------------------------------------------ migration v1 -> v2
+// ------------------------------------------------------------------ migration v2 -> v3
 
-#[test]
-fn migrate_keeps_every_balance_and_adds_empty_treasury() {
+fn v2_state(cash: u128) -> crate::migrate::ContractV2 {
     use crate::migrate::*;
-    set(pool_id());
     let mut lenders: LookupMap<AccountId, u128> = LookupMap::new(b"l".to_vec());
     lenders.insert(alice(), 1_000 * USDC);
     lenders.flush();
     let i = config_input();
-    let v1 = ContractV1 {
-        config: ConfigV1 {
+    ContractV2 {
+        config: ConfigV2 {
             owner: i.owner, usdc: i.usdc, scorer_mode: i.scorer_mode, dev_scorer: i.dev_scorer, outlayer: i.outlayer,
             scorer_project: i.scorer_project, scorer_version: i.scorer_version, secrets_profile: i.secrets_profile,
             secrets_account: i.secrets_account, partner_pubkey: [1u8; 32], loan_term_ns: 120_000_000_000,
             grace_ns: 60_000_000_000, score_ttl_ns: 30 * DAY, min_hold_ns: 60_000_000_000,
-            reserve_share_bps: 2000, max_borrower_share_bps: 1000,
+            max_borrower_share_bps: 1000,
         },
-        pool: PoolV1 { cash: 1_001_600_000, outstanding: 0, total_shares: 1_000 * USDC, reserve: 200_400_000 },
+        pool: Pool { cash, outstanding: 0, total_shares: 1_000 * USDC, reserve: 200_400_000, treasury: 3_000_000 },
         lenders,
         borrowers: LookupMap::new(b"b".to_vec()),
         fingerprints: LookupMap::new(b"f".to_vec()),
         stats: Default::default(),
-    };
-    env::state_write(&v1);
-
-    let c = Contract::migrate();
-    let p = c.get_pool();
-    assert_eq!((p.cash.0, p.outstanding.0, p.total_shares.0, p.reserve.0, p.treasury.0), (1_001_600_000, 0, 1_000 * USDC, 200_400_000, 0));
-    assert_eq!(c.get_lender(alice()).shares.0, 1_000 * USDC, "lender shares survive (same storage prefix)");
-    let v = c.get_config();
-    assert_eq!((v.loan_term_ns.0, v.min_hold_ns.0, v.max_borrower_share_bps), (120_000_000_000, 60_000_000_000, 1000));
+    }
 }
 
 #[test]
-#[should_panic(expected = "No v1 state to migrate")]
+fn migrate_v2_keeps_every_balance_and_gates_mainnet_deposits() {
+    set(pool_id());
+    env::state_write(&v2_state(1_001_600_000));
+    let c = Contract::migrate();
+    let p = c.get_pool();
+    assert_eq!((p.cash.0, p.outstanding.0, p.total_shares.0, p.reserve.0, p.treasury.0), (1_001_600_000, 0, 1_000 * USDC, 200_400_000, 3_000_000));
+    assert_eq!(c.get_lender(alice()).shares.0, 1_000 * USDC, "lender shares survive (same storage prefix)");
+    let v = c.get_config();
+    assert_eq!((v.loan_term_ns.0, v.min_hold_ns.0, v.max_borrower_share_bps), (120_000_000_000, 60_000_000_000, 1000));
+    assert!(v.require_production_data && !v.production_data, "{} is not a .testnet account", pool_id());
+}
+
+#[test]
+fn migrate_v2_on_testnet_keeps_deposits_open() {
+    testing_env!(ctx(acc("kredofi.kency.testnet")).current_account_id(acc("kredofi.kency.testnet")).build());
+    env::state_write(&v2_state(5));
+    let v = Contract::migrate().get_config();
+    assert!(!v.require_production_data && !v.production_data);
+}
+
+#[test]
+#[should_panic(expected = "No v2 state to migrate")]
 fn migrate_without_state_panics() {
     set(pool_id());
     Contract::migrate();

@@ -30,7 +30,10 @@ pub struct BankData {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Source {
+    /// A plain `public-...` token (Dev-mode builds only: our server got it with a signed challenge).
     PublicToken(String),
+    /// `sealed1:...`: the token sealed to the scorer together with the borrower's account (H1).
+    SealedToken(String),
     /// Plaid sandbox custom-user config (demo builds only).
     Profile(Value),
 }
@@ -46,9 +49,11 @@ pub enum Input {
 pub struct BuildFlags {
     pub demo: bool,
     pub debug: bool,
+    /// Accept a plain `public-...` token (Dev-mode build only; on-chain builds need `sealed1:`).
+    pub plain_token: bool,
 }
 
-pub const BUILD: BuildFlags = BuildFlags { demo: cfg!(feature = "demo"), debug: cfg!(feature = "debug") };
+pub const BUILD: BuildFlags = BuildFlags { demo: cfg!(feature = "demo"), debug: cfg!(feature = "debug"), plain_token: cfg!(feature = "demo") };
 
 pub fn error_output(msg: &str) -> Value {
     json!({ "success": false, "error": msg })
@@ -159,10 +164,19 @@ pub fn parse_input(raw: &str, build: BuildFlags) -> Result<Input, String> {
             let source = match (m.get("public_token"), m.get("profile")) {
                 (Some(t), None) => {
                     let t = t.as_str().ok_or("public_token must be a string")?;
-                    if t.is_empty() || t.len() > 256 || !t.starts_with("public-") {
+                    if t.is_empty() || t.len() > 256 {
                         return Err("invalid public_token".into());
                     }
-                    Source::PublicToken(t.to_string())
+                    if t.starts_with(crypto::SEALED_TOKEN_PREFIX) {
+                        Source::SealedToken(t.to_string())
+                    } else if !t.starts_with("public-") {
+                        return Err("invalid public_token".into());
+                    } else if !build.plain_token {
+                        // On-chain builds: a plain token in request_score could be replayed by anyone (H1).
+                        return Err("public_token must be sealed to the scorer (sealed1:)".into());
+                    } else {
+                        Source::PublicToken(t.to_string())
+                    }
                 }
                 (None, Some(p)) => {
                     if !build.demo {
@@ -327,7 +341,7 @@ mod tests;
 /// fingerprint = HMAC(SEAL_KEY, institution_id#account | name | mask). The sealed name is unchanged.
 /// The production build (pinned on OutLayer mainnet) does not contain this function, so mainnet
 /// keeps the strict rule: one real bank identity, one borrower, whatever the account.
-#[cfg(any(test, feature = "demo"))]
+#[cfg(any(test, feature = "scoped"))]
 pub fn scope_identity_to_account(mut bank: BankData, account: &str) -> BankData {
     bank.institution_id = format!("{}#{}", bank.institution_id, account);
     bank

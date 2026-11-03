@@ -2,6 +2,7 @@
 # Build the scorer for wasm32-wasip2 and print its SHA-256 (= OutLayer version_key).
 #   ./build.sh         production build (pin this one): out/kredofi_scorer.wasm
 #   ./build.sh demo    + demo profiles: out/kredofi_scorer_demo.wasm (local / testnet Dev mode)
+#   ./build.sh testnet-outlayer   testnet on OutLayer: production + per-account sandbox identity: out/kredofi_scorer_testnet.wasm
 #   ./build.sh debug   + demo + debug: out/kredofi_scorer_debug.wasm (local only, never deploy)
 #   ./build.sh legacy  production build WITHOUT path remapping (historical: the Nov 1 mainnet pin
 #                      87ceab66... was built this way, on macOS, from the Nov 1 source).
@@ -15,9 +16,10 @@ REMAP=1
 case "${1:-}" in
   "")     FEATURES="";            OUT=kredofi_scorer.wasm ;;
   demo)   FEATURES="demo";        OUT=kredofi_scorer_demo.wasm ;;
+  testnet-outlayer) FEATURES="testnet-outlayer"; OUT=kredofi_scorer_testnet.wasm ;;
   debug)  FEATURES="demo,debug";  OUT=kredofi_scorer_debug.wasm ;;
   legacy) FEATURES="";            OUT=kredofi_scorer_legacy.wasm; REMAP=0 ;;
-  *) echo "usage: ./build.sh [demo|debug|legacy]"; exit 1 ;;
+  *) echo "usage: ./build.sh [demo|testnet-outlayer|debug|legacy]"; exit 1 ;;
 esac
 TARGET_DIR="${KF_TARGET_BASE:-target}/build-${1:-prod}"
 if [ "$REMAP" = 1 ]; then

@@ -128,7 +128,7 @@ Built so far (`/lend`, "From another chain"): step 1 is a real 1Click quote (`PO
 
 Neither can move pool cash, outstanding principal or reserve funds out: both are capped by the treasury balance.
 
-Parameter setters: `set_loan_term_ns`, `set_min_hold_ns`, `set_grace_ns`, `set_score_ttl_ns`, `set_max_borrower_share_bps`. Each is owner-only, needs 1 yoctoNEAR, emits `param_changed` (`param`, `old`, `new`, `by`) and only changes a number in `config`; none touches the pool, the reserve or any token. The same bounds apply at init:
+Parameter setters: `set_loan_term_ns`, `set_min_hold_ns`, `set_grace_ns`, `set_score_ttl_ns`, `set_max_borrower_share_bps`, `set_production_data` (bool, audit Nov 3 H2: see below). Each is owner-only, needs 1 yoctoNEAR, emits `param_changed` (`param`, `old`, `new`, `by`) and only changes a number in `config`; none touches the pool, the reserve or any token. The same bounds apply at init:
 
 | Parameter | Bounds |
 |---|---|
@@ -140,7 +140,7 @@ Parameter setters: `set_loan_term_ns`, `set_min_hold_ns`, `set_grace_ns`, `set_s
 
 To shorten the term below the current hold, lower `min_hold_ns` first. Term changes apply to new loans; `grace_ns` and `min_hold_ns` are read at default and repay time.
 
-Testnet demo timing: loan term 2 minutes, minimum hold 1 minute, grace 1 minute (Riya can level up after 1 minute; Max can be defaulted about 3 minutes after borrowing). `min_hold_ns` is set at init to `loan_term_ns / 2`. **No method lets the owner move lender funds or the reserve out**; the owner can only withdraw the treasury or move it into the reserve. No contract upgrade method in the hackathon build. `migrate()` is a one-time `#[private]` state migration (v1 to v2, adds the treasury), run in the same transaction as a code deploy; only the contract account's own key can run it, the same key that can deploy code, so it adds no power.
+Testnet demo timing: loan term 2 minutes, minimum hold 1 minute, grace 1 minute (Riya can level up after 1 minute; Max can be defaulted about 3 minutes after borrowing). `min_hold_ns` is set at init to `loan_term_ns / 2`. **No method lets the owner move lender funds or the reserve out**; the owner can only withdraw the treasury or move it into the reserve. No contract upgrade method in the hackathon build. `migrate()` is a one-time `#[private]` state migration (now v2 to v3, adds `require_production_data` and `production_data`; the Nov 1 v1 to v2 migration added the treasury), run in the same transaction as a code deploy; only the contract account's own key can run it, the same key that can deploy code, so it adds no power.
 
 ### Views
 
@@ -208,6 +208,10 @@ Builds (`scorer/build.sh`): the production build (no Cargo features) is the one 
 Fee and refund: the borrower attaches the OutLayer fee (>= 0.01 NEAR) to `request_score`; the contract forwards all of it to `request_execution` with `payer_account_id` set to the borrower, so any unused part is refunded by OutLayer directly to the borrower, never kept by the contract. If mainnet shows `payer_account_id` does not work this way, the refund stays in the contract and the README says so (PLAN day 6).
 
 Token safety: `public_token` passes through `request_score` arguments, so it is **visible on-chain**. It is single-use, expires after 30 minutes, and can be exchanged only with `PLAID_CLIENT_ID` + `PLAID_SECRET`. Those keys are OutLayer secrets released only to the pinned scorer build when it is called from the KredoFi contract (`--build <sha256> --via <contract>`), so no other code and no other caller gets them from OutLayer. They are **not** only inside the TEE: the developer created them in the Plaid dashboard and still holds them (sandbox keys today), so the developer, or anyone who stole them, could exchange a token seen on-chain first; the enclave's own exchange would then fail and no score would land. Production would use Plaid credentials created for the enclave only. Binding the token to the borrower (audit Nov 3, H1): see "Sealed token" below. The README and THREAT_MODEL.md must say this plainly.
+
+Sealed token (audit Nov 3, H1; contract v3 and scorer builds after Nov 3): on-chain builds (production and `testnet-outlayer`) accept only `public_token = "sealed1:" + base64(seal_to(token_pubkey, "<borrower account>\n<public-...>"))`, sealed in the browser with the same x25519 scheme as `reply`. `token_pubkey` is the x25519 public key of `SHA-256("kredofi-token-key-v1" | SEAL_KEY)`, published in the web config and `/docs` (testnet `86658ada…`, mainnet `ddd29784…`). The scorer opens it and refuses (before any Plaid call) unless the account equals `NEAR_SENDER_ID`, so a token copied from someone else's transaction is useless; a plain `public-…` token is refused. Up to 232 characters for a 64-character account, under the 256 limit. The Dev-mode demo build still accepts a plain token (it reaches our server over HTTPS with a signed challenge, never the chain). Like `SEAL_KEY`, the token key is also known to the developer who created `SEAL_KEY`.
+
+Production-data gate (audit Nov 3, H2; contract v3): `require_production_data` is set at init (default: true unless the contract account ends in `.testnet`; the v3 migration sets it the same way, so `kredofi.near` is gated). While it is true, a lender `deposit` is refused (tokens refunded) until the owner calls `set_production_data(true)`, which must happen only once scores use real bank data (Plaid production). The owner's `seed_reserve`, withdrawals, scores and loans are not gated. On mainnet today there are no lender funds, so no mainnet loan can be made.
 
 ### Output (must stay under about 900 bytes for on-chain mode)
 

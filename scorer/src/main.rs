@@ -26,11 +26,12 @@ fn run() -> Result<serde_json::Value, String> {
             let plaid = plaid::Plaid::from_env()?;
             let public_token = match source {
                 Source::PublicToken(t) => t,
+                Source::SealedToken(s) => crypto::open_token(&seal_key, &s, &caller)?,
                 Source::Profile(p) => plaid.public_token_from_profile(&p)?,
             };
             let access_token = plaid.exchange(&public_token)?;
             // Always revoke the bank connection, on success and on every error path.
-            let result = plaid.fetch(&access_token).and_then(|bank| { #[cfg(feature = "demo")] let bank = kredofi_scorer::scope_identity_to_account(bank, &caller); // testnet/Dev only, SPEC 8c
+            let result = plaid.fetch(&access_token).and_then(|bank| { #[cfg(feature = "scoped")] let bank = kredofi_scorer::scope_identity_to_account(bank, &caller); // testnet builds only, SPEC 8c
                 if debug {
                     // `debug` builds only: transactions per month, including outside the window.
                     let mut months = std::collections::BTreeMap::<String, (u32, i64)>::new();

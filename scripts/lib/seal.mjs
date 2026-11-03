@@ -43,3 +43,14 @@ export function sealTo(pubHex, text) {
   const ct = Buffer.concat([c.update(text, 'utf8'), c.final()]);
   return Buffer.concat([eph, ct, c.getAuthTag()]).toString('base64');
 }
+
+/** x25519 public key of a 32-byte hex secret. */
+export const publicOf = (secretHex) => rawPub(privFromRaw(Buffer.from(secretHex, 'hex'))).toString('hex');
+
+/** The scorer's token key (scorer/src/crypto.rs `token_pubkey`): x25519 public of
+ *  SHA-256("kredofi-token-key-v1" | SEAL_KEY). Public; browsers seal Plaid tokens to it (audit H1). */
+export const tokenPubkey = (sealKeyHex) =>
+  publicOf(createHash('sha256').update('kredofi-token-key-v1').update(Buffer.from(sealKeyHex, 'hex')).digest('hex'));
+
+/** `sealed1:` + seal(account + "\n" + public_token): only the scorer opens it, and only for `account`. */
+export const sealToken = (tokenPubHex, account, publicToken) => `sealed1:${sealTo(tokenPubHex, `${account}\n${publicToken}`)}`;

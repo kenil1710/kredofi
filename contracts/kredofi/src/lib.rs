@@ -80,6 +80,10 @@ pub struct ConfigInput {
     pub grace_ns: U64,
     pub score_ttl_ns: U64,
     pub max_borrower_share_bps: u16,
+    /// Lender deposits wait for `production_data` (audit Nov 3, H2). Default: true unless the
+    /// contract account ends in `.testnet` (testnet deposits are test money on sandbox data).
+    #[serde(default)]
+    pub require_production_data: Option<bool>,
 }
 
 #[near(serializers = [borsh])]
@@ -101,6 +105,11 @@ pub struct Config {
     /// Repaying before this (half the loan term) does not raise the level (rule 13).
     pub min_hold_ns: u64,
     pub max_borrower_share_bps: u16,
+    /// Set at init (mainnet: true). While true, lender deposits need `production_data`.
+    pub require_production_data: bool,
+    /// Owner flag: scores come from real (Plaid production) bank data. Until then a mainnet
+    /// score proves nothing (anyone can make up a sandbox income), so no lender money comes in.
+    pub production_data: bool,
 }
 
 #[near(serializers = [json])]
@@ -121,6 +130,8 @@ pub struct ConfigView {
     pub score_ttl_ns: U64,
     pub min_hold_ns: U64,
     pub max_borrower_share_bps: u16,
+    pub require_production_data: bool,
+    pub production_data: bool,
 }
 
 #[near(serializers = [borsh])]
@@ -305,6 +316,8 @@ impl Contract {
             score_ttl_ns: U64(c.score_ttl_ns),
             min_hold_ns: U64(c.min_hold_ns),
             max_borrower_share_bps: c.max_borrower_share_bps,
+            require_production_data: c.require_production_data,
+            production_data: c.production_data,
         }
     }
 
@@ -337,6 +350,10 @@ impl Contract {
 impl Contract {
     fn internal_deposit(&mut self, lender: AccountId, amount: u128) {
         require!(amount >= MIN_DEPOSIT, "Deposit at least 1 USDC");
+        require!(
+            !self.config.require_production_data || self.config.production_data,
+            "Lender deposits open once scores use real bank data (Plaid production); today they use the Plaid sandbox"
+        );
         let shares =
             math::shares_for_deposit(amount, self.pool.value(), self.pool.total_shares);
         require!(shares > 0, "Deposit too small for one share");
@@ -380,6 +397,11 @@ impl Contract {
     }
 }
 
+/// Mainnet (any account not ending in `.testnet`) waits for real bank data before lender deposits.
+pub(crate) fn default_require_production_data() -> bool {
+    !env::current_account_id().as_str().ends_with(".testnet")
+}
+
 fn validate_config(c: ConfigInput) -> Config {
     require!(
         is_sha256_hex(&c.scorer_version),
@@ -407,6 +429,8 @@ fn validate_config(c: ConfigInput) -> Config {
         score_ttl_ns: c.score_ttl_ns.0,
         min_hold_ns: c.loan_term_ns.0 / 2,
         max_borrower_share_bps: c.max_borrower_share_bps,
+        require_production_data: c.require_production_data.unwrap_or_else(default_require_production_data),
+        production_data: false,
     };
     // Same bounds as the owner setters (params.rs); min_hold = term / 2 must be >= 60 s.
     check_params(&config);

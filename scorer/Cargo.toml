@@ -16,7 +16,9 @@ path = "src/main.rs"
 
 [features]
 # Local / testnet Dev only. The OutLayer build (pinned by version_key) uses neither.
-demo = []   # accept {"op":"score","profile":{...}} (Plaid sandbox custom user)
+demo = ["scoped"]   # accept {"op":"score","profile":{...}} (Plaid sandbox custom user) and plain tokens
+scoped = []          # testnet: scope the sandbox identity to the account (SPEC 8c)
+testnet-outlayer = ["scoped"]   # testnet on OutLayer: scoped identity only (one output line, sealed tokens)
 debug = []  # accept "debug": true and print features to stderr
 
 [dependencies]

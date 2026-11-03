@@ -132,6 +132,40 @@ pub fn public_of(secret: &Key32) -> Key32 {
     *PublicKey::from(&StaticSecret::from(*secret)).as_bytes()
 }
 
+/// Prefix of a Plaid `public_token` sealed to the scorer (audit Nov 3, H1).
+pub const SEALED_TOKEN_PREFIX: &str = "sealed1:";
+
+/// x25519 secret the browser seals Plaid tokens to, derived from `SEAL_KEY` (so it exists where
+/// `SEAL_KEY` does: OutLayer's secrets for the pinned build, and the developer who made it).
+pub fn token_secret(seal_key: &Key32) -> Key32 {
+    let mut h = Sha256::new();
+    h.update(b"kredofi-token-key-v1");
+    h.update(seal_key);
+    h.finalize().into()
+}
+
+/// The public key browsers seal tokens to (published in the web config and the docs).
+pub fn token_pubkey(seal_key: &Key32) -> Key32 {
+    public_of(&token_secret(seal_key))
+}
+
+/// Opens `sealed1:<base64>` = seal_to(token_pubkey, "<account>\n<public_token>") and returns the
+/// token only if `<account>` is the caller (`NEAR_SENDER_ID`). A token copied from someone else's
+/// transaction names their account, so it is refused before it is ever exchanged at Plaid.
+pub fn open_token(seal_key: &Key32, sealed: &str, caller: &str) -> Result<String, String> {
+    let b64 = sealed.strip_prefix(SEALED_TOKEN_PREFIX).ok_or("token is not sealed")?;
+    let pt = open_sealed(&token_secret(seal_key), b64).map_err(|_| "cannot open the sealed token")?;
+    let pt = String::from_utf8(pt).map_err(|_| "sealed token is not text")?;
+    let (account, token) = pt.split_once('\n').ok_or("sealed token has no account")?;
+    if account != caller {
+        return Err("this token was sealed for another account".into());
+    }
+    if token.is_empty() || token.len() > 128 || !token.starts_with("public-") {
+        return Err("invalid public_token".into());
+    }
+    Ok(token.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

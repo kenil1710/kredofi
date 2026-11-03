@@ -236,9 +236,9 @@ fn window_is_last_six_full_months() {
 
 // --------------------------------------------------- input
 
-const PROD: BuildFlags = BuildFlags { demo: false, debug: false };
-const DEMO: BuildFlags = BuildFlags { demo: true, debug: false };
-const DEBUG: BuildFlags = BuildFlags { demo: true, debug: true };
+const PROD: BuildFlags = BuildFlags { demo: false, debug: false, plain_token: false };
+const DEMO: BuildFlags = BuildFlags { demo: true, debug: false, plain_token: true };
+const DEBUG: BuildFlags = BuildFlags { demo: true, debug: true, plain_token: true };
 const PK: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 fn profile() -> Value {
@@ -255,8 +255,10 @@ fn profile() -> Value {
 
 #[test]
 fn parses_score_and_release_inputs() {
-    let i = parse_input(&json!({"op":"score","public_token":"public-sandbox-abc","reply_pubkey":PK}).to_string(), PROD).unwrap();
+    let i = parse_input(&json!({"op":"score","public_token":"public-sandbox-abc","reply_pubkey":PK}).to_string(), DEMO).unwrap();
     assert_eq!(i, Input::Score { source: Source::PublicToken("public-sandbox-abc".into()), reply_pubkey: Some([0xaa; 32]), debug: false });
+    let i = parse_input(&json!({"op":"score","public_token":"sealed1:QUJD","reply_pubkey":PK}).to_string(), PROD).unwrap();
+    assert_eq!(i, Input::Score { source: Source::SealedToken("sealed1:QUJD".into()), reply_pubkey: Some([0xaa; 32]), debug: false });
     let i = parse_input(&json!({"op":"release","sealed":"AAAA","partner_pubkey":PK}).to_string(), PROD).unwrap();
     assert_eq!(i, Input::Release { sealed: "AAAA".into(), partner_pubkey: [0xaa; 32] });
 }
@@ -456,4 +458,46 @@ fn demo_history_covers_window_only_when_every_month_is_there() {
     let recent_only = [tx("2026-10-05"), tx("2026-10-20")];
     assert!(!sync_guard::covers_window_at(recent_only.iter(), NOV_1_2026));
     assert!(!sync_guard::covers_window_at([].iter(), NOV_1_2026));
+}
+
+// ------------------------------------------------------------------ audit Nov 3, H1: sealed token
+
+fn seal_token(seal_key: &[u8; 32], account: &str, token: &str) -> String {
+    let pk = crate::crypto::token_pubkey(seal_key);
+    format!("{}{}", crate::crypto::SEALED_TOKEN_PREFIX, crate::crypto::seal_to(&pk, format!("{account}\n{token}").as_bytes()).unwrap())
+}
+
+#[test]
+fn h1_on_chain_builds_refuse_a_plain_token() {
+    let plain = json!({"op":"score","public_token":"public-sandbox-abc"}).to_string();
+    assert!(parse_input(&plain, PROD).unwrap_err().contains("must be sealed"));
+    assert!(parse_input(&plain, DEMO).is_ok(), "Dev mode (server with a signed challenge) keeps plain tokens");
+}
+
+#[test]
+fn h1_sealed_token_opens_only_for_its_own_account() {
+    let key = [9u8; 32];
+    let t = "public-sandbox-5c2e7d0a-1111-2222-3333-444455556666";
+    let sealed = seal_token(&key, "alice.near", t);
+    assert_eq!(crate::crypto::open_token(&key, &sealed, "alice.near").unwrap(), t);
+    // Copied from Alice's transaction and submitted by Mallory: refused before any Plaid call.
+    assert!(crate::crypto::open_token(&key, &sealed, "mallory.near").unwrap_err().contains("another account"));
+    // Another scorer key (e.g. the testnet SEAL_KEY) can't open it.
+    assert!(crate::crypto::open_token(&[8u8; 32], &sealed, "alice.near").is_err());
+    // Tampering is detected.
+    let mut bad = sealed.clone().into_bytes();
+    let n = bad.len() - 3;
+    bad[n] = if bad[n] == b'A' { b'B' } else { b'A' };
+    assert!(crate::crypto::open_token(&key, std::str::from_utf8(&bad).unwrap(), "alice.near").is_err());
+    // The inner token must still be a Plaid public token.
+    assert!(crate::crypto::open_token(&key, &seal_token(&key, "alice.near", "access-sandbox-x"), "alice.near").is_err());
+    assert!(crate::crypto::open_token(&key, "public-sandbox-abc", "alice.near").is_err());
+}
+
+#[test]
+fn h1_sealed_token_fits_the_contract_limit() {
+    // Longest account (64 chars) and a production-length token stay under the 256-char argument limit.
+    let s = seal_token(&[1u8; 32], &"a".repeat(64), "public-production-5c2e7d0a-1111-2222-3333-444455556666");
+    assert!(s.len() <= 256, "{}", s.len());
+    assert!(parse_input(&json!({"op":"score","public_token":s}).to_string(), PROD).is_ok());
 }

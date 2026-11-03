@@ -16,6 +16,8 @@ jobs:
         run: ./scorer/build-docker.sh && sha256sum scorer/out/kredofi_scorer.wasm
       - name: testnet demo build
         run: ./scorer/build-docker.sh demo && sha256sum scorer/out/kredofi_scorer_demo.wasm
+      - name: testnet OutLayer build
+        run: ./scorer/build-docker.sh testnet-outlayer && sha256sum scorer/out/kredofi_scorer_testnet.wasm
       - uses: actions/upload-artifact@v4
         with:
           name: scorer-wasm

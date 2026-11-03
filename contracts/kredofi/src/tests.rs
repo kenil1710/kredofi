@@ -45,6 +45,7 @@ pub fn config_input() -> ConfigInput {
         grace_ns: U64(7 * 24 * 3600 * 1_000_000_000),
         score_ttl_ns: U64(30 * 24 * 3600 * 1_000_000_000),
         max_borrower_share_bps: 1000,
+        require_production_data: Some(false),
     }
 }
 
@@ -244,6 +245,59 @@ fn deposit_of_exactly_one_usdc_accepted() {
     let mut c = new_contract();
     deposit(&mut c, alice(), USDC);
     assert_eq!(c.get_lender(alice()).value.0, USDC);
+}
+
+// ------------------------------------------------------------------ audit H2: production-data gate
+
+fn gated_contract() -> Contract {
+    set(owner());
+    let mut i = config_input();
+    i.require_production_data = None; // default: the test account is not *.testnet -> gated
+    Contract::new(i)
+}
+
+#[test]
+#[should_panic(expected = "Lender deposits open once scores use real bank data")]
+fn h2_mainnet_refuses_deposits_until_production_data() {
+    let mut c = gated_contract();
+    let v = c.get_config();
+    assert!(v.require_production_data && !v.production_data);
+    deposit(&mut c, alice(), 100 * USDC);
+}
+
+#[test]
+fn h2_owner_flag_opens_and_closes_deposits_and_reserve_seed_is_not_gated() {
+    let mut c = gated_contract();
+    set(usdc());
+    let _ = c.ft_on_transfer(owner(), U128(300 * USDC), MSG_SEED_RESERVE.into());
+    assert_eq!(c.get_pool().reserve.0, 300 * USDC, "the owner's reserve seed is not lender money");
+    set_yocto(owner());
+    c.set_production_data(true);
+    assert!(events_named("param_changed")[0].contains("\"param\":\"production_data\""));
+    deposit(&mut c, alice(), 100 * USDC);
+    assert_eq!(c.get_lender(alice()).value.0, 100 * USDC);
+    set_yocto(owner());
+    c.set_production_data(false);
+    // Withdrawals still work while deposits are closed.
+    set_yocto(alice());
+    let _ = c.withdraw(U128(10 * USDC));
+}
+
+#[test]
+#[should_panic(expected = "Only the owner can change parameters")]
+fn h2_only_owner_sets_production_data() {
+    let mut c = gated_contract();
+    set_yocto(alice());
+    c.set_production_data(true);
+}
+
+#[test]
+fn h2_testnet_accounts_are_not_gated_by_default() {
+    testing_env!(ctx(owner()).current_account_id(acc("app.kency.testnet")).build());
+    let mut i = config_input();
+    i.require_production_data = None;
+    let c = Contract::new(i);
+    assert!(!c.get_config().require_production_data);
 }
 
 // ------------------------------------------------------------------ seed_reserve

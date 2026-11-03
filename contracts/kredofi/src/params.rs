@@ -66,6 +66,14 @@ impl Contract {
         let old = self.config.max_borrower_share_bps;
         self.update_param("max_borrower_share_bps", old, value, |c| c.max_borrower_share_bps = value);
     }
+
+    /// Owner: scores now come from real (Plaid production) bank data, so lender deposits may open
+    /// (audit Nov 3, H2). `false` closes new deposits again; withdrawals and loans are unaffected.
+    #[payable]
+    pub fn set_production_data(&mut self, value: bool) {
+        let old = self.config.production_data;
+        self.update_param("production_data", old, value, |c| c.production_data = value);
+    }
 }
 
 impl Contract {

@@ -229,6 +229,8 @@ async fn owner_cannot_move_lender_funds_or_reserve() -> anyhow::Result<()> {
         "set_grace_ns",
         "set_score_ttl_ns",
         "set_max_borrower_share_bps",
+        // Owner flag that only opens or closes new lender deposits (audit H2); moves no tokens.
+        "set_production_data",
         // Owner, treasury only: capped at pool.treasury; never touches cash, outstanding or reserve.
         "withdraw_treasury",
         "treasury_to_reserve",
