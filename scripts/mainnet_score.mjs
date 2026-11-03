@@ -12,7 +12,10 @@ import { Account, JsonRpcProvider, actions } from 'near-api-js';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { keypair, openSealed } from './lib/seal.mjs';
+import { keypair, openSealed, sealToken } from './lib/seal.mjs';
+// Mainnet scorer token key (scripts/token_pubkey.mjs SEAL_KEY). Builds after Nov 3 accept only sealed tokens (audit H1).
+const TOKEN_PUBKEY = process.env.TOKEN_PUBKEY ?? 'ddd29784c75beca2e6fcd4656e98b118dbdadf9d859092f5cf4048f66306795e';
+const PLAIN = process.env.PLAIN_TOKEN === '1'; // only for the old pin 7048cc92, which predates sealed tokens
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const RPC = 'https://rpc.mainnet.fastnear.com';
@@ -61,7 +64,7 @@ console.log(`borrower ${DEV.slice(0, 10)}… balance before: ${near(before)} NEA
 const sent = await dev.signAndSendTransaction({
   receiverId: POOL,
   actions: [actions.functionCall('request_score',
-    { public_token: pt.public_token, reply_pubkey: reply.public }, 150n * 10n ** 12n, FEE)],
+    { public_token: PLAIN ? pt.public_token : sealToken(TOKEN_PUBKEY, DEV, pt.public_token), reply_pubkey: reply.public }, 150n * 10n ** 12n, FEE)],
   waitUntil: 'INCLUDED',
   throwOnFailure: false,
 });
