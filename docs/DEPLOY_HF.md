@@ -86,3 +86,22 @@ Check: `curl -sI http://www.kredofi.xyz/lend` ends at `https://kredofi.xyz/lend`
 Each new demo account costs the relayer about 0.007 NEAR, and each new borrower about 0.002 NEAR of
 contract storage. On Nov 2: relayer 0.06, scorer 0.10, kency 0.06, contract 0.06 free. Top up before
 judging (the faucet URL used earlier now returns 404).
+
+## Keeping the demo up until Nov 25 (rule Q-012)
+
+State on Nov 4: `/api/health` ok; reserve $500; relayer 16.4 testnet NEAR (floor 3); contract storage 0.81 NEAR free;
+Space RUNNING on cpu-upgrade with sleep off; domain `kredofi.xyz` registered until 2027-11-03; the Worker has no
+expiry and stays far under the free plan's 100k requests/day.
+
+Watch: `.github/workflows/health-watch.yml` reads `/api/health` every 6 hours until Nov 26 and fails (GitHub emails
+you) when the site is down or the reserve, relayer or storage is low. No secrets, no transactions.
+
+| What | Runs out when | Check | Fix |
+|---|---|---|---|
+| HF credits ($0.72/day) | $20 from Nov 2 lasts to about Nov 29: only 4 days of margin | huggingface.co/settings/billing on **Nov 10 and Nov 18**: you need at least $0.72 × days left to Nov 25 | add $5–10 of prepaid credits |
+| Testnet reserve | each Max-style default can take up to $100 of it | health-watch email (below $200) | `./scripts/reserve_guard.sh` (tops up to $500) |
+| Relayer NEAR | about 0.03 per judge in OutLayer mode (from Nov 5); demo funding stops at 3 NEAR | health-watch email; `relayerLow` | faucet accounts → `relayer.kency.testnet` |
+| Cloudflare Worker | doesn't | `curl -sI https://kredofi.xyz` | `python3 scripts/cf_worker.py deploy` |
+| Seeded ledger | stops by itself after Nov 13 (`SEED_UNTIL`) | nothing to do | — |
+
+Before judging starts (Nov 16): run `./scripts/reserve_guard.sh` once and open `/api/health`.

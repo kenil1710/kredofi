@@ -80,6 +80,13 @@ Every event on [the public ledger](https://kredofi.xyz/ledger) links to its tran
 
 Since Nov 3 the scorer opens the sealed token and refuses it, before any Plaid call, unless the account inside equals the transaction's signer (`NEAR_SENDER_ID`): `scorer/src/crypto.rs` `open_token`, tests `h1_*` in `scorer/src/tests.rs`. Proven in OutLayer's testnet enclave with the same logic: another account submitting a copied token got `score_failed` "this token was sealed for another account" ([testnet tx 5cyWM6Mz…](https://testnet.nearblocks.io/txns/5cyWM6MzXs3ySgwxLRtzeZ3ztcVjtgAnzb7Ggv5pRT3u)), then the owner's own request with the same token scored ([testnet tx pNRfqHTC…](https://testnet.nearblocks.io/txns/pNRfqHTCWdePuuYs5YkxjrQYTRQ6ERWMf7qNtMvjAqp)).
 
+If the testnet explorer hasn't indexed these, read the refusal from the RPC (the copy was submitted by `kf-ola-1793703739.testnet`):
+
+```bash
+curl -s https://archival-rpc.testnet.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tx","params":{"tx_hash":"5cyWM6MzXs3ySgwxLRtzeZ3ztcVjtgAnzb7Ggv5pRT3u","sender_account_id":"kf-ola-1793703739.testnet","wait_until":"NONE"}}' \
+  | python3 -c "import json,sys;r=json.load(sys.stdin)['result'];print([l for o in r['receipts_outcome'] for l in o['outcome']['logs'] if 'score_failed' in l])"
+```
+
 ## 8. Are lender deposits locked on mainnet?
 
 `kredofi.near` runs contract v3 (Nov 3: deploy + migration in one transaction, [tx 2zyjvpPa…](https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu)). Its code is the build tested in this repository:

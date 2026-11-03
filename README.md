@@ -3,7 +3,7 @@
 **Prove your income on NEAR without showing your bank statements.**
 
 A pinned, open scorer reads six months of bank history, applies five published rules, and puts only a band, a score and a limit cap on-chain, with a keyed fingerprint and a sealed name. No transactions, balances or account numbers leave it.
-- **Mainnet** (`kredofi.near`): the scorer runs inside a TEE (OutLayer, Intel TDX), and the contract accepts a score only from its own request to the pinned build ([a real score](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu)).
+- **Mainnet** (`kredofi.near`): the scorer runs inside a TEE (OutLayer, Intel TDX), and the contract accepts a score only from its own request to the pinned build ([a real score, Nov 3](https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo)).
 - **Testnet demo**: a testnet build of the same scorer runs on our server (Dev mode), which sees Plaid's test bank data while it scores.
 
 **First use: no-collateral USDC loans.** Borrow up to your limit, repay one fixed amount, and the limit grows. Any NEAR contract or app can read the same band and limit with view calls: [Use KredoFi scores in your app](https://kredofi.xyz/docs/integrate).
@@ -16,7 +16,7 @@ No wallet and no sign-up: the app creates a throwaway testnet account and a rela
 
 1. Open https://kredofi.xyz and click **Check my limit**. You see your empty passbook and a Plaid sandbox login.
 2. Click **Connect your bank (sandbox)**. Plaid Link opens. Choose **Continue without phone number**, search **First Platypus Bank** and pick the plain one (not OAuth), log in with `user_good` / `pass_good`, then **Continue** and **Finish without saving**.
-3. Wait about 10 to 20 seconds. You see "Limit checked in N s", a fetch receipt ("Plaid sent 386 transactions from 14 accounts; the scorer read the last 6 months… and none of it left"), a credit note stamped **BAND B, $75**, the five rule results, and on the right the exact output that went on-chain. No transaction, amount or name from the bank appears anywhere.
+3. Wait about 10 to 20 seconds. You see "Limit checked in N s", a fetch receipt (for example "Plaid sent 386 transactions from 14 accounts; the scorer read the last 6 months… and none of it left"), a credit note stamped **BAND B, $75**, the five rule results, and on the right the exact output that went on-chain. No transaction, amount or name from the bank appears anywhere.
 4. Click **Borrow**. A "Loan issued" entry appears with a live countdown: "Repay after 0:52 to level up to $187.50".
 5. Wait for "Repaying now levels you up to $187.50", then click **Repay**. The Repaid entry says your limit rose to level 2.
 6. Open **Public ledger** (top nav): every score, loan and repayment is listed with a link to its transaction, and the **Verify** panel shows the contract and the pinned scorer hash.
@@ -38,9 +38,9 @@ You can't borrow on-chain without locking up more collateral than you borrow, an
 | Bank data | Plaid sandbox (public test logins) | Plaid sandbox (no production access yet) |
 | Money | mock USDC (`musdc.kency.testnet`), test NEAR | real USDC contract configured; lender deposits locked until real bank data; no loans made |
 | AI summary | NEAR AI Cloud, asked for by your browser after the score (band + rule results only, `web/src/app/api/summary/route.ts`) | not in the production build |
-| Web app | live at https://kredofi.xyz (Cloudflare Worker in front of a Hugging Face Space) | not deployed |
+| Web app | live at https://kredofi.xyz (Cloudflare Worker in front of a Hugging Face Space) | no mainnet app; [/mainnet](https://kredofi.xyz/mainnet) is a read-only view of `kredofi.near` |
 
-Mainnet proof, all on `kredofi.near` (Nov 1, 2026):
+Mainnet proof, all on `kredofi.near` (Nov 1–3, 2026):
 - Deployed in OutLayer mode: [tx Ags89jDR…](https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp); upgraded with a state migration: [tx 5fqzZSKC…](https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34).
 - A real score computed inside OutLayer and stored by `on_score` (band A, 1000, scorer `87ceab66…`), unused fee refunded to the borrower: [tx 4dgHrA97…](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu).
 - Nov 2: re-pinned to the reproducible build `7048cc92…` (OutLayer version [tx 3MKpCgQs…](https://nearblocks.io/txns/3MKpCgQsJeXYF8zMK5yVnWfdckFBW3YToGirX4ZznCqs), secrets lock [tx CCE14Fyq…](https://nearblocks.io/txns/CCE14Fyq76Xhhh6yPzRCv8zhF4gQfXLi9n431f31dNLi), contract pin [tx AtYo7XWz…](https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn)) and scored again inside OutLayer with it (band A, 1000, 7.6 s): [tx CNsoyGSj…](https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7).
@@ -55,7 +55,7 @@ How to check all of this yourself: [VERIFY.md](VERIFY.md). What is protected and
 browser ── Plaid Link (sandbox login) ──> public token
    │
    └─> request_score ──> kredofi contract ──> OutLayer (Intel TDX) runs the pinned scorer WASM
-                                                 1. exchange the token, fetch 2 years of transactions
+                                                 1. open the sealed token, fetch up to 2 years (rules use the last 6 months)
                                                  2. five rules -> band A-D, score 0-1000, income cap
                                                  3. fingerprint = HMAC(SEAL_KEY, bank identity)
                                                  4. name sealed to SEAL_KEY; rule results sealed to the browser
@@ -87,18 +87,35 @@ Rules (SPEC 6): income level (250 points), steady income (250), on-time payments
 
 - `privacy`: bank data is read only inside the TEE (mainnet); the chain gets a band and a keyed fingerprint; the name is sealed and opens only after a default.
 - `realworld`: income-based USDC credit with a recovery path, as a consumer lender would run it, without the lender seeing statements.
-- `defi`: a lending pool with share accounting, a first-loss reserve, a treasury and cross-chain deposits through NEAR Intents.
+- `defi`: a lending pool with share accounting, a first-loss reserve and a treasury; cross-chain deposit quotes from NEAR Intents 1Click (dry run only: Intents has no testnet, [docs/INTENTS_PLAN.md](docs/INTENTS_PLAN.md)).
 
 ## Run the tests
 
+Needs Rust via rustup (the repo's `rust-toolchain.toml` installs 1.93.0 and the wasm target on first use), Node 22 and Python 3. The first `cargo test` downloads the NEAR sandbox node and builds both contracts (about 5 to 10 minutes).
+
 ```bash
-cargo test --workspace                   # contracts: 128 unit + 3 mock-usdc + 36 near-workspaces sandbox tests
-(cd scorer && cargo test)                # scorer: 36 tests (reproduces the SPEC 6 table: Riya 1000/A, Sam 270/D, Max 1000/A)
-(cd web && npm install && npm test)      # web: 47 tests (incl. a check that every docs link works)
-(cd scripts && npm install && node --test seal.test.mjs)   # JS and Rust seal compatibility
+cargo test --workspace                   # contracts: 133 unit + 3 mock-usdc + 36 near-workspaces sandbox tests
+(cd scorer && cargo test)                # scorer: 39 tests (reproduces the SPEC 6 table: Riya 1000/A, Sam 270/D, Max 1000/A)
+(cd web && npm install && npm test)      # web: 76 tests (incl. a check that every docs link works)
+(cd scripts && npm install && node --test seal.test.mjs)   # JS and Rust seal compatibility (1 of 3 skips without the partner key)
 ```
 
-Every security rule in [SPEC section 7](docs/SPEC.md) has a test. Build and run commands: `CLAUDE.md` (Commands); hosting: [docs/DEPLOY_HF.md](docs/DEPLOY_HF.md).
+Every security rule in [SPEC section 7](docs/SPEC.md) has a test. Building the scorer WASM needs the `wasm32-wasip2` target and, for the pinned bytes, Docker on x86_64 ([VERIFY.md](VERIFY.md) section 3). Build and run commands: `CLAUDE.md` (Commands); hosting: [docs/DEPLOY_HF.md](docs/DEPLOY_HF.md).
+
+## Built with
+
+Versions are exact (from the lock files).
+
+| Part | Libraries |
+|---|---|
+| Contracts | `near-sdk` 5.29.1, `near-contract-standards` 5.29.1 (mock USDC); tests: `near-workspaces` 0.23.0, `cargo-near-build` 0.11.5, `tokio` 1.54.1 |
+| Scorer | `serde_json` 1.0.154, `x25519-dalek` 2.0.1, `chacha20poly1305` 0.10.1, `sha2` 0.10.9, `hmac` 0.12.1, `getrandom` 0.3.4, `base64` 0.22.1, `wasi-http-client` 0.2.1 (vendored with our patch for request bodies over 4 KB, `scripts/fix_http.py`) |
+| Web | `next` 16.4.3, `react` 19.3.1, `@hot-labs/near-connect` 0.11.4, `near-api-js` 7.4.0, `@noble/curves` / `@noble/ciphers` / `@noble/hashes` 2.4.0, `borsh` 2.0.0, `three` 0.160.0, `gsap` 3.12.5, `lenis` 1.1.13, TypeScript 5.9.3 |
+| Scripts | `near-api-js` 7.4.0 |
+| Services | OutLayer (TEE runs, encrypted secrets), Plaid sandbox, NEAR AI Cloud (testnet summary only), NEAR Intents 1Click (dry-run quotes), Hugging Face Spaces + Cloudflare Workers (hosting) |
+| Tools | Rust 1.93.0, `cargo-near`, `wasmtime` (Dev-mode scorer runner), Node 22, `near` CLI, `outlayer` CLI |
+
+Fonts: Bodoni Moda and Public Sans (Google Fonts). Code was written with Claude Code.
 
 ## Status and roadmap
 
@@ -120,8 +137,9 @@ Details: [/docs/roadmap](https://kredofi.xyz/docs/roadmap).
 - On testnet every judge can use the shared sandbox login because the testnet scorer ties the sandbox identity to your NEAR account ([SPEC 8c](docs/SPEC.md)); the mainnet build keeps the strict one-identity rule.
 - The scorer is built reproducibly on x86_64 Linux in a pinned image: `./scorer/build-docker.sh` (or the GitHub workflow) gives the exact pinned bytes; builds on macOS or ARM give other hashes ([VERIFY.md](VERIFY.md) section 3).
 - Both contract accounts still have their full-access keys, so the owner can redeploy the code. Owner methods can't move lender funds or the reserve (rule 10, tested), but a redeploy could. See [THREAT_MODEL.md](THREAT_MODEL.md).
-- The developer generated the sealing keys and also holds the Plaid keys the enclave uses. The one-time Plaid token in `request_score` is visible on-chain for 30 minutes, so the developer could exchange it first and read that bank data (the score would then fail), and could open sealed names. Production would create both inside the enclave.
-- Fixed Nov 3 (mainnet pin `6888c15e…`): the Plaid token in `request_score` is sealed to the scorer together with the borrower's account, so a copied token is refused before any Plaid call ([VERIFY.md](VERIFY.md) section 7). The developer, who holds `SEAL_KEY`, could still open it. [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)
+- The developer generated the sealing keys and also holds the Plaid keys the enclave uses, so they could open sealed names and sealed Plaid tokens, and exchange a token first to read that bank data (the score would then fail). Since Nov 3 the token in `request_score` is sealed to the scorer with the borrower's account, so nobody else can use a copied token ([VERIFY.md](VERIFY.md) section 7, [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) H1). Production would create both keys inside the enclave.
 - Trust assumptions: Intel TDX, OutLayer's worker registration, Plaid, NEAR AI Cloud (summary only; the score never depends on it).
 
-Built for NEAR HACKATHON, November 2026. Specification: [docs/SPEC.md](docs/SPEC.md). Build log: [docs/LOG.md](docs/LOG.md).
+Built for NEAR HACKATHON, November 2026. All code in this repository was written in the hackathon window: the first commit is 1 Nov 2026, and the only earlier work was throwaway tests on 23–25 Oct, after the 19 Oct announcement ([docs/PREP_LOG.md](docs/PREP_LOG.md)). No code from an earlier project. Specification: [docs/SPEC.md](docs/SPEC.md). Build log: [docs/LOG.md](docs/LOG.md).
+
+License: [MIT](LICENSE), © 2026 Kenil Vekariya.

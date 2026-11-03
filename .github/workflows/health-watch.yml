@@ -1,0 +1,29 @@
+# Demo health watch (no secrets, no transactions): every 6 hours until Nov 26, read https://kredofi.xyz/api/health
+# and fail if the site is down or the testnet reserve, relayer or contract storage is low. GitHub emails the
+# person who last changed this schedule when a scheduled run fails. Fix: ./scripts/reserve_guard.sh (reserve),
+# faucet top-up of relayer.kency.testnet (relayer), HF Space restart / credits (down). docs/DEPLOY_HF.md.
+name: demo health watch
+on:
+  schedule:
+    - cron: "41 */6 * * *"
+  workflow_dispatch: {}
+permissions: {}
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: check /api/health
+        env:
+          WATCH_UNTIL: "2026-11-26T23:59:00Z"
+        run: |
+          if [ "$(date -u +%s)" -gt "$(date -u -d "$WATCH_UNTIL" +%s)" ]; then echo "past $WATCH_UNTIL: watch off"; exit 0; fi
+          body=$(curl -sS --max-time 30 --retry 3 --retry-delay 20 https://kredofi.xyz/api/health) || { echo "::error::kredofi.xyz unreachable"; exit 1; }
+          echo "$body"
+          echo "$body" | python3 -c '
+          import json, sys
+          h = json.load(sys.stdin)
+          bad = [k for k in ("reserveLow", "relayerLow", "storageLow") if h.get(k)]
+          if not h.get("ok"): bad.append("not ok")
+          if bad: print("::error::" + ", ".join(bad)); sys.exit(1)
+          print("healthy")'
