@@ -1,6 +1,6 @@
 # Plan: judges score inside the real enclave on testnet
 
-Status (Nov 3): **proposed, not executed.** Needs the owner's yes for the two items marked **yes**.
+Status (Nov 3): **built and tested on a throwaway testnet contract; the owner said yes to the Nov 5 switch.** `app.kency.testnet` is deployed on Nov 5 (runbook below).
 
 ## What was checked (Nov 3, testnet only)
 
@@ -13,58 +13,70 @@ Cost of that score, read from the receipts: OutLayer charged 0.00183 NEAR; the b
 
 So the fallback (a mainnet "judge" deployment with a worthless token) is **not needed**.
 
-## What the switch needs (it isn't zero code)
+## Built and tested (Nov 3, owner's yes)
 
-The contract needs no change, but the mode is set at `new` and there is no `set_scorer_mode`, so `kredofi.kency.testnet` stays in Dev mode. The switch is the **new** demo contract: deploy `app.kency.testnet` (already planned for Nov 5) in OutLayer mode instead of Dev.
+| Piece | Where | Proof |
+|---|---|---|
+| Scorer build `testnet-outlayer` (production + per-account sandbox identity; one output line; sealed tokens only) | `scorer/` feature `testnet-outlayer`; CI run 41623343936: `0515ebcad56ec6569a13a9fdc76e523025c6fd3daed399d4560604c8262e03b9` | Published at `kenil1710/kredofi-scorer-wasm@fa82707` (URL hash checked); added to `kency.testnet/kredofi-scorer` on `outlayer.testnet` |
+| OutLayer-mode deploy script | `scripts/deploy_outlayer_testnet.sh <account>` (creates the sub-account, deploys v3 in OutLayer mode, registers test USDC, locks the secrets to build + contract) | Throwaway `kredofi-ol2-1793703603.kency.testnet` |
+| H1 in the enclave | sealed tokens | A copied token was refused (testnet tx `5cyWM6Mz…`); the owner's own request scored band A in 7.8 s (testnet tx `pNRfqHTC…`) |
+| Web OutLayer path (`NEXT_PUBLIC_SCORER_MODE=outlayer`) | Details below | Local runs against the throwaway: main flow 23/24, scenarios 11/11, wallet loop 12/13 (the misses are the fetch receipt, which enclave runs don't report) |
+| Seeded ledger in OutLayer mode | `seed_ledger.mjs` detects `scorer_mode` and scores with sealed sandbox tokens signed by each seeded borrower; `setup` tops each borrower up to 0.25 NEAR | Throwaway: borrower 02 scored A in the enclave, took two loans and repaid both; borrower 22 scored D |
+| Copy | Landing, `/trust`, `/docs`, Passbook follow `SCORER_MODE`; they say "in the enclave" for testnet only when the build runs in OutLayer mode | `docs` rendered in both modes |
 
-1. **Scorer build for testnet OutLayer (small scorer change, new hash).** Judges need the testnet behaviour "one sandbox login, many judges": the Plaid sandbox identity scoped per account (SPEC, `scope_identity_to_account`). Only the demo build has it, and the demo build prints the output twice (early print for the Dev server, then the final line), which OutLayer would not parse as one JSON value. Add a feature `testnet-outlayer` = scoped identity, no early print, no profiles. Build it in CI (canonical x86_64) and run it locally against Plaid sandbox.
-2. **yes: publish that WASM** at a commit-pinned URL in the public `kenil1710/kredofi-scorer-wasm` repo (OutLayer fetches code only from a public URL). Then `outlayer deploy` it as a new version of `kency.testnet/kredofi-scorer` (testnet), and lock the secrets to `build:<new hash> and from:app.kency.testnet`.
-3. **Web: an OutLayer path in the passbook** (`NEXT_PUBLIC_SCORER_MODE=outlayer`):
-   - The demo account or wallet signs `request_score(public_token, reply_pubkey)` with 0.01 NEAR and 150 Tgas.
-   - The page waits for `on_score` (polls `get_borrower`).
-   - The page reads the sealed `reply` (rule results) from the OutLayer result in the transaction's receipts.
-   - Scenarios (Riya/Sam/Max/custom): the server creates a Plaid sandbox `user_custom` token from the profile (as `scripts/mainnet_score.mjs` does), so the profile is fetched from Plaid inside the enclave, not passed in.
-   - Default: `request_identity_release` attaches 0.01 NEAR.
-   - `/api/score` (wasmtime on our server) is off in this mode.
-
-   Tests: the main flow, the wallet loop and scenarios on a local server against a throwaway OutLayer-mode contract.
-4. **yes: deploy `app.kency.testnet`** in OutLayer mode (Nov 5, with the ledger switch). The seeding script uses `request_score` with sandbox custom tokens instead of `dev_submit_score`.
-5. Docs: testnet scoring then runs in the enclave too, so the testnet caveats on /trust, /docs and the README change to "same enclave as mainnet; test bank and test money".
-
-Time: about one day (Nov 4) for steps 1 and 3 with tests; 2 and 4 on the owner's yes.
+What the web OutLayer path does:
+- The browser seals the token, and the account signs `request_score` itself.
+- The output is read back from the transaction, including after a reload or on a new device.
+- Prepared borrowers come from `/api/plaid/sandbox`.
+- A default releases the name through the enclave.
+- `/api/score` and `/api/release` are switched off.
 
 ## Who pays: the relayer, through the account balance
 
-`request_score` requires `signer == predecessor` (OutLayer's `sender_id` must be the borrower), so a NEP-366 meta-transaction can't carry it: the relayer would be the signer. Instead the relayer funds the account, and the account signs.
+`request_score` requires `signer == predecessor`, so a NEP-366 meta-transaction can't carry it: the relayer would be the signer. Instead, the relayer funds the account and the account signs.
 
-- **Demo accounts:** already created and funded by the relayer (0.05 NEAR). That covers the 0.01 fee plus 150 Tgas, and about 0.008 comes back.
-- **Wallet users:** one top-up of 0.03 NEAR from the relayer, on the first score of an account under 0.03 NEAR. It needs the ownership challenge (NEP-413 signature), is once per account, and is capped per IP.
+Measured on Nov 3: NEAR checks the balance up front at the pessimistic gas price. So the account needs about **0.16 NEAR available** (0.01 fee + 150 Tgas) to sign, although only about 0.003 is spent.
 
-## Cost per judge (testnet NEAR, measured where marked)
+- **Demo accounts:** funded with 0.2 NEAR at creation. Right after the score, the browser sends everything above 0.02 back to the relayer.
+- **Wallets, and demo accounts scoring again:** `/api/fund` tops the account up to 0.2 when it has less than 0.17. It needs a signed one-time challenge, and allows at most 3 per account and 5 per network a day, 60 a day in total. Wallets keep the top-up.
+
+## Cost per judge (testnet NEAR)
 
 | Item | NEAR |
 |---|---|
-| Score through OutLayer (fee charged + gas), measured Nov 3 | 0.003 |
-| Demo account creation (account + test-USDC storage), from DEPLOY_HF.md | 0.007 |
-| Borrower storage on the contract | 0.002 |
-| Loan + repay (+ default and identity release on the Max path, 0.003 OutLayer) | 0.005 |
-| **Spent per judge** | **≈ 0.017** |
-| Left in each demo account (0.05 funding minus the above; not recoverable) | ≈ 0.04 |
-| **Relayer outlay per judge** | **≈ 0.05-0.06** |
+| Score through OutLayer (fee charged + gas), measured | 0.003 |
+| Demo account storage + test-USDC registration | about 0.003 |
+| Kept in the demo account after the return (later fees) | 0.02 |
+| Relayer gas for account creation and about 10 relayed actions | about 0.005 |
+| Max path only: identity release through the enclave (relayer pays) | 0.003 |
+| **Net per judge (demo account)** | **about 0.03** |
+| Peak outlay before the leftover comes back | 0.2 |
 
-**200 judges ≈ 3.5 NEAR spent, ≈ 11-12 NEAR out of the relayer** (cut it to about 7 NEAR by funding demo accounts with 0.03). All testnet NEAR from the faucet (10 NEAR per faucet account). No mainnet NEAR.
+**200 judges ≈ 6–7 NEAR net.** If browsers close before the return, the worst case is 0.2 per account.
+
+The relayer holds about 17.8 testnet NEAR after the Nov 3 top-up (faucet accounts, 10 NEAR each).
 
 ## Abuse limits
 
 | Limit | Value | Where |
 |---|---|---|
-| Demo accounts | 5 per IP per hour (existing) + **new** 60 per day in total | `/api/demo` |
-| Scores | 15 per IP per hour (existing); one pending request per borrower (contract) | `/api/score`, contract |
-| Wallet fee top-ups | **new:** once per account, 3 per IP per day, 50 per day in total, signed challenge | new relayer route |
-| Relayer budget | **new:** stop funding when the relayer drops below 3 NEAR; `/api/health` reports `relayerLow` for the monitor | `/api/health` |
-| Client IP | Cloudflare `CF-Connecting-IP`, trusted only with the Worker secret (Nov 3) | `server/clientIp.ts` |
+| Demo accounts | 5 per IP per hour + 60 per day in total; none while the relayer is under 3 NEAR | `/api/demo` |
+| Score fee top-ups | signed challenge; 3 per account, 5 per network, 60 in total per day; none under 3 NEAR | `/api/fund` |
+| Prepared-borrower sandbox tokens | 15 per network per hour, 1 per account per 20 s | `/api/plaid/sandbox` |
+| One pending request per borrower | contract | `request_score` |
+| Relayer floor | `relayerLow` in `/api/health` for the monitor | `/api/health` |
+| Client IP | Cloudflare `CF-Connecting-IP`, trusted only with the Worker secret; IPv6 per /64 | `server/clientIp.ts` |
 
-An attacker who rotates IPs can drain at most the daily caps: 60 × 0.05 + 50 × 0.03 = 4.5 testnet NEAR a day. Worst case is testnet NEAR only; scoring then pauses until a top-up.
+**Worst case per day, if nothing is returned:** (60 + 60) × 0.2 = 24 testnet NEAR. Then funding stops at the 3 NEAR floor, and scoring needs a wallet with its own test NEAR until the relayer is topped up from the faucet. No mainnet NEAR is involved.
+
+## Nov 5 runbook (on the owner's yes, given Nov 3)
+
+1. `set -a; source .env; set +a; ./scripts/deploy_outlayer_testnet.sh app.kency.testnet 4` (contract v3 with the audit fixes, OutLayer mode, secrets locked to `0515ebca…` and `app.kency.testnet`).
+2. `KREDOFI_CONTRACT=app.kency.testnet ./scripts/reserve_guard.sh`, plus a lender deposit for borrowing room.
+3. `KREDOFI_CONTRACT=app.kency.testnet node --experimental-strip-types scripts/seed_ledger.mjs setup`; then the repository variables `SEED_CONTRACT=app.kency.testnet` and `SEED_START`.
+4. Space: `NEXT_PUBLIC_SCORER_MODE=outlayer NEXT_PUBLIC_KREDOFI_CONTRACT=app.kency.testnet uv run --with huggingface_hub==0.36.0 python scripts/hf_space.py push --space kenil1710/kredofi`.
+5. Live checks on kredofi.xyz: main flow, scenarios, wallet loop; `/api/health`.
+6. README and VERIFY.md: the testnet demo scores in the enclave (`0515ebca…`); hero, `/trust` and `/docs` flip by themselves with `SCORER_MODE`.
 
 ## Left on testnet after the check
 
