@@ -55,7 +55,7 @@ export function LenderPage() {
   const availNow = myValue < cash ? myValue : cash;
   const price = shares > 0n ? Number(value * 1_000_000n / shares) / 1e6 : 1;
   const depAmt = parseUsd(dep);
-  const depErr = depAmt === null || depAmt <= 0n ? 'Enter an amount' : bal !== null && depAmt > bal ? `You have ${usd(bal)} test USDC` : null;
+  const depErr = depAmt === null || depAmt <= 0n ? 'Enter an amount' : depAmt < 1_000_000n ? 'Deposit at least $1.00' : bal !== null && depAmt > bal ? `You have ${usd(bal)} test USDC` : null;
   const wdAmt = wd === '' ? availNow : parseUsd(wd);
   const wdErr = wdAmt === null || wdAmt <= 0n ? 'Enter an amount' : wdAmt > availNow ? `You can withdraw up to ${usd(availNow)} now` : null;
   // Shares for a dollar amount, rounded down so the payout never exceeds what was asked.

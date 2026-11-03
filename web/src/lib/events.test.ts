@@ -26,3 +26,13 @@ test('descriptions and lost-by-lenders', () => {
   assert.equal(describe(mk('score_issued', { band: 'D' })).band, 'D');
   assert.equal(lostByLenders([mk('loan_defaulted', { lender_loss: '70000000' }), mk('loan_defaulted', { lender_loss: '0' })]), 70_000_000n);
 });
+
+test('events from failed (rolled-back) receipts are skipped (audit L4)', () => {
+  const log = 'EVENT_JSON:{"standard":"kredofi","version":"1.0.0","event":"score_issued","data":[{"borrower":"b.testnet","band":"A"}]}';
+  const r = [
+    { executor_id: K, logs: [log], status: { Failure: { ActionError: { index: 0, kind: { FunctionCallError: { ExecutionError: 'Exceeded the account balance' } } } } } },
+    { executor_id: K, logs: [log], status: { SuccessValue: '' } },
+    { executor_id: K, logs: [log] },
+  ];
+  assert.equal(eventsFromReceipts(r, K, 'h', 1).length, 2);
+});

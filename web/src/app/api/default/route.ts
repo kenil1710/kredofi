@@ -3,23 +3,28 @@
 // request_identity_release, then the dev scorer re-seals the name to the partner key.
 import { NextResponse } from 'next/server';
 import { KREDOFI_CONTRACT } from '@/lib/config';
-import { call, isTestnetAccount, rateLimited, relayerAccount, scorerAccount, viewPool } from '@/server/near';
+import { call, clientIp, isTestnetAccount, overQuota, rateLimited, relayerAccount, scorerAccount, viewPool } from '@/server/near';
+import { pastDue, publicError } from '@/server/guards';
 import { checkPinned, loadSubmitted, runScorer } from '@/server/scorer';
 import { recordSoon } from '@/server/ledger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-type B = { has_active_loan: boolean; pending_request: boolean; released_identity: string | null } | null;
+type B = { has_active_loan: boolean; pending_request: boolean; released_identity: string | null; loan: { due_at: string } | null } | null;
 
 export async function POST(req: Request) {
   const { borrower } = (await req.json().catch(() => ({}))) as { borrower?: unknown };
   if (!isTestnetAccount(borrower)) return NextResponse.json({ error: 'Use a NEAR testnet account.' }, { status: 400 });
   if (rateLimited(`default:${borrower}`, 15_000)) return NextResponse.json({ error: 'Already working on it.' }, { status: 429 });
+  if (overQuota(`default:${clientIp(req)}`, 30, 3_600_000)) return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 });
   const txs: string[] = [];
   try {
     let b = await viewPool<B>('get_borrower', { account_id: borrower });
     if (b?.has_active_loan) {
+      // Check the contract's own date rule first, so the relayer never pays for a refused mark_default (audit M3).
+      const { grace_ns } = await viewPool<{ grace_ns: string }>('get_config');
+      if (!pastDue(b.loan?.due_at, grace_ns)) return NextResponse.json({ error: 'This loan is not past its due date plus grace yet.' }, { status: 409 });
       const r = await call(relayerAccount(), KREDOFI_CONTRACT, 'mark_default', { borrower });
       if (r.hash) txs.push(r.hash);
       if (!r.ok) return NextResponse.json({ error: r.error, txs }, { status: 409 });
@@ -42,6 +47,7 @@ export async function POST(req: Request) {
     txs.forEach((h, i) => recordSoon(h, i === txs.length - 1 ? scorerAccount().accountId : relayerAccount().accountId));
     return NextResponse.json({ txs });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Default failed.', txs }, { status: 502 });
+    console.error('default failed:', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: publicError(e, 'Default failed. Try again.'), txs }, { status: 502 });
   }
 }

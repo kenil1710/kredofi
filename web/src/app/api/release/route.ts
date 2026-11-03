@@ -2,7 +2,8 @@
 // release op (re-seal the name to the partner key) and submit dev_submit_release (Dev mode).
 import { NextResponse } from 'next/server';
 import { KREDOFI_CONTRACT } from '@/lib/config';
-import { call, isTestnetAccount, rateLimited, scorerAccount, viewPool } from '@/server/near';
+import { call, clientIp, isTestnetAccount, overQuota, rateLimited, scorerAccount, viewPool } from '@/server/near';
+import { publicError } from '@/server/guards';
 import { checkPinned, loadSubmitted, runScorer } from '@/server/scorer';
 import { recordSoon } from '@/server/ledger';
 
@@ -12,6 +13,7 @@ export async function POST(req: Request) {
   const { borrower } = (await req.json().catch(() => ({}))) as { borrower?: unknown };
   if (!isTestnetAccount(borrower)) return NextResponse.json({ error: 'Use a NEAR testnet account.' }, { status: 400 });
   if (rateLimited(`release:${borrower}`, 20_000)) return NextResponse.json({ error: 'Already working on it.' }, { status: 429 });
+  if (overQuota(`release:${clientIp(req)}`, 30, 3_600_000)) return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 });
   try {
     const b = await viewPool<{ pending_request: boolean } | null>('get_borrower', { account_id: borrower });
     if (!(await viewPool<boolean>('is_release_allowed', { account_id: borrower })) || !b?.pending_request) {
@@ -27,6 +29,7 @@ export async function POST(req: Request) {
     recordSoon(r.hash, scorerAccount().accountId);
     return NextResponse.json({ hash: r.hash });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Release failed.' }, { status: 502 });
+    console.error('release failed:', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: publicError(e, 'Release failed. Try again.') }, { status: 502 });
   }
 }

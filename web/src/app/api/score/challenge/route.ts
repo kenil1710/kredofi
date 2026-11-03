@@ -11,6 +11,7 @@ export const runtime = 'nodejs';
 export async function POST(req: Request) {
   const { accountId } = (await req.json().catch(() => ({}))) as { accountId?: unknown };
   if (!isTestnetAccount(accountId)) return NextResponse.json({ error: 'Use a NEAR testnet account.' }, { status: 400 });
-  if (overQuota(`challenge:${clientIp(req)}`, 60, 3_600_000)) return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 });
-  return NextResponse.json({ nonce: b64(issueChallenge(accountId)), recipient: KREDOFI_CONTRACT });
+  const ip = clientIp(req);
+  if (overQuota(`challenge:${ip}`, 60, 3_600_000)) return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 });
+  return NextResponse.json({ nonce: b64(issueChallenge(accountId, ip)), recipient: KREDOFI_CONTRACT });
 }

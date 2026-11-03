@@ -1,14 +1,18 @@
 // KredoFi NEP-297 events from transaction receipts. Pure (unit-tested in events.test.ts).
 // Only logs from receipts executed BY the KredoFi contract are trusted: any contract can print a
-// line that looks like a kredofi event.
+// line that looks like a kredofi event. Receipts that failed are skipped: their state changes were
+// rolled back, but their logs are still in the outcome (audit L4).
 
 export type LedgerEvent = { event: string; data: Record<string, unknown>; txHash: string; ts: number; idx: number };
-type Receipt = { executor_id?: string; logs?: string[] };
+type Receipt = { executor_id?: string; logs?: string[]; status?: unknown };
+
+/** True for a receipt outcome whose status is a Failure (its effects were rolled back). */
+export const receiptFailed = (status: unknown) => !!status && typeof status === 'object' && 'Failure' in status;
 
 export function eventsFromReceipts(receipts: Receipt[], contract: string, txHash: string, ts: number): LedgerEvent[] {
   const out: LedgerEvent[] = [];
   for (const r of receipts) {
-    if (r.executor_id !== contract) continue;
+    if (r.executor_id !== contract || receiptFailed(r.status)) continue;
     for (const l of r.logs ?? []) {
       if (!l.startsWith('EVENT_JSON:')) continue;
       try {

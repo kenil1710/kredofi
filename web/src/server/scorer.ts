@@ -2,6 +2,7 @@ import 'server-only';
 // Dev-mode scorer (SPEC 2), same rules as scripts/dev_scorer.mjs: run the pinned scorer WASM with
 // wasmtime (keys passed by env var NAME, never on the command line) and refuse to submit unless
 // the local WASM's SHA-256 equals the contract's scorer_version.
+import { PublicError } from './guards';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
@@ -21,7 +22,7 @@ export async function checkPinned(): Promise<string> {
     const { scorer_version } = await viewPool<{ scorer_version: string }>('get_config');
     pinnedCache = { at: Date.now(), version: scorer_version };
   }
-  if (local !== pinnedCache.version) { pinnedCache = null; throw new Error('The local scorer is not the pinned version; scoring is paused.'); }
+  if (local !== pinnedCache.version) { pinnedCache = null; throw new PublicError('The local scorer is not the pinned version; scoring is paused.'); }
   void precompile(local);
   return local;
 }
@@ -79,12 +80,12 @@ export function startScorer(input: object, sender?: string, onExtra?: (sealed: s
           onExtra?.(v.extra);
           if (!('band' in v) && !stopTimer) stopTimer = setTimeout(() => p.kill(), 15_000);
         }
-        if (!gotFirst) { gotFirst = true; if (v.success === false) rejectFirst(new Error(String(v.error))); else resolveFirst(v); }
+        if (!gotFirst) { gotFirst = true; if (v.success === false) rejectFirst(new PublicError(String(v.error))); else resolveFirst(v); }
       } catch { /* not a JSON line */ }
     };
     p.stdout.on('data', (d) => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { take(buf.slice(0, i)); buf = buf.slice(i + 1); } });
     p.stderr.on('data', (d) => (err += d));
-    p.on('error', () => { const e = new Error('The scorer could not start.'); rejectFirst(e); reject(e); });
+    p.on('error', () => { const e = new PublicError('The scorer could not start.'); rejectFirst(e); reject(e); });
     p.on('close', () => {
       if (stopTimer) clearTimeout(stopTimer);
       take(buf);
@@ -92,9 +93,9 @@ export function startScorer(input: object, sender?: string, onExtra?: (sealed: s
       if (!v) {
         // Server log only (wasmtime's own error text; never sent to the browser).
         console.error(`scorer produced no JSON (exit ${p.exitCode}): ${err.slice(0, 500)}`);
-        const e = new Error('The scorer returned no result.'); rejectFirst(e); reject(e); return;
+        const e = new PublicError('The scorer returned no result.'); rejectFirst(e); reject(e); return;
       }
-      if (v.success === false) reject(new Error(String(v.error))); else resolve(v);
+      if (v.success === false) reject(new PublicError(String(v.error))); else resolve(v);
     });
     p.stdin.end(JSON.stringify(input));
   });

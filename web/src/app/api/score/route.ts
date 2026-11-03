@@ -11,6 +11,7 @@ import { call, clientIp, isTestnetAccount, overQuota, rateLimited, scorerAccount
 import { checkPinned, saveExtra, saveSubmitted, startScorer } from '@/server/scorer';
 import { recordSoon } from '@/server/ledger';
 import { consumeChallenge } from '@/server/challenge';
+import { publicError } from '@/server/guards';
 import { fromB64, verifyScoreSignature } from '@/lib/ownership';
 import { rpc } from '@/server/near';
 
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
     else if (r.ok && latestExtra) await saveExtra(accountId, latestExtra);
     return NextResponse.json({ output, extra: typeof extra === 'string' ? extra : null, extraPending: late, hash: r.hash, scorerVersion: version });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Scoring failed.' }, { status: 502 });
+    console.error('score failed:', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: publicError(e, 'Scoring failed. Try again.') }, { status: 502 });
   }
 }

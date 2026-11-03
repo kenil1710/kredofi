@@ -60,6 +60,11 @@ export async function call(signer: Account, receiverId: string, method: string, 
   return { ok: true, hash };
 }
 
+/** True when the account exists on chain (the faucet refuses made-up ids). */
+export async function accountExists(accountId: string): Promise<boolean> {
+  return !!(await rpc('query', { request_type: 'view_account', finality: 'final', account_id: accountId }).catch(() => null));
+}
+
 /** Testnet account ids only (named .testnet or 64-hex implicit). */
 export function isTestnetAccount(id: unknown): id is string {
   return typeof id === 'string' && id.length <= 64 && (/^([a-z0-9]+[-_])*[a-z0-9]+(\.([a-z0-9]+[-_])*[a-z0-9]+)*\.testnet$/.test(id) || /^[0-9a-f]{64}$/.test(id));

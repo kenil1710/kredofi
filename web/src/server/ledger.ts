@@ -13,6 +13,7 @@ import { eventsFromReceipts, type LedgerEvent } from '@/lib/events';
 const FASTNEAR = NETWORK === 'mainnet' ? 'https://tx.main.fastnear.com' : 'https://tx.test.fastnear.com';
 const FILE = () => /* turbopackIgnore: true */ process.env.LEDGER_CACHE ?? '';
 type Entry = { ts: number; events: LedgerEvent[] };
+const CACHE_V = 2; // 2: events from failed receipts skipped (audit L4)
 const cache = new Map<string, Entry>();
 let loaded = false, lastSync = 0, syncing: Promise<void> | null = null, changedAt = 0;
 /** When the last transaction was recorded directly (cached answers older than this are stale). */
@@ -24,7 +25,8 @@ async function load() {
   // contract) is ignored, so its events never show on this ledger. Old files (no contract) were
   // written for kredofi.kency.testnet.
   try {
-    const raw = JSON.parse(await readFile(/* turbopackIgnore: true */ FILE(), 'utf8')) as { contract?: string; txs?: Record<string, Entry> } & Record<string, Entry>;
+    const raw = JSON.parse(await readFile(/* turbopackIgnore: true */ FILE(), 'utf8')) as { v?: number; contract?: string; txs?: Record<string, Entry> } & Record<string, Entry>;
+    if (raw.v !== CACHE_V) return; // older format (before failed receipts were skipped): rebuild from the index
     const contract = typeof raw.contract === 'string' ? raw.contract : 'kredofi.kency.testnet';
     const txs = raw.txs ?? (raw.contract ? {} : raw);
     if (contract === KREDOFI_CONTRACT) for (const [h, e] of Object.entries(txs)) cache.set(h, e as Entry);
@@ -32,10 +34,10 @@ async function load() {
 }
 async function save() {
   if (!FILE()) return;
-  try { await mkdir(dirname(/* turbopackIgnore: true */ FILE()), { recursive: true }); await writeFile(/* turbopackIgnore: true */ FILE(), JSON.stringify({ contract: KREDOFI_CONTRACT, txs: Object.fromEntries(cache) })); } catch { /* best effort */ }
+  try { await mkdir(dirname(/* turbopackIgnore: true */ FILE()), { recursive: true }); await writeFile(/* turbopackIgnore: true */ FILE(), JSON.stringify({ v: CACHE_V, contract: KREDOFI_CONTRACT, txs: Object.fromEntries(cache) })); } catch { /* best effort */ }
 }
 
-type FnTx = { transaction: { hash: string }; execution_outcome: { block_timestamp: number | string }; receipts: { execution_outcome: { block_timestamp?: number | string; outcome: { executor_id: string; logs: string[] } } }[] };
+type FnTx = { transaction: { hash: string }; execution_outcome: { block_timestamp: number | string }; receipts: { execution_outcome: { block_timestamp?: number | string; outcome: { executor_id: string; logs: string[]; status?: unknown } } }[] };
 
 async function fetchDetails(hashes: string[]) {
   for (let i = 0; i < hashes.length; i += 20) {
@@ -44,7 +46,7 @@ async function fetchDetails(hashes: string[]) {
     for (const t of j.transactions ?? []) {
       if (!t) continue;
       const ts = Math.round(Number(t.execution_outcome.block_timestamp) / 1e6);
-      const receipts = t.receipts.map((x) => ({ executor_id: x.execution_outcome.outcome.executor_id, logs: x.execution_outcome.outcome.logs }));
+      const receipts = t.receipts.map((x) => ({ executor_id: x.execution_outcome.outcome.executor_id, logs: x.execution_outcome.outcome.logs, status: x.execution_outcome.outcome.status }));
       cache.set(t.transaction.hash, { ts, events: eventsFromReceipts(receipts, KREDOFI_CONTRACT, t.transaction.hash, ts) });
     }
   }
@@ -70,12 +72,12 @@ export async function sync(): Promise<void> {
 export async function record(hash: string, signer: string): Promise<LedgerEvent[]> {
   await load();
   if (cache.has(hash)) return cache.get(hash)!.events;
-  type Tx = { transaction_outcome: { block_hash: string }; receipts_outcome: { outcome: { executor_id: string; logs: string[] } }[] };
+  type Tx = { transaction_outcome: { block_hash: string }; receipts_outcome: { outcome: { executor_id: string; logs: string[]; status?: unknown } }[] };
   const res = await rpc<Tx>('EXPERIMENTAL_tx_status', { tx_hash: hash, sender_account_id: signer, wait_until: 'FINAL' }).catch(() => null);
   if (!res) return [];
   const block = await rpc<{ header: { timestamp: number } }>('block', { block_id: res.transaction_outcome.block_hash }).catch(() => null);
   const ts = block ? Math.round(Number(block.header.timestamp) / 1e6) : Date.now();
-  const receipts = res.receipts_outcome.map((x) => ({ executor_id: x.outcome.executor_id, logs: x.outcome.logs }));
+  const receipts = res.receipts_outcome.map((x) => ({ executor_id: x.outcome.executor_id, logs: x.outcome.logs, status: x.outcome.status }));
   const events = eventsFromReceipts(receipts, KREDOFI_CONTRACT, hash, ts);
   cache.set(hash, { ts, events });
   changedAt = Date.now();

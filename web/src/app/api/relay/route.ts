@@ -2,6 +2,7 @@
 // its gas, only if checkDelegate allows it (SPEC 8a: KredoFi and test USDC, borrow / ft_transfer_call
 // / storage_deposit) and the account is under 20 relays per hour.
 import { NextResponse } from 'next/server';
+import { publicError } from '@/server/guards';
 import { deserialize } from 'borsh';
 import { SCHEMA, actions } from 'near-api-js';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     recordSoon(outcome.transaction_outcome?.id, relayer.accountId);
     return NextResponse.json(JSON.parse(JSON.stringify(outcome, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))));
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Relay failed.';
-    return NextResponse.json({ error: /NotEnoughBalance|LackBalance/i.test(msg) ? 'The demo relayer is out of test NEAR. Try again later.' : msg }, { status: 502 });
+    console.error('relay failed:', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: publicError(e, 'The relayer could not send this transaction. Try again.') }, { status: 502 });
   }
 }
