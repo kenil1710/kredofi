@@ -1,6 +1,6 @@
 # Deploy KredoFi to a Hugging Face Space (testnet)
 
-> **Live (Nov 2):** https://kenil1710-kredofi.hf.space, Space `kenil1710/kredofi` (public, Docker). The free tier refused Docker (`402 Payment Required`: Docker Spaces on free cpu-basic need PRO), so it runs on paid **cpu-upgrade** hardware (8 vCPU, 32 GB, $0.03/hour) billed to the account's prepaid HF credits, with sleep **off** (`hf_space.py create --hardware cpu-upgrade`, then sleep time set to never). No PRO, no card. $20 of credits lasts about 666 hours (27 days) running continuously. Because it never sleeps, the uptime pinger is optional (still useful as a down alert).
+> **Live (Nov 3):** https://kredofi.xyz (Cloudflare Worker, below) in front of https://kenil1710-kredofi.hf.space, Space `kenil1710/kredofi` (public, Docker). The free tier refused Docker (`402 Payment Required`: Docker Spaces on free cpu-basic need PRO), so it runs on paid **cpu-upgrade** hardware (8 vCPU, 32 GB, $0.03/hour) billed to the account's prepaid HF credits, with sleep **off** (`hf_space.py create --hardware cpu-upgrade`, then sleep time set to never). No PRO, no card. $20 of credits lasts about 666 hours (27 days) running continuously. Because it never sleeps, the uptime pinger is optional (still useful as a down alert).
 
 Decided Nov 2: a public **Docker Space** on the free CPU tier (2 vCPU, 16 GB RAM, no persistent disk,
 sleeps after 48 h without visits). Fly.io (`docs/DEPLOY.md`) stays ready for when a card is available.
@@ -49,7 +49,7 @@ If the scorer changes: rebuild the demo build, pin it on testnet, update `SCORER
 A free Space sleeps after 48 h without visits; a ping every few minutes keeps it up.
 
 1. https://uptimerobot.com, sign up (free, no card).
-2. **New monitor**: type HTTP(s), URL `https://<username>-kredofi.hf.space/api/health`, interval 5 minutes.
+2. **New monitor**: type HTTP(s), URL `https://kredofi.xyz/api/health`, interval 5 minutes.
    `/api/health` makes no chain or Plaid calls, so pings cost nothing.
 3. Optional backup: https://cron-job.org (free), same URL every 15 minutes.
 
@@ -57,22 +57,29 @@ Add a second monitor, type **Keyword**, same URL, keyword `"reserveLow":true`, a
 
 UptimeRobot also emails you if the Space goes down (for example after an HF restart or a failed build).
 
-## kredofi.xyz -> the Space (redirect)
+## kredofi.xyz -> the Space (Cloudflare Worker reverse proxy)
 
-A free Space can't use a custom domain (that is a PRO feature), so `kredofi.xyz` **redirects** to the
-`hf.space` address; the address bar then shows `<username>-kredofi.hf.space`.
+A free Space can't use a custom domain, so a free Cloudflare Worker (`deploy/cloudflare/worker.js`,
+tests in `worker.test.mjs`) proxies `https://kredofi.xyz` to the Space and the address bar stays
+`kredofi.xyz`. `www.kredofi.xyz` and plain HTTP redirect (301) to `https://kredofi.xyz`. Bodies stream
+both ways; cookies and redirects pass through (redirects to the Space address are rewritten).
 
-**If your registrar offers URL forwarding** (Namecheap, Porkbun, Spaceship, GoDaddy all do, free):
-forward `kredofi.xyz` and `www.kredofi.xyz` to `https://<username>-kredofi.hf.space` as a **301
-permanent** redirect, with "forward path" on if offered.
+Client IP for rate limits: the Worker sends Cloudflare's `CF-Connecting-IP` as `x-kredofi-client-ip`
+with `x-kredofi-proxy: PROXY_SECRET`; the app trusts it only when the secret matches
+(`web/src/server/clientIp.ts`). Visitor-sent `x-kredofi-*`, `cf-*` and `X-Forwarded-For` are dropped.
+Requests straight to `*.hf.space` without the secret share one bucket (the Space's `X-Forwarded-For` can be
+forged), and page loads there redirect to `kredofi.xyz` (`web/src/proxy.ts`).
 
-**Or with Cloudflare (free plan)**: add `kredofi.xyz` as a site and switch the nameservers at your
-registrar to the two Cloudflare gives you. In DNS add `A @ 192.0.2.1` and `A www 192.0.2.1`, both
-**Proxied** (orange cloud; the IP is a placeholder, never reached). Then **Rules > Redirect Rules >
-Create rule**: "All incoming requests", type **Dynamic**, expression
-`concat("https://<username>-kredofi.hf.space", http.request.uri.path)`, status 301, preserve query string.
+Deploy (zone `kredofi.xyz` on Cloudflare; token with Workers Scripts, Workers Routes/Custom Domains, DNS and
+Zone Settings edit):
 
-Check: `curl -sI https://kredofi.xyz/lend` shows `301` and `location: https://<username>-kredofi.hf.space/lend`.
+```bash
+set -a; source .env; set +a      # CLOUDFLARE_API_TOKEN, PROXY_SECRET (never printed)
+python3 scripts/cf_worker.py deploy   # Worker + secret, custom domains (DNS + certificates), Always Use HTTPS, TLS 1.2+
+uv run --with huggingface_hub==0.36.0 python scripts/hf_space.py secrets --space <user>/kredofi   # PROXY_SECRET on the Space too
+```
+
+Check: `curl -sI http://www.kredofi.xyz/lend` ends at `https://kredofi.xyz/lend`; `curl -s https://kredofi.xyz/api/health`.
 
 ## Testnet NEAR the live demo spends
 

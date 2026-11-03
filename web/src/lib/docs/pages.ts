@@ -329,7 +329,7 @@ The source is in the repository (\`scorer/\`). The pinned build is made on x86_6
 ## 6. The testnet demo
 
 \`\`\`
-curl -s https://kenil1710-kredofi.hf.space/api/ledger | python3 -c "import json,sys;print(json.load(sys.stdin)['config']['scorer_version'])"
+curl -s https://kredofi.xyz/api/ledger | python3 -c "import json,sys;print(json.load(sys.stdin)['config']['scorer_version'])"
 \`\`\`
 
 Expected: \`${TESTNET_SCORER}\`. The server refuses to score if its WASM's hash differs from the pinned one. Every event on the [public ledger](/ledger) links to its transaction on testnet.nearblocks.io.

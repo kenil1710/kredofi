@@ -1,4 +1,5 @@
 import 'server-only';
+import { clientIpFrom } from './clientIp';
 // Server-side NEAR access for the testnet API routes. Keys come from web/.env.local.
 import { Account, FailoverRpcProvider, JsonRpcProvider, actions } from 'near-api-js';
 import { KREDOFI_CONTRACT, NETWORK, RPC, USDC_CONTRACT } from '@/lib/config';
@@ -82,8 +83,9 @@ export function overQuota(key: string, max: number, ms: number): boolean {
   return false;
 }
 
+/** The visitor's IP for rate limits (server/clientIp.ts: Worker header only with PROXY_SECRET). */
 export function clientIp(req: Request): string {
-  return req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || 'local';
+  return clientIpFrom(req.headers);
 }
 
 /** Register `accountId` with test USDC (relayer pays storage) and top it up to `topUp` base units. */

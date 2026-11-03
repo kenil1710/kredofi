@@ -2,13 +2,13 @@
 
 KredoFi lends USDC on NEAR against your income instead of collateral. Your bank history is read and scored by a pinned program inside a TEE (OutLayer, Intel TDX); only a band, a score, a limit cap, a keyed fingerprint and your name sealed for a recovery partner ever reach the contract.
 
-**Live demo (NEAR testnet):** https://kenil1710-kredofi.hf.space · **Documentation:** https://kenil1710-kredofi.hf.space/docs
+**Live demo (NEAR testnet):** https://kredofi.xyz · **Documentation:** https://kredofi.xyz/docs
 
 ## Try it in 3 minutes
 
 No wallet and no sign-up: the app creates a throwaway testnet account and a relayer pays every fee.
 
-1. Open https://kenil1710-kredofi.hf.space and click **Check my limit**. You see your empty passbook and a Plaid sandbox login.
+1. Open https://kredofi.xyz and click **Check my limit**. You see your empty passbook and a Plaid sandbox login.
 2. Click **Connect your bank (sandbox)**. Plaid Link opens. Choose **Continue without phone number**, search **First Platypus Bank** and pick the plain one (not OAuth), log in with `user_good` / `pass_good`, then **Continue** and **Finish without saving**.
 3. Wait about 10 to 20 seconds. You see "Limit checked in N s", a fetch receipt ("Plaid sent 386 transactions from 14 accounts; the scorer read the last 6 months… and none of it left"), a credit note stamped **BAND B, $75**, the five rule results, and on the right the exact output that went on-chain. No transaction, amount or name from the bank appears anywhere.
 4. Click **Borrow**. A "Loan issued" entry appears with a live countdown: "Repay after 0:52 to level up to $187.50".
@@ -40,7 +40,7 @@ Mainnet proof, all on `kredofi.near` (Nov 1, 2026):
 - Nov 2: re-pinned to the reproducible build `7048cc92…` (OutLayer version [tx 3MKpCgQs…](https://nearblocks.io/txns/3MKpCgQsJeXYF8zMK5yVnWfdckFBW3YToGirX4ZznCqs), secrets lock [tx CCE14Fyq…](https://nearblocks.io/txns/CCE14Fyq76Xhhh6yPzRCv8zhF4gQfXLi9n431f31dNLi), contract pin [tx AtYo7XWz…](https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn)) and scored again inside OutLayer with it (band A, 1000, 7.6 s): [tx CNsoyGSj…](https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7).
 - Two earlier attempts refused by OutLayer's secrets access rule before it was fixed (no score stored): [tx BCdtpGjj…](https://nearblocks.io/txns/BCdtpGjjqPeBFqjnPf7FvbgShyagerNWMM8KCFSY8qEP), [tx 2AjMgECA…](https://nearblocks.io/txns/2AjMgECA6PFJaMTQkbP5vZ3dpKATAoapWAqCocidDP4F).
 
-How to check all of this yourself: [VERIFY.md](VERIFY.md). What is protected and what isn't: [THREAT_MODEL.md](THREAT_MODEL.md). The short version for visitors: [/trust](https://kenil1710-kredofi.hf.space/trust).
+How to check all of this yourself: [VERIFY.md](VERIFY.md). What is protected and what isn't: [THREAT_MODEL.md](THREAT_MODEL.md). The short version for visitors: [/trust](https://kredofi.xyz/trust).
 
 ## How it works
 

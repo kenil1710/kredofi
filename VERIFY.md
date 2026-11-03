@@ -69,12 +69,12 @@ Expected: band `A`, score `1000`, `scorer_version` `7048cc92…`. There is no `s
 The live demo runs on testnet in Dev mode, where the server runs the pinned demo scorer and submits its output. Check what it pins and that it matches the server's file:
 
 ```bash
-curl -s https://kenil1710-kredofi.hf.space/api/ledger | python3 -c "import json,sys;print(json.load(sys.stdin)['config']['scorer_version'])"
+curl -s https://kredofi.xyz/api/ledger | python3 -c "import json,sys;print(json.load(sys.stdin)['config']['scorer_version'])"
 ```
 
 Expected: `ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9`. The server refuses to score if its WASM's hash differs from the pinned value (`web/src/server/scorer.ts`, `checkPinned`), and the container build refuses a WASM with any other hash (`deploy/hf/Dockerfile`).
 
-Every event on [the public ledger](https://kenil1710-kredofi.hf.space/ledger) links to its transaction on `testnet.nearblocks.io`; the ledger trusts only logs from receipts executed by the KredoFi contract itself (`web/src/lib/events.ts`, tested).
+Every event on [the public ledger](https://kredofi.xyz/ledger) links to its transaction on `testnet.nearblocks.io`; the ledger trusts only logs from receipts executed by the KredoFi contract itself (`web/src/lib/events.ts`, tested).
 
 ## 7. The money rules
 

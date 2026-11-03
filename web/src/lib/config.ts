@@ -1,5 +1,7 @@
 // Network and contract accounts (public values; testnet Dev mode by default).
 export const NETWORK = (process.env.NEXT_PUBLIC_NEAR_NETWORK ?? 'testnet') as 'testnet' | 'mainnet';
+/** The public address (Cloudflare Worker in front of the Hugging Face Space). */
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kredofi.xyz';
 export const KREDOFI_CONTRACT = process.env.NEXT_PUBLIC_KREDOFI_CONTRACT ?? 'kredofi.kency.testnet';
 export const USDC_CONTRACT = process.env.NEXT_PUBLIC_USDC_CONTRACT ?? 'musdc.kency.testnet';
 export const EXPLORER = NETWORK === 'mainnet' ? 'https://nearblocks.io/txns/' : 'https://testnet.nearblocks.io/txns/';

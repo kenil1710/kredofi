@@ -175,7 +175,7 @@ The official text above is unchanged. Re-read the live copy at https://nearhacka
 | Tracks | `privacy`, `realworld`, `defi` |
 | Payout account | Kency's own mainnet named account, typed by Kency into the form. Never used in any script or CLI command, never committed. |
 | Repo | Private while building is allowed; must be public before 2026-11-14T23:59:00Z |
-| Website | Live demo at https://kenil1710-kredofi.hf.space (Hugging Face Space, Nov 2). `kredofi.xyz` (bought Oct 26) should redirect there (docs/DEPLOY_HF.md). |
+| Website | Live demo at https://kredofi.xyz (Nov 3: Cloudflare Worker reverse proxy in front of the Hugging Face Space `kenil1710-kredofi.hf.space`; docs/DEPLOY_HF.md). |
 
 ### NEAR features we use (name each in the README with the file that uses it)
 

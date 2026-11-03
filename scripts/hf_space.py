@@ -26,7 +26,7 @@ CONTRACT = "kredofi.kency.testnet"
 RPC = "https://rpc.testnet.near.org"
 # Runtime secrets the server needs (web/src/server/*). Everything else is in the Dockerfile.
 SECRET_KEYS = ["PLAID_CLIENT_ID", "PLAID_SECRET", "SEAL_KEY", "NEARAI_KEY", "DEV_SCORER_ACCOUNT_ID",
-               "DEV_SCORER_KEY", "RELAYER_ACCOUNT_ID", "RELAYER_KEY", "NEAR_RPC_URLS"]
+               "DEV_SCORER_KEY", "RELAYER_ACCOUNT_ID", "RELAYER_KEY", "NEAR_RPC_URLS", "PROXY_SECRET"]
 # Values that are public by design (account names, URLs); not treated as secrets by the scan.
 PUBLIC_KEYS = {"DEV_SCORER_ACCOUNT_ID", "RELAYER_ACCOUNT_ID", "NEAR_RPC_URLS", "SCORER_WASM", "SCORER_OUT_DIR",
                "LEDGER_CACHE", "PARTNER_PUBKEY", "SCORER_OUT", "NEXT_PUBLIC_NEAR_NETWORK"}

@@ -6,10 +6,10 @@ One change from the PLAN wording: the complete loop uses the real bank connectio
 
 ## Before recording (10 minutes)
 
-1. Two fresh private windows at 1440 x 900, zoom 100%, nothing else on screen. Window A: https://kenil1710-kredofi.hf.space. Window B: https://kenil1710-kredofi.hf.space/scenarios.
+1. Two fresh private windows at 1440 x 900, zoom 100%, nothing else on screen. Window A: https://kredofi.xyz. Window B: https://kredofi.xyz/scenarios.
 2. **Max, 4 minutes before recording** (his default needs the 2-minute term plus 1-minute grace): in window B, **Use Max**, wait for the note, click **Borrow $100.00**. Leave the tab open.
 3. Window A: open the landing page and let it load once (so the intro animation is cached), then reload.
-4. Have a third tab ready on the public ledger: https://kenil1710-kredofi.hf.space/ledger
+4. Have a third tab ready on the public ledger: https://kredofi.xyz/ledger
 
 ## Script
 
