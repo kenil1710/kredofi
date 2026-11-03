@@ -11,18 +11,20 @@ export type DocPage = { slug: string; title: string; summary: string; body: stri
 // same enclave service as mainnet). SCORER_MODE in lib/config.ts; nothing here may claim more.
 const ENC = IN_ENCLAVE;
 const T_CONTRACT = NETWORK === 'testnet' ? KREDOFI_CONTRACT : 'kredofi.kency.testnet';
-const MAINNET_SCORER = '7048cc92a708564df3acdececd9a9880c3054f6d9ff0b4cebedd51ac268dc978';
+const MAINNET_SCORER = '6888c15e1442b508202141daf8cc246dddb9ecf5e586f1f0743671de7c23e6e2';
 const TESTNET_SCORER = ENC ? '0515ebcad56ec6569a13a9fdc76e523025c6fd3daed399d4560604c8262e03b9' : 'ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9';
 const TESTNET_WASM = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fa82707fd3a3d8a27513b8ab397d6ccb43aafe5f/kredofi_scorer_testnet.wasm';
 const TESTNET_PIN_NOTE = ENC
   ? 'The contract pins it in every OutLayer request, like mainnet. The file is public: `curl -sL ' + TESTNET_WASM + ' | shasum -a 256` prints the same hash.'
   : "The server refuses to score if its WASM's hash differs from the pinned one.";
-const TX_SCORE = 'https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7';
+const TX_SCORE = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
+const TX_SCORE_NOV2 = 'https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7';
+const TX_V3 = 'https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu';
 const TX_SCORE_NOV1 = 'https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu';
-const TX_PIN = 'https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn';
+const TX_PIN = 'https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG';
 const TX_DEPLOY = 'https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp';
 const TX_MIGRATE = 'https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34';
-const WASM_URL = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/f174d555cc79f009d4275b32ad9f4e533c823531/kredofi_scorer.wasm';
+const WASM_URL = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/6db115961a822664fdef8c8d19f02668b6f67e92/kredofi_scorer.wasm';
 
 export const DOC_PAGES: DocPage[] = [
   {
@@ -311,10 +313,10 @@ Everything below uses public data only. No account or key needed.
 ## 1. Which scorer does mainnet trust?
 
 \`\`\`
-curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"kredofi.near","method_name":"get_config","args_base64":""}}' | python3 -c "import json,sys;c=json.loads(bytes(json.load(sys.stdin)['result']['result']));print(c['scorer_mode'],c['scorer_version'])"
+curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"kredofi.near","method_name":"get_config","args_base64":""}}' | python3 -c "import json,sys;c=json.loads(bytes(json.load(sys.stdin)['result']['result']));print(c['scorer_mode'],c['scorer_version'],c['production_data'])"
 \`\`\`
 
-Expected: \`OutLayer ${MAINNET_SCORER}\`
+Expected: \`OutLayer ${MAINNET_SCORER} False\`. \`False\` means lender deposits are locked until real bank data (see [Mainnet proof](/mainnet)).
 
 ## 2. Is the published WASM that file?
 
@@ -326,7 +328,7 @@ Expected: \`${MAINNET_SCORER}\`. OutLayer downloads the scorer from this commit-
 
 ## 3. Did a real score come from the enclave?
 
-Open [the scoring transaction](${TX_SCORE}) (mainnet, 2 November 2026, with the current scorer; the first, on 1 November with the earlier build, is [here](${TX_SCORE_NOV1})). Its receipts show \`request_score\`, the request to \`outlayer.near\` with the pinned version, the private callback \`on_score\`, the event \`score_issued\` (band A, 1,000) and the unused fee refunded to the borrower.
+Open [the scoring transaction](${TX_SCORE}) (mainnet, 3 November 2026, with the current scorer; earlier builds scored on [2 November](${TX_SCORE_NOV2}) and [1 November](${TX_SCORE_NOV1})). Its receipts show \`request_score\` (its bank token starts with \`sealed1:\`: sealed to the scorer with the borrower's account, so a copied token is refused), the request to \`outlayer.near\` with the pinned version, the private callback \`on_score\`, the event \`score_issued\` (band A, 1,000) and the unused fee refunded to the borrower.
 
 ## 4. Can anyone else write a score?
 
@@ -334,7 +336,7 @@ No. On mainnet the contract is in OutLayer mode, so \`dev_submit_score\` is refu
 
 ## 5. Does the WASM come from this source?
 
-The source is in the repository (\`scorer/\`). The pinned build is made on x86_64 Linux in a pinned Rust image: \`./scorer/build-docker.sh\` gives \`${MAINNET_SCORER}\` on any x86_64 machine with Docker, and the repository's GitHub workflow prints the same hash (two separate runs matched). Builds on macOS or ARM Linux give other hashes for the same source, which is why one platform is canonical.
+The source is in the repository (\`scorer/\`). The pinned build is made on x86_64 Linux in a pinned Rust image: \`./scorer/build-docker.sh\` gives \`${MAINNET_SCORER}\` on any x86_64 machine with Docker, and the repository's GitHub workflow prints the same hash (CI run 41623343936). Builds on macOS or ARM Linux give other hashes for the same source, which is why one platform is canonical.
 
 ## 6. The testnet demo
 
@@ -348,6 +350,7 @@ Expected: \`${TESTNET_SCORER}\`. ${TESTNET_PIN_NOTE} Every event on the [public 
 
 - Deployed in OutLayer mode: [transaction](${TX_DEPLOY}).
 - Upgraded with a state migration (fee change): [transaction](${TX_MIGRATE}).
+- Upgraded to contract v3 (security audit fixes; lender deposits locked until real bank data): [transaction](${TX_V3}). Current scorer pinned: [transaction](${TX_PIN}).
 `,
   },
   {
@@ -552,7 +555,7 @@ ${ENC ? "- **Scores can't be faked.** The contract accepts a score only from its
 ## What we don't protect, or only partly
 
 - **The owner can still change the code.** The contract accounts still have their full-access keys, so the owner could deploy different code, and different code could move funds. Before real money this needs locked keys, a DAO or time-locked upgrades. The mainnet pool holds no funds today.
-- **The Plaid keys are also held by the developer.** The enclave's Plaid keys were handed to OutLayer by the developer, and the one-time bank token is visible on-chain for 30 minutes, so the developer could exchange it first and read that bank data (the score would then fail). Production would create and keep these keys only inside the enclave.\n- **The sealing key was made outside the enclave.** The mainnet sealing key was generated by the developer and handed to OutLayer as a secret, so the developer could open sealed names. The recovery partner is simulated and its key is also held by the developer. Production would generate the key inside the enclave.
+- **The Plaid keys are also held by the developer.** The enclave's Plaid keys were handed to OutLayer by the developer. Since 3 November the one-time bank token goes on-chain sealed to the scorer with your account (a copy is refused), but the developer also holds the sealing key, so could open it, exchange it first and read that bank data (the score would then fail). Production would create and keep these keys only inside the enclave.\n- **The sealing key was made outside the enclave.** The mainnet sealing key was generated by the developer and handed to OutLayer as a secret, so the developer could open sealed names. The recovery partner is simulated and its key is also held by the developer. Production would generate the key inside the enclave.
 ${ENC ? '- **The testnet demo uses test data.** It scores in the enclave like mainnet, with its own sealing key, sandbox banks and test money.' : "- **The testnet demo isn't private from us.** Its scorer runs on our server, so that server sees the data while scoring. It uses its own sealing key, sandbox banks and test money."}
 - **Trust in the enclave.** We rely on Intel TDX and on OutLayer's worker registration and secrets service.
 - **The chain is public.** Your band, score, loans and repayments are linked to your NEAR account.
@@ -592,8 +595,10 @@ The full write-up is \`THREAT_MODEL.md\` in the repository.
 
 - Contract deployed in OutLayer mode: [transaction](${TX_DEPLOY}).
 - A real score computed inside OutLayer and stored by the contract's callback (band A, 1,000), with the unused fee refunded to the borrower: [transaction](${TX_SCORE_NOV1}) (1 November, earlier build).
-- Re-pinned to the reproducible build \`${MAINNET_SCORER.slice(0, 8)}…\` ([transaction](${TX_PIN})) and scored again inside OutLayer with it (band A, 1,000, 7.6 seconds): [transaction](${TX_SCORE}) (2 November).
+- Re-pinned to the reproducible build \`7048cc92…\` and scored again inside OutLayer (band A, 1,000, 7.6 seconds): [transaction](${TX_SCORE_NOV2}) (2 November).
 - Contract upgraded with a state migration: [transaction](${TX_MIGRATE}).
+- Security audit fixes (3 November): contract v3, lender deposits locked until real bank data ([transaction](${TX_V3})); scorer \`${MAINNET_SCORER.slice(0, 8)}…\` with sealed bank tokens pinned ([transaction](${TX_PIN})) and scored with a sealed token inside OutLayer (band A, 1,000, 8.5 seconds): [transaction](${TX_SCORE}).
+- Live view of all of this: [Mainnet proof](/mainnet).
 
 How to check these yourself: [Verify it yourself](/docs/verify).
 `,
@@ -655,16 +660,34 @@ No owner method can move lender cash, loans or the reserve. But the contract key
   {
     slug: 'roadmap',
     title: 'Roadmap',
-    summary: 'What comes after the hackathon, in order.',
+    summary: 'A hackathon MVP today; the phases after it, in order.',
     body: `
-Nothing on this page is built yet; it is the plan, roughly in order.
+KredoFi today is a **hackathon MVP**: it works end to end on testnet, and the mainnet contract scores inside the enclave, but it has never lent real money. These are the next phases, in order. There are no dates: each phase depends on partners and approvals we don't control yet.
 
-1. **Lock the mainnet contract**, in the order below.
-2. **Generate the sealing key inside the enclave** and never export it; a real recovery partner with its own key.
-3. **Plaid production access** and a licensed lending partner; Plaid's persistent account IDs for fingerprints.
-4. **First mainnet loans** with small amounts.
-5. **Live cross-chain deposits** through NEAR Intents (the demo shows dry-run quotes only).
-6. **The AI summary inside the enclave** on mainnet, with the model's attestation checked.
+## Now: the MVP
+
+- Live on testnet: bank scoring, loans, repayments, level-ups, defaults paid by the reserve, and the identity release, all on public transactions.
+- On mainnet, \`kredofi.near\` scores inside Intel TDX through OutLayer with a pinned, published scorer ([Mainnet proof](/mainnet)). Lender deposits stay locked until real bank data.
+- Bank data is Plaid's sandbox only.
+
+## Pilot: real banks, small and capped
+
+- **Plaid production access**, and a **licensed lending partner** to make the loans; KredoFi supplies the score.
+- **Owner role behind a multisig**, and a **time lock on scorer re-pins**, so users can leave before a new scorer applies; then the contract keys are locked (below).
+- **A capped pool**: small loans and a hard limit on total lending while the default rate is measured.
+- The sealing key and the Plaid keys created inside the enclave, so nobody else holds them.
+
+## India: RBI Account Aggregator
+
+The same rules on bank data shared through India's Account Aggregator network (consented, regulated data sharing), instead of Plaid. This needs an Account Aggregator integration and a regulated lending partner in India.
+
+## Platform: scores for other NEAR apps
+
+Other NEAR contracts and apps already can read a borrower's band and limit with view calls ([Use KredoFi scores in your app](/docs/integrate)). This phase makes that a product: stable interfaces, documented guarantees, and apps that use the score for things other than loans (access, deposits, reputation).
+
+## Cross-chain: lenders through NEAR Intents
+
+Lenders deposit USDC from other chains through NEAR Intents (1Click) and earn on the NEAR pool. The demo shows dry-run quotes only; Intents has no testnet, so this needs a careful mainnet setup with tiny amounts first.
 
 ## Locking the mainnet contract
 

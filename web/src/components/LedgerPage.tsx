@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 // Public ledger (DESIGN 3, 7.5): live KredoFi events (polled every 5 s; new rows flash in without
 // moving the reader's scroll), filters by band and event, per-band totals from the contract's own
 // get_stats, and a Verify panel. Everything here is public chain data.
@@ -129,8 +130,8 @@ export function LedgerPage() {
             <dt>Pinned scorer</dt><dd>{data?.config.scorer_version ?? '…'}</dd>
           </dl>
           <p className="hint">On mainnet, kredofi.near pins a scorer you can check yourself:</p>
-          <code>curl -sL https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/f174d555cc79f009d4275b32ad9f4e533c823531/kredofi_scorer.wasm | shasum -a 256</code>
-          <p className="hint">It must print 7048cc92a708564d…68dc978, the version kredofi.near pins.</p>
+          <code>curl -sL https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/6db115961a822664fdef8c8d19f02668b6f67e92/kredofi_scorer.wasm | shasum -a 256</code>
+          <p className="hint">It must print 6888c15e1442b508…7c23e6e2, the version kredofi.near pins. <Link href="/mainnet" prefetch={false}>Mainnet proof, live</Link></p>
         </div>
       </div>
     </main>

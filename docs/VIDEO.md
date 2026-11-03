@@ -31,11 +31,11 @@ The first 30 seconds are the privacy proof (the enclave and how to check it); th
 | 1:15-1:27 | Window B, `/scenarios`: **Try another scenario**, **Use Sam**. **NOT THIS TIME** and "What would change this". | "Sam is refused and told why. Lenders only see the band." |
 | 1:27-1:42 | Max's tab (borrowed 4 minutes ago): **Mark as defaulted**, then **Release the name to the recovery partner**. | "Max never paid. Anyone can mark the default; the reserve pays lenders first, and only now is his sealed name opened, for the recovery partner." |
 | 1:42-1:53 | Ledger tab: the newest rows, then the Verify panel. | "Every score and loan is public; the bank data never is." |
-| 1:53-2:00 | End card: "KredoFi. Prove your income on NEAR. Built at NEAR HACKATHON" and https://kredofi.xyz. | "KredoFi. Prove your income on NEAR without showing your statements." |
+| 1:53-2:00 | End card: "KredoFi. Prove your income on NEAR. Built at NEAR HACKATHON" and https://kredofi.xyz. | "KredoFi. Prove your income on NEAR without showing your statements." Closing line: "This is a hackathon MVP: next comes a capped pilot with real banks and a licensed lending partner." |
 
 ## Notes
 
-- On mainnet the same scorer runs inside Intel TDX through OutLayer ([tx 4dgHrA97…](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu)). Say "testnet" once on camera; the banner on every app screen says it too.
+- On mainnet the same scorer runs inside Intel TDX through OutLayer ([tx 3nbdkFd3…](https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo), with a sealed bank token; live view at https://kredofi.xyz/mainnet). Say "testnet" once on camera; the banner on every app screen says it too.
 - If scoring takes longer than 20 s, cut the wait in editing and keep the "Limit checked in N s" title visible.
 - Don't show `.env`, other terminal windows, the Cloudflare or Hugging Face settings. The only terminal on camera is the one-command hash check.
 - If the testnet demo moves into OutLayer (docs/ENCLAVE_PLAN.md), change the 0:30 line to "the same enclave, with test money" and the rail title back to "What left the enclave".

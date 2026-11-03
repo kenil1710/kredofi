@@ -1,6 +1,17 @@
 # Mainnet changes for the audit fixes (H1, H2, M1)
 
-Status (Nov 3): **prepared, nothing sent.** Each step below needs the owner's yes on its own. No step moves money into or out of the pool; no real-money loan is made (the pool holds $0, and after step 2 lender deposits are refused until `production_data` is set).
+Status: **done on Nov 3, after the owner's yes to steps 0–6.** Total 0.060941 NEAR from the dev account, within the 0.08 limit; every step cost what was listed.
+
+Results:
+- **Step 0:** public wasm commit `6db11596`; the URL hash was checked.
+- **Step 1:** [tx C5AU6hFS…](https://nearblocks.io/txns/C5AU6hFSqahwtgREamTx3KUSi4hwHehsgrgwjz39e9dK), 0.050044 NEAR.
+- **Step 2:** [tx 2zyjvpPa…](https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu), about 0.0023 NEAR from `kredofi.near`'s own balance. Code SHA-256 `b7f55eaf…`.
+- **Step 3:** [tx 8YT7Kme2…](https://nearblocks.io/txns/8YT7Kme2ZK6TtLLwaEbe5Q1e5EVaM9PemAA6yVzxSj8Z), 0.005581 NEAR.
+- **Step 4:** [tx EhEiZGuq…](https://nearblocks.io/txns/EhEiZGuqK7o7UEg7EbUq2GsRVT6YMJv6mYgnGcKaJqrt), 0.001123 NEAR.
+- **Step 5:** [tx 2acP4tWJ…](https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG), 0.0002 NEAR.
+- **Step 6:** [tx 3nbdkFd3…](https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo), 0.003993 NEAR. The token was `sealed1:` (228 characters); band A 1000 in 8.5 s; 0.0081 NEAR refunded.
+
+The original plan follows. No step moves money into or out of the pool; no real-money loan is made (the pool holds $0, and after step 2 lender deposits are refused until `production_data` is set).
 
 What changes on `kredofi.near`:
 - **H1:** the scorer accepts only a Plaid token sealed to the enclave with the borrower's account. The contract passes `public_token` through unchanged, so the v2 contract would also work with it.

@@ -431,6 +431,7 @@ export function Landing() {
             <Link href="/ledger">Public ledger</Link>
             <Link href="/docs">Docs</Link>
             <Link href="/trust">Trust</Link>
+            <Link href="/mainnet" prefetch={false}>Mainnet proof</Link>
           </nav>
           <Link className="btn btn-light magnetic" href="/borrow">Check my limit</Link>
         </div>

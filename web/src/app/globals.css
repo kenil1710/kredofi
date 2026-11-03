@@ -387,3 +387,16 @@ button{font-family:inherit}
 .seedtag{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border:1px solid currentColor;opacity:.85;vertical-align:1px;white-space:nowrap}
 .bandt caption{caption-side:top;text-align:left;font-size:13px;padding:14px 0 6px;color:inherit}
 .seeded-note{margin-bottom:6px}
+/* /mainnet: a credit-note card with the live contract state */
+.mn-note{border:1px solid var(--line-paper);outline:1px solid var(--line-paper);outline-offset:4px;background:var(--paper);padding:20px 22px;margin:8px 4px 8px;min-width:0}
+.mn-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px dashed var(--line-paper);padding-bottom:12px;margin-bottom:12px}
+.mn-serial{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase;font-size:14px;color:var(--violet-ink)}
+.mn-stamp{border:2px solid currentColor;padding:3px 10px;font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;transform:rotate(-3deg);color:var(--ink-soft)}
+.mn-stamp.locked{color:#8A2E2E}
+.mn-grid{display:grid;grid-template-columns:170px 1fr;gap:10px 18px;margin:0}
+.mn-grid dt{font-weight:700;font-size:14px;color:#2C4A41}
+.mn-grid dd{margin:0;font-size:15.5px;line-height:1.55;min-width:0;overflow-wrap:anywhere}
+.mainnet .doc-code{white-space:pre-wrap}
+.mainnet .doc-code code{white-space:pre-wrap;overflow-wrap:anywhere}
+@media (max-width:600px){.mn-grid{grid-template-columns:1fr;gap:2px}.mn-grid dd{margin-bottom:10px}.mainnet .doc{padding:28px 18px}}
+.left-line{margin:8px 0 0;background:#0F2A23;color:#E6EAE1;padding:10px 12px;border-radius:3px;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}

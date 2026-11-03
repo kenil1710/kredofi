@@ -8,7 +8,7 @@ import { IN_ENCLAVE, NETWORK } from '@/lib/config';
 
 export const metadata: Metadata = { title: 'Why is this safe?, KredoFi', description: 'What KredoFi reads, where it is scored, what leaves, who holds the money, and what is test only.' };
 
-const TX_SCORE = 'https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu';
+const TX_SCORE = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
 
 export default function Trust() {
   return (
@@ -26,7 +26,7 @@ export default function Trust() {
           <p>The scorer fetches your transactions from the bank, up to two years, and uses only the <b>last 6 full months</b> of your main account to work out your income and spending patterns: money in, money out, overdraft fees and your balance. On this demo, that is Plaid&apos;s test bank. <Link href="/docs/scoring-model">The five rules</Link></p>
 
           <h2 id="where-its-scored">Where it&apos;s scored</h2>
-          <p><b>On mainnet:</b> inside a sealed enclave (OutLayer, Intel TDX), not on our server; even the machine&apos;s operator can&apos;t read it. One caveat: the developer also holds the Plaid keys the enclave uses, so could in principle use your one-time bank token (it is visible on-chain for 30 minutes) before the enclave does; your score would then fail. Production would keep those keys only in the enclave. A real mainnet score: <a href={TX_SCORE} target="_blank" rel="noreferrer">transaction</a>.</p>
+          <p><b>On mainnet:</b> inside a sealed enclave (OutLayer, Intel TDX), not on our server; even the machine&apos;s operator can&apos;t read it. Your one-time bank token goes on-chain sealed to the scorer together with your account, so a copy is useless to anyone else. One caveat: the developer holds the sealing key and the Plaid keys the enclave uses, so could in principle open your token and use it first; your score would then fail. Production would keep those keys only in the enclave. A real mainnet score: <a href={TX_SCORE} target="_blank" rel="noreferrer">transaction</a>. <Link href="/mainnet" prefetch={false}>Mainnet proof, live</Link>.</p>
           {IN_ENCLAVE
             ? <p><b>On this testnet demo:</b> the same way, in OutLayer&apos;s testnet enclave, with a published testnet build of the scorer (it differs only in tying Plaid&apos;s shared test login to your account). Your bank token is sealed to the enclave together with your account before it goes on-chain, so a copied token is refused. Our server never sees the bank data. <Link href="/docs/testnet-vs-mainnet">Testnet vs mainnet</Link></p>
             : <p><b>On this testnet demo, honestly:</b> the same pinned scorer runs on our server, outside an enclave, so that server sees the test bank data while it scores. It keeps only the public result. <Link href="/docs/testnet-vs-mainnet">Testnet vs mainnet</Link></p>}
@@ -56,7 +56,7 @@ export default function Trust() {
             <li>Only you can ask for your score: each request is signed with your account&apos;s own key.</li>
             <li>Every score, loan, repayment and default is a <b>public transaction</b> on the <Link href="/ledger">ledger</Link>.</li>
           </ul>
-          <p><Link href="/docs/verify">Verify it yourself, step by step</Link></p>
+          <p><Link href="/docs/verify">Verify it yourself, step by step</Link> · <Link href="/mainnet" prefetch={false}>Mainnet proof, live</Link></p>
 
           <h2 id="who-holds-the-money">Who holds the money</h2>
           <p>The smart contract, not KredoFi. No owner action can move the pool&apos;s cash, outstanding loans or the reserve; the owner can only take the treasury&apos;s share of interest. One honest caveat: the contract&apos;s keys can still deploy new code, which is why locking them is first on the <Link href="/docs/roadmap">roadmap</Link>. <Link href="/docs/fees-treasury">Fees &amp; treasury</Link></p>

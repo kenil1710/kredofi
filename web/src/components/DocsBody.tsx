@@ -17,7 +17,7 @@ function inline(text: string, key: string): ReactNode[] {
     else if (m[6]) {
       const href = m[7];
       out.push(href.startsWith('/') || href.startsWith('#')
-        ? <Link key={k} href={href}>{m[6]}</Link>
+        ? <Link key={k} href={href} prefetch={href.startsWith('/mainnet') ? false : undefined}>{m[6]}</Link> /* /mainnet reads mainnet live: its prefetch held the page busy */
         : <a key={k} href={href} target="_blank" rel="noreferrer">{m[6]}</a>);
     }
     last = re.lastIndex;

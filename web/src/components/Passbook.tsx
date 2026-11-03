@@ -641,6 +641,13 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 txHash={scoring?.hash ?? scoreHash} failure={scoring?.error} rows={who === 'sam' ? DECOR_ROWS.irregular : DECOR_ROWS.steady}
                 note={IN_ENCLAVE ? 'The pinned scorer runs inside Intel TDX through OutLayer testnet; the contract takes its answer only in its own callback.' : 'Testnet: the pinned scorer runs on our server, outside the enclave. On mainnet the same code runs inside Intel TDX through OutLayer.'} />
               {scoring && scoring.step !== 'sealed' && !scenarios && <SandboxBanner />}
+              {IN_ENCLAVE && !extra?.receipt && outputJson && (!scoring || scoring.step === 'sealed') && (
+                // OutLayer mode: the enclave reports no fetch counts, so say what happened and show what left.
+                <>
+                  <p className="receipt">Inside the enclave the scorer read your test bank; only the line below left it.</p>
+                  <pre className="left-line">{outputJson}</pre>
+                </>
+              )}
               {extra?.receipt && (!scoring || scoring.step === 'sealed') && (
                 <p className="receipt">
                   Plaid sent {extra.receipt.plaid_transactions} transactions from {extra.receipt.plaid_accounts} account{extra.receipt.plaid_accounts === 1 ? '' : 's'}; the scorer read the last {extra.receipt.months} months ({extra.receipt.read_transactions} transactions from your main account), and none of it left.

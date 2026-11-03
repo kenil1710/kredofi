@@ -22,7 +22,7 @@ export function AppChrome() {
           <AccountMenu />
         </div>
       </header>
-      {NETWORK === 'testnet' && <p className="testnet">Testnet demo. Test banks and test money only.</p>}
+      {NETWORK === 'testnet' && <p className="testnet">Testnet demo. Test banks and test money only. <Link href="/mainnet" prefetch={false}>Mainnet proof</Link></p>}
     </>
   );
 }
