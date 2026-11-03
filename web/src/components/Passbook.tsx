@@ -7,7 +7,7 @@ import { CreditNote } from './CreditNote';
 import { Stamp } from './Stamp';
 import { Tally } from './Tally';
 import { GuillocheStrip } from './GuillocheStrip';
-import { EnclavePanel, DECOR_ROWS, DEV_PHASES, type EnclaveStep } from './EnclavePanel';
+import { EnclavePanel, DECOR_ROWS, DEV_PHASES, OL_PHASES, type EnclaveStep } from './EnclavePanel';
 import { TxButton, TxStatus } from './TxButton';
 import { HashLink } from './HashLink';
 import { CopyButton } from './CopyButton';
@@ -17,7 +17,8 @@ import { functionCall } from '@/lib/near/wallet';
 import { useAccount } from '@/lib/near/account';
 import { useTx } from '@/lib/useTx';
 import { BORROWERS, CUSTOM_LIMITS, checkCustom, type BorrowerKey, type CustomInputs } from '@/lib/borrowers';
-import { getBorrowerAt, getConfig, getPool, usdcBalance, type BorrowerView, type ConfigView, type PoolView } from '@/lib/chain';
+import { getBorrowerAt, getConfig, getPool, nearBalance, txReceipts, usdcBalance, type BorrowerView, type ConfigView, type PoolView } from '@/lib/chain';
+import { failedReason, scoreFromReceipts, sealToken } from '@/lib/outlayer';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
 import { absoluteDate, amountInWords, parseUsd, usd } from '@/lib/format';
 import { serialFromFingerprint } from '@/lib/drawNote';
@@ -27,15 +28,15 @@ import { primaryAction } from '@/lib/primaryAction';
 import { usableSummary } from '@/lib/aiSummary';
 import { openWithAny, rememberSecret } from '@/lib/replyKey';
 import { durationWords, levelPlan, levelRuleText, limitAt, mmss, noLevelUpReason } from '@/lib/levels';
-import { NETWORK } from '@/lib/config';
+import { IN_ENCLAVE, NETWORK, OUTLAYER_CONTRACT, TOKEN_PUBKEY } from '@/lib/config';
 /** Testnet Dev mode has no enclave (SPEC 2), so the receipt is named after the scorer there. */
-const LEFT_TITLE = NETWORK === 'testnet' ? 'What left the scorer' : 'What left the enclave';
+const LEFT_TITLE = IN_ENCLAVE ? 'What left the enclave' : 'What left the scorer';
 import { loanHistory, type LoanRecord } from '@/lib/history';
 import type { LedgerEvent } from '@/lib/events';
 
 type Who = BorrowerKey | 'custom' | 'plaid';
 type Source = { borrower: Who; custom?: CustomInputs; publicToken?: string };
-type Session = { who?: Who; replySecret?: string; replySecrets?: string[]; summary?: string; summaryBy?: string; summaryFor?: string; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number; scoringSince?: number; prevIssued?: string };
+type Session = { pendingHash?: string; who?: Who; replySecret?: string; replySecrets?: string[]; summary?: string; summaryBy?: string; summaryFor?: string; output?: Record<string, unknown>; extra?: string | null; scoreHash?: string; scoredIn?: number; scoringSince?: number; prevIssued?: string };
 type Record_ = { events: LedgerEvent[]; output: Record<string, unknown> | null; extra: string | null; scoreHash: string | null };
 /** Testnet extras, sealed to the borrower (demo scorer build): real fetch counts and the AI summary. */
 type Extra = { receipt?: { plaid_transactions: number; plaid_accounts: number; read_transactions: number; months: number }; summary?: string; summary_by?: string };
@@ -150,7 +151,45 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     const s = { ...loadSession(id), ...patch }; saveSession(id, s); setSess(s);
   };
 
-  // ---------------------------------------------------------------- scoring (testnet Dev mode)
+  // ---------------------------------------------------------------- scoring in the enclave (OutLayer mode)
+  // The browser seals the Plaid token to the scorer with this account (audit H1) and the account itself
+  // signs request_score with the 0.01 NEAR OutLayer fee (most of it comes back). OutLayer runs the
+  // pinned scorer in the TEE; on_score stores the result. The output (with the sealed rule results)
+  // is read back from the transaction's receipts.
+  const scoreInEnclave = async (src: Source, acctId: string, replyPub: string) => {
+    let token = src.publicToken;
+    if (!token) {
+      const r = await fetch('/api/plaid/sandbox', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId, borrower: src.borrower, custom: src.custom }) });
+      const t = await r.json();
+      if (!r.ok) throw new Error(t.error ?? 'Could not set up the sandbox bank.');
+      token = t.publicToken as string;
+    }
+    // The account pays the fee and gas itself (signer must be the borrower). Wallets low on test NEAR
+    // get one top-up from the relayer (signed challenge, /api/fund).
+    if (await nearBalance(acctId) < 170n * 10n ** 21n) {
+      const proof = await account.proveScore(acctId, replyPub);
+      const f = await fetch('/api/fund', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId, replyPubkey: replyPub, proof }) });
+      if (!f.ok) throw new Error((await f.json()).error ?? 'Could not top up test NEAR for the fee.');
+    }
+    const sealed = sealToken(TOKEN_PUBKEY, acctId, token);
+    const out = await account.signDirect(KREDOFI_CONTRACT, [functionCall('request_score', { public_token: sealed, reply_pubkey: replyPub }, 150, 10n ** 22n)]);
+    const hash = out?.transaction?.hash ?? out?.transaction_outcome?.id;
+    if (!hash) throw new Error('The score request was not sent.');
+    setScoring((s) => (s ? { ...s, hash } : s));
+    updateSession({ pendingHash: hash }, acctId); // a reload mid-scoring finishes from this transaction
+    let res = scoreFromReceipts((out?.receipts_outcome ?? []) as never, KREDOFI_CONTRACT, OUTLAYER_CONTRACT, acctId);
+    // Follow the chain until on_score has run (OutLayer answers in 8-20 s; at most ~2 minutes).
+    for (let i = 0; !res.event && i < 45; i++) {
+      await new Promise((r) => setTimeout(r, 2500));
+      res = scoreFromReceipts((await txReceipts(hash, acctId).catch(() => [])) as never, KREDOFI_CONTRACT, OUTLAYER_CONTRACT, acctId);
+    }
+    // Demo accounts: give the unused test NEAR back to the relayer (keep 0.02 for later fees).
+    if (account.kind !== 'wallet') account.returnLeftover(20n * 10n ** 21n).catch(() => {});
+    if (res.event === 'score_failed' || !res.output) throw new Error(failedReason(res.reason ?? (res.event ? undefined : 'no answer from the enclave yet')));
+    return { output: res.output as Record<string, unknown> & { fingerprint: string }, extra: null, extraPending: false, hash };
+  };
+
+  // ---------------------------------------------------------------- scoring (Dev mode: /api/score; OutLayer mode: above)
   const score = useCallback(async (src: Source, forAccount?: string) => {
     const acctId = forAccount ?? acct;
     if (!acctId) return;
@@ -160,7 +199,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     try { kp = (account.kind === 'wallet' ? await account.walletReplyKey(acctId) : null) ?? newKeypair(); }
     catch { kp = newKeypair(); }
     // `scoringSince` lets a reload mid-scoring pick the result up (the server keeps going).
-    updateSession({ who, replySecret: kp.secret, replySecrets: rememberSecret(loadSession(acctId).replySecrets, kp.secret), output: undefined, extra: undefined, scoreHash: undefined, scoredIn: undefined, scoringSince: Date.now(), prevIssued: b?.score?.issued_at ?? '0' }, acctId);
+    updateSession({ who, replySecret: kp.secret, replySecrets: rememberSecret(loadSession(acctId).replySecrets, kp.secret), output: undefined, extra: undefined, scoreHash: undefined, pendingHash: undefined, scoredIn: undefined, scoringSince: Date.now(), prevIssued: b?.score?.issued_at ?? '0' }, acctId);
     scoringLive.current = true;
     const started = Date.now();
     setScoring({ step: 'sent', elapsed: 0 });
@@ -169,13 +208,17 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     try {
       const f = account.kind === 'demo' ? null : await fetch('/api/faucet', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId }) });
       if (f && !f.ok && f.status !== 429) throw new Error((await f.json()).error ?? 'Could not set up test USDC.');
-      // Prove this browser controls the account (signed one-time challenge), then score.
-      const proof = await account.proveScore(acctId, kp.public);
-      const r = await fetch('/api/score', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId, borrower: who, custom: src.custom, publicToken: src.publicToken, replyPubkey: kp.public, proof }) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error ?? 'Scoring failed.');
+      let j: { output: Record<string, unknown> & { fingerprint: string }; extra?: string | null; extraPending?: boolean; hash?: string };
+      if (IN_ENCLAVE) j = await scoreInEnclave(src, acctId, kp.public);
+      else {
+        // Prove this browser controls the account (signed one-time challenge), then score.
+        const proof = await account.proveScore(acctId, kp.public);
+        const r = await fetch('/api/score', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId, borrower: who, custom: src.custom, publicToken: src.publicToken, replyPubkey: kp.public, proof }) });
+        j = await r.json();
+        if (!r.ok) throw new Error((j as unknown as { error?: string }).error ?? 'Scoring failed.');
+      }
       clearInterval(timer);
-      updateSession({ who, replySecret: kp.secret, replySecrets: rememberSecret(loadSession(acctId).replySecrets, kp.secret), output: j.output, extra: j.extra, scoreHash: j.hash, scoredIn: Math.round((Date.now() - started) / 1000), scoringSince: undefined }, acctId);
+      updateSession({ who, replySecret: kp.secret, replySecrets: rememberSecret(loadSession(acctId).replySecrets, kp.secret), output: j.output, extra: j.extra, scoreHash: j.hash, scoredIn: Math.round((Date.now() - started) / 1000), scoringSince: undefined, pendingHash: undefined }, acctId);
       setScoring({ step: 'reading', elapsed: Math.round((Date.now() - started) / 1000), hash: j.hash });
       for (let i = 0; i < 30; i++) {
         const { value: bb, height } = await getBorrowerAt(acctId);
@@ -265,6 +308,12 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     const since = sess.scoringSince;
     if (b?.score && b.score.issued_at !== sess.prevIssued) {
       updateSession({ scoringSince: undefined });
+      // OutLayer mode: the output (with the rule results sealed to this browser) is in our own transaction.
+      const ph = sess.pendingHash;
+      if (IN_ENCLAVE && ph) txReceipts(ph, acct).then((rc) => {
+        const r = scoreFromReceipts(rc as never, KREDOFI_CONTRACT, OUTLAYER_CONTRACT, acct);
+        if (r.output) updateSession({ output: r.output, scoreHash: ph, pendingHash: undefined }, acct);
+      }).catch(() => {});
       setScoring((s) => (s?.resumed ? { ...s, step: 'sealed', elapsed: Math.round((Date.now() - since) / 1000) } : s));
       setPress((x) => x + 1);
       // The server saves the scorer output just after the score lands: read it again shortly so the
@@ -272,6 +321,12 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       // (Not tied to this effect's cleanup: clearing scoringSince re-runs the effect right away.)
       setTimeout(() => refresh().catch(() => {}), 2500);
       setTimeout(() => refresh().catch(() => {}), 8000);
+      return;
+    }
+    // OutLayer mode: this browser signs the request, so a reload before it was signed sent nothing.
+    if (IN_ENCLAVE && !sess.pendingHash && !b?.pending_request && Date.now() - since > 20_000) {
+      updateSession({ scoringSince: undefined });
+      setScoring({ step: 'failed', elapsed: Math.round((Date.now() - since) / 1000), error: 'The page reloaded before your account sent the score request, so nothing was sent. Check your limit again.' });
       return;
     }
     if (Date.now() - since > 150_000) {
@@ -425,6 +480,13 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   });
   const release = () => releaseTx.run(async () => {
     if (account.kind !== 'wallet') return viaRelayer();
+    if (IN_ENCLAVE) {
+      // OutLayer mode: the wallet pays the 0.01 NEAR fee (mostly refunded) and the enclave re-seals the
+      // name to the partner key; on_release stores it in the same transaction.
+      setReleaseMsg('Sealed name sent to the enclave for re-sealing to the recovery partner…');
+      const out = await account.signAndSend(KREDOFI_CONTRACT, [functionCall('request_identity_release', { borrower: acct }, 150, 10n ** 22n)]);
+      setReleaseMsg(null); await refresh(); return out;
+    }
     const out = b?.pending_request ? undefined : await account.signAndSend(KREDOFI_CONTRACT, [functionCall('request_identity_release', { borrower: acct }, 30)]);
     setReleaseMsg('Sealed name sent to the scorer for re-sealing to the recovery partner…');
     const r = await fetch('/api/release', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ borrower: acct }) });
@@ -575,9 +637,9 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
           {(scoring || (sc && scoreHash)) && (
             <Entry liRef={scoringBox} when={scoring && scoring.step !== 'sealed' ? clock(now) : clock(scoredAt)} sub={scoring && scoring.step !== 'sealed' ? 'Now' : day(scoredAt)}
               title={!scoring || scoring.step === 'sealed' ? `Limit checked${(scoring?.elapsed ?? sess.scoredIn) ? ` in ${scoring?.elapsed ?? sess.scoredIn} s` : ''}` : scoring.step === 'failed' ? 'Scoring failed' : 'Checking your limit'}>
-              <EnclavePanel step={scoring?.step ?? 'sealed'} elapsed={scoring?.elapsed ?? sess.scoredIn ?? 0} labels={DEV_PHASES} timerAt={1} failedAt={1}
+              <EnclavePanel step={scoring?.step ?? 'sealed'} elapsed={scoring?.elapsed ?? sess.scoredIn ?? 0} labels={IN_ENCLAVE ? OL_PHASES : DEV_PHASES} timerAt={1} failedAt={1}
                 txHash={scoring?.hash ?? scoreHash} failure={scoring?.error} rows={who === 'sam' ? DECOR_ROWS.irregular : DECOR_ROWS.steady}
-                note="Testnet: the pinned scorer runs on our server, outside the enclave. On mainnet the same code runs inside Intel TDX through OutLayer." />
+                note={IN_ENCLAVE ? 'The pinned scorer runs inside Intel TDX through OutLayer testnet; the contract takes its answer only in its own callback.' : 'Testnet: the pinned scorer runs on our server, outside the enclave. On mainnet the same code runs inside Intel TDX through OutLayer.'} />
               {scoring && scoring.step !== 'sealed' && !scenarios && <SandboxBanner />}
               {extra?.receipt && (!scoring || scoring.step === 'sealed') && (
                 <p className="receipt">

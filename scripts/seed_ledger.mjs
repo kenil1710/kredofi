@@ -1,6 +1,7 @@
 // Seeded demo activity for the testnet ledger (SPEC 8d, docs/LEDGER_PLAN.md).
-// Scripted borrowers go through the REAL path: a Plaid sandbox score from the pinned demo scorer
-// (dev_submit_score), borrow, then repay after the minimum hold, or a real default after the grace
+// Scripted borrowers go through the REAL path: a Plaid sandbox score (Dev-mode contract: the pinned
+// demo scorer + dev_submit_score; OutLayer-mode contract such as app.kency.testnet from Nov 5: the
+// borrower seals a Plaid sandbox token to the enclave and signs request_score itself), borrow, then repay after the minimum hold, or a real default after the grace
 // period (the reserve pays the pool). Every account is under kredofi-seed.testnet, and the ledger tags
 // every row from them "Seeded demo". They are not real users. Testnet only.
 //
@@ -21,6 +22,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { actions as nearActions } from 'near-api-js';
 import { customProfile } from '../web/src/lib/borrowers.ts';
 
 if (process.env.SEAL_KEY_TESTNET) process.env.SEAL_KEY = process.env.SEAL_KEY_TESTNET; // never the mainnet key
@@ -97,7 +99,34 @@ function guard() {
   if (POOL === 'kredofi.near') throw new Error('never on mainnet');
 }
 
+// OutLayer mode: the scorer's testnet token key (scripts/token_pubkey.mjs SEAL_KEY_TESTNET; SPEC "Sealed token").
+const TOKEN_PUBKEY = process.env.TOKEN_PUBKEY ?? '86658adaeb78fb559a0c3da3d7daa075cea6f3df23b6d8bd868610656ffc4078';
+
+async function scoreInEnclave(n) {
+  const { sealToken, keypair } = await import('./lib/seal.mjs');
+  const acct = id(n), tag = createHash('sha256').update(acct).digest('hex').slice(0, 4);
+  const bal = await near.provider.viewAccount({ accountId: acct });
+  if (BigInt(bal.amount) - BigInt(bal.storage_usage) * 10n ** 19n < 170n * 10n ** 21n) throw new Error(`${acct} needs 0.17 NEAR available to sign request_score (run setup to top it up)`);
+  const pt = await (await fetch('https://sandbox.plaid.com/sandbox/public_token/create', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ client_id: process.env.PLAID_CLIENT_ID, secret: process.env.PLAID_SECRET, institution_id: 'ins_109508', initial_products: ['transactions', 'identity'],
+      options: { override_username: 'user_custom', override_password: JSON.stringify(customProfile(inputsFor(n), tag)), transactions: { days_requested: 730 } } }),
+  })).json();
+  if (!pt.public_token) throw new Error(`Plaid: ${pt.error_code}`);
+  const res = await account(acct).signAndSendTransaction({ receiverId: POOL, waitUntil: 'INCLUDED', throwOnFailure: false,
+    actions: [nearActions.functionCall('request_score', { public_token: sealToken(TOKEN_PUBKEY, acct, pt.public_token), reply_pubkey: keypair().public }, 150n * near.TGAS, 10n ** 22n)] });
+  const hash = res.transaction_outcome?.id || res.transaction?.hash;
+  for (let i = 0; i < 48; i++) {
+    await sleep(2500);
+    const b = await view(POOL, 'get_borrower', { account_id: acct });
+    if (b && !b.pending_request && b.score && Number(b.score.issued_at) > (Date.now() - 180_000) * 1e6) { console.log(`  enclave score ${EXPLORER}${hash}`); return b.score; }
+    if (b && !b.pending_request && i > 4) break;
+  }
+  throw new Error(`enclave score for ${acct} did not land: ${EXPLORER}${hash}`);
+}
+
 async function scoreBorrower(n) {
+  if ((await view(POOL, 'get_config')).scorer_mode === 'OutLayer') return scoreInEnclave(n);
   const { score } = await import('./dev_scorer.mjs'); // checks the pinned scorer before submitting
   const acct = id(n), tag = createHash('sha256').update(acct).digest('hex').slice(0, 4);
   const dir = join(ROOT, 'scorer', 'out', 'seed'); mkdirSync(dir, { recursive: true });
@@ -174,8 +203,16 @@ async function setup() {
     throw new Error(`create the parent first (faucet, testnet): near account create-account sponsor-by-faucet-service ${PARENT} autogenerate-new-keypair save-to-legacy-keychain network-config testnet create`);
   }
   const parent = account(PARENT), relayer = account(RELAYER);
+  // OutLayer mode: a borrower signs request_score itself and needs ~0.17 NEAR available (0.01 fee +
+  // 150 Tgas at the pessimistic gas price; ~0.003 is spent per score). Top each borrower up to 0.25.
+  const enclave = (await view(POOL, 'get_config')).scorer_mode === 'OutLayer';
   for (const acct of [LENDER, ...[...Array(24)].map((_, i) => id(i + 1))]) {
     if (!(await exists(acct))) { await createSubAccount(parent, acct.split('.')[0], '0.2'); console.log(`created ${acct}`); }
+    if (enclave && acct !== LENDER) {
+      const a = await near.provider.viewAccount({ accountId: acct });
+      const free = BigInt(a.amount) - BigInt(a.storage_usage) * 10n ** 19n, want = 250n * 10n ** 21n;
+      if (free < want) { await parent.transfer({ receiverId: acct, amount: want - free }); console.log(`topped up ${acct} for enclave scoring`); }
+    }
     if (!(await view(USDC_ID, 'storage_balance_of', { account_id: acct }))) {
       const r = await call(parent, USDC_ID, 'storage_deposit', { account_id: acct, registration_only: true }, { deposit: 12_500_000_000_000_000_000_000n });
       if (!r.ok) throw new Error(`storage_deposit ${acct}: ${r.error}`);

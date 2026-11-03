@@ -3,10 +3,20 @@
 // the contract (contracts/kredofi), the scorer (scorer/src/rules.rs) and the live configs; see
 // docs.test.ts for the link check. No internal notes, no developer account details, no secrets.
 
+import { IN_ENCLAVE, KREDOFI_CONTRACT, NETWORK } from '../config.ts';
+
 export type DocPage = { slug: string; title: string; summary: string; body: string };
 
+// Testnet text follows how the demo scores: Dev mode (our server) until Nov 5, then OutLayer (the
+// same enclave service as mainnet). SCORER_MODE in lib/config.ts; nothing here may claim more.
+const ENC = IN_ENCLAVE;
+const T_CONTRACT = NETWORK === 'testnet' ? KREDOFI_CONTRACT : 'kredofi.kency.testnet';
 const MAINNET_SCORER = '7048cc92a708564df3acdececd9a9880c3054f6d9ff0b4cebedd51ac268dc978';
-const TESTNET_SCORER = 'ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9';
+const TESTNET_SCORER = ENC ? '0515ebcad56ec6569a13a9fdc76e523025c6fd3daed399d4560604c8262e03b9' : 'ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9';
+const TESTNET_WASM = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fa82707fd3a3d8a27513b8ab397d6ccb43aafe5f/kredofi_scorer_testnet.wasm';
+const TESTNET_PIN_NOTE = ENC
+  ? 'The contract pins it in every OutLayer request, like mainnet. The file is public: `curl -sL ' + TESTNET_WASM + ' | shasum -a 256` prints the same hash.'
+  : "The server refuses to score if its WASM's hash differs from the pinned one.";
 const TX_SCORE = 'https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7';
 const TX_SCORE_NOV1 = 'https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu';
 const TX_PIN = 'https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn';
@@ -20,7 +30,7 @@ export const DOC_PAGES: DocPage[] = [
     title: 'Overview',
     summary: 'What KredoFi is, who it is for, and what is live today.',
     body: `
-**Prove your income on NEAR without showing your bank statements.** A pinned scorer reads your bank history, applies five published rules, and puts only a band and a limit on the chain. On mainnet it runs inside a sealed computer (a TEE, OutLayer on Intel TDX); on the testnet demo it runs on our server, which sees the test bank data while it scores.\n\n**First use: no-collateral USDC loans.** Borrow against that limit, repay, and the limit grows. Any other NEAR app can read the same band and limit: [Use KredoFi scores in your app](/docs/integrate).
+**Prove your income on NEAR without showing your bank statements.** A pinned scorer reads your bank history, applies five published rules, and puts only a band and a limit on the chain. ${ENC ? 'It runs inside a sealed computer (a TEE, OutLayer on Intel TDX), on mainnet and on the testnet demo alike; our server never sees your bank data.' : 'On mainnet it runs inside a sealed computer (a TEE, OutLayer on Intel TDX); on the testnet demo it runs on our server, which sees the test bank data while it scores.'}\n\n**First use: no-collateral USDC loans.** Borrow against that limit, repay, and the limit grows. Any other NEAR app can read the same band and limit: [Use KredoFi scores in your app](/docs/integrate).
 
 ## What is live
 
@@ -87,7 +97,7 @@ After the due date plus the grace period, anyone can mark the loan as defaulted.
 
 ## On the testnet demo
 
-The same steps run, but the scorer runs on our server (Dev mode) and the server submits its output; a relayer pays all fees for no-wallet demo accounts. See [Testnet vs mainnet](/docs/testnet-vs-mainnet).
+${ENC ? 'The same steps run in the same enclave service (OutLayer testnet) with a testnet build of the scorer and test money; a relayer gives no-wallet demo accounts the test NEAR for the scoring fee and pays their other fees.' : 'The same steps run, but the scorer runs on our server (Dev mode) and the server submits its output; a relayer pays all fees for no-wallet demo accounts.'} See [Testnet vs mainnet](/docs/testnet-vs-mainnet).
 `,
   },
   {
@@ -282,7 +292,7 @@ No transactions, balances, account numbers or names. The bank connection is remo
 
 - Plaid sees what any Plaid connection sees.
 - The enclave relies on Intel TDX and OutLayer's operations.
-- On the **testnet demo** the scorer runs on our server, not in an enclave, so that server sees the data while it scores (it keeps only the public output).
+${ENC ? '- The **testnet demo** scores in the same enclave service with a testnet build, Plaid sandbox data and test money.' : '- On the **testnet demo** the scorer runs on our server, not in an enclave, so that server sees the data while it scores (it keeps only the public output).'}
 
 Details: [Security](/docs/security).
 
@@ -332,7 +342,7 @@ The source is in the repository (\`scorer/\`). The pinned build is made on x86_6
 curl -s https://kredofi.xyz/api/ledger | python3 -c "import json,sys;print(json.load(sys.stdin)['config']['scorer_version'])"
 \`\`\`
 
-Expected: \`${TESTNET_SCORER}\`. The server refuses to score if its WASM's hash differs from the pinned one. Every event on the [public ledger](/ledger) links to its transaction on testnet.nearblocks.io.
+Expected: \`${TESTNET_SCORER}\`. ${TESTNET_PIN_NOTE} Every event on the [public ledger](/ledger) links to its transaction on testnet.nearblocks.io.
 
 ## 7. Contract deployments
 
@@ -394,9 +404,9 @@ One caveat, said plainly: the contract accounts still have their full-access key
 
 | | Mainnet | Testnet |
 |---|---|---|
-| KredoFi contract | \`kredofi.near\` | \`kredofi.kency.testnet\` |
+| KredoFi contract | \`kredofi.near\` | \`${T_CONTRACT}\` |
 | USDC | \`17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\` (native USDC) | \`musdc.kency.testnet\` (test USDC) |
-| Scoring | OutLayer (\`outlayer.near\`), Intel TDX | Dev mode (our server) |
+| Scoring | OutLayer (\`outlayer.near\`), Intel TDX | ${ENC ? 'OutLayer (`outlayer.testnet`), Intel TDX' : 'Dev mode (our server)'} |
 | Pinned scorer | \`${MAINNET_SCORER}\` | \`${TESTNET_SCORER}\` |
 
 Amounts are USDC with 6 decimals ($100 = \`100000000\`), passed as strings. Times are nanoseconds.
@@ -441,7 +451,7 @@ The [public ledger](/ledger) is built from these events and trusts only logs fro
 
 ## Web API (testnet demo)
 
-Scoring on the demo needs proof that you control the account: \`POST /api/score/challenge\` returns a one-time nonce (5 minutes), the account signs a NEP-413 message naming the account and the browser's reply key, and \`/api/score\` checks the signature and that the key is a full-access key of the account.
+${ENC ? 'In OutLayer mode the account signs `request_score` itself (no server step); `/api/fund` gives a wallet low on test NEAR one fee top-up, with the same signed challenge. ' : ''}Scoring in Dev mode needs proof that you control the account: \`POST /api/score/challenge\` returns a one-time nonce (5 minutes), the account signs a NEP-413 message naming the account and the browser's reply key, and \`/api/score\` checks the signature and that the key is a full-access key of the account.
 
 The demo's server routes (\`/api/score\`, \`/api/relay\`, \`/api/demo\`, \`/api/faucet\`, \`/api/ledger\`, \`/api/intents/quote\`) exist to run the testnet demo; they are rate-limited and not a stable public API.
 `,
@@ -461,7 +471,7 @@ A KredoFi score is public, on-chain state. Any NEAR contract or frontend can rea
 | \`get_borrower({ account_id })\` | \`null\`, or \`{ level, score: { band, score, income_cap, expires_at, expired, scorer_version, … }, defaults, blocked, has_active_loan, loan, limit }\` |
 | \`get_config({})\` | includes \`scorer_mode\` (\`OutLayer\` or \`Dev\`) and the pinned \`scorer_version\` |
 
-Contracts: \`kredofi.near\` (mainnet, OutLayer mode) and \`kredofi.kency.testnet\` (testnet, Dev mode). See [Contracts & API](/docs/contracts-api).
+Contracts: \`kredofi.near\` (mainnet, OutLayer mode) and \`${T_CONTRACT}\` (testnet, ${ENC ? 'OutLayer' : 'Dev'} mode). See [Contracts & API](/docs/contracts-api).
 
 ## From a frontend (near-api-js)
 
@@ -511,7 +521,7 @@ pub fn on_kredofi(&mut self, user: AccountId,
 
 ## Check before you rely on it
 
-- **Mode.** Trust a score as enclave-made only if \`get_config\` says \`scorer_mode: "OutLayer"\` (mainnet). On the testnet contract (\`Dev\`), scores are submitted by our server.
+- **Mode.** Trust a score as enclave-made only if \`get_config\` says \`scorer_mode: "OutLayer"\`. ${ENC ? 'Both the mainnet and the testnet demo contract do; a testnet score is still sandbox data.' : 'On the testnet contract (`Dev`), scores are submitted by our server.'}
 - **Version.** \`score.scorer_version\` is the SHA-256 of the scorer that made it. Compare it with the pinned version you have checked yourself ([Verify it yourself](/docs/verify)).
 - **Freshness.** Scores last 30 days (\`expires_at\`, nanoseconds). An expired score reads \`expired: true\` and a limit of 0.
 - **Who controls the account.** A score proves that someone's bank data was scored for this NEAR account. It doesn't prove who holds the account's keys today.
@@ -535,15 +545,15 @@ What it does reveal, publicly, to everyone:
 
 - **Your bank data** is read only by the pinned scorer, inside the enclave on mainnet. Only a band, a score, an income cap, a fingerprint and a sealed name come out.
 - **Your name** stays sealed unless you default.
-- **Scores can't be faked on mainnet.** The contract accepts a score only from its own pinned OutLayer request. On the testnet demo (Dev mode) it accepts scores from one scorer account that our server holds, so there you trust our server.
-- **Only you can ask for your score.** On mainnet the contract requires your account's signature. On the testnet demo, every score request carries a one-time challenge signed with a full-access key of your account (a NEAR NEP-413 signed message), so nobody can re-score someone else's account.
+${ENC ? "- **Scores can't be faked.** The contract accepts a score only from its own pinned OutLayer request, on mainnet and on the testnet demo." : "- **Scores can't be faked on mainnet.** The contract accepts a score only from its own pinned OutLayer request. On the testnet demo (Dev mode) it accepts scores from one scorer account that our server holds, so there you trust our server."}
+- **Only you can ask for your score.** ${ENC ? 'The contract requires your account to sign the request, and the bank token inside it is sealed to the enclave together with your account, so a copied token is refused.' : "On mainnet the contract requires your account's signature."} ${ENC ? 'Before Nov 5 the testnet demo used' : 'On the testnet demo,'} every score request carries a one-time challenge signed with a full-access key of your account (a NEAR NEP-413 signed message), so nobody can re-score someone else's account.
 - **Lender money.** Checked math, state written before every transfer with rollback on failure, a 10% per-borrower limit, the reserve pays first, and no owner method can move lender cash, loans or the reserve.
 
 ## What we don't protect, or only partly
 
 - **The owner can still change the code.** The contract accounts still have their full-access keys, so the owner could deploy different code, and different code could move funds. Before real money this needs locked keys, a DAO or time-locked upgrades. The mainnet pool holds no funds today.
 - **The Plaid keys are also held by the developer.** The enclave's Plaid keys were handed to OutLayer by the developer, and the one-time bank token is visible on-chain for 30 minutes, so the developer could exchange it first and read that bank data (the score would then fail). Production would create and keep these keys only inside the enclave.\n- **The sealing key was made outside the enclave.** The mainnet sealing key was generated by the developer and handed to OutLayer as a secret, so the developer could open sealed names. The recovery partner is simulated and its key is also held by the developer. Production would generate the key inside the enclave.
-- **The testnet demo isn't private from us.** Its scorer runs on our server, so that server sees the data while scoring. It uses its own sealing key, sandbox banks and test money.
+${ENC ? '- **The testnet demo uses test data.** It scores in the enclave like mainnet, with its own sealing key, sandbox banks and test money.' : "- **The testnet demo isn't private from us.** Its scorer runs on our server, so that server sees the data while scoring. It uses its own sealing key, sandbox banks and test money."}
 - **Trust in the enclave.** We rely on Intel TDX and on OutLayer's worker registration and secrets service.
 - **The chain is public.** Your band, score, loans and repayments are linked to your NEAR account.
 - **Fingerprints rely on identity data.** Someone with accounts at several banks could become several borrowers.
@@ -568,15 +578,15 @@ The full write-up is \`THREAT_MODEL.md\` in the repository.
     body: `
 | | Testnet demo | Mainnet |
 |---|---|---|
-| Contract | \`kredofi.kency.testnet\` | \`kredofi.near\` |
-| Scoring | **Dev mode**: the pinned scorer runs on our server; the server submits its output | **OutLayer**, Intel TDX; the contract accepts a score only in its own callback |
+| Contract | \`${T_CONTRACT}\` | \`kredofi.near\` |
+| Scoring | ${ENC ? '**OutLayer** (`outlayer.testnet`), Intel TDX; the contract accepts a score only in its own callback' : '**Dev mode**: the pinned scorer runs on our server; the server submits its output'} | **OutLayer**, Intel TDX; the contract accepts a score only in its own callback |
 | Pinned scorer | testnet build \`${TESTNET_SCORER.slice(0, 8)}…\` | production build \`${MAINNET_SCORER.slice(0, 8)}…\` |
 | Bank data | Plaid sandbox | Plaid sandbox (no production access yet) |
 | Money | test USDC and test NEAR | native USDC configured; pool empty, no loans yet |
 | Accounts | no-wallet demo accounts, a relayer pays every fee, or any testnet wallet | your own wallet |
 | Loan term / grace / minimum hold | 2 min / 1 min / 1 min | 30 days / 7 days / 15 days |
 | AI summary | yes: our server sends your band and rule results in words (no numbers, no bank data) to NEAR AI Cloud | no |
-| Extras in the scorer | prepared borrowers (Riya, Sam, Max, build your own); the shared sandbox login is tied to your account; a fetch receipt | none |
+| Extras in the scorer | ${ENC ? 'the shared sandbox login is tied to your account (prepared borrowers and build-your-own are made as Plaid sandbox users by our server, then fetched from Plaid inside the enclave)' : 'prepared borrowers (Riya, Sam, Max, build your own); the shared sandbox login is tied to your account; a fetch receipt'} | none |
 
 ## Proof of the mainnet path
 
@@ -603,11 +613,11 @@ Not in the demo: test USDC on NEAR testnet and Plaid's sandbox bank. The mainnet
 
 ## Can someone else check my limit or re-score my account?
 
-No. Every score request is signed with your account's own key: on mainnet by your transaction, on the testnet demo by a one-time signed challenge.
+No. Every score request is signed with your account's own key: ${ENC ? 'your account signs the score transaction itself.' : 'on mainnet by your transaction, on the testnet demo by a one-time signed challenge.'}
 
 ## Can KredoFi see my transactions?
 
-On mainnet they are read inside the enclave and never leave it; the one exception is the Plaid-key caveat in [Security](/docs/security) (the developer holds the same keys). On the testnet demo the scorer runs on our server, which sees them while scoring and keeps only the public output.
+On mainnet they are read inside the enclave and never leave it; the one exception is the Plaid-key caveat in [Security](/docs/security) (the developer holds the same keys). ${ENC ? 'On the testnet demo too: it scores in the enclave, with Plaid sandbox data.' : 'On the testnet demo the scorer runs on our server, which sees them while scoring and keeps only the public output.'}
 
 ## Why is my band lower than I expected?
 

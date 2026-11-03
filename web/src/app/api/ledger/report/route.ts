@@ -11,5 +11,8 @@ export async function POST(req: Request) {
   if (typeof hash !== 'string' || !/^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(hash) || !isTestnetAccount(signer)) return NextResponse.json({ error: 'Bad request.' }, { status: 400 });
   if (rateLimited(`report:${hash}`, 10_000)) return NextResponse.json({ ok: true });
   const events = await record(hash, signer).catch(() => []);
+  // An OutLayer score is reported as soon as it is included, but its callback lands 8-20 s later
+  // (the RPC wait can time out first): try again until its events are in.
+  if (!events.length) for (const ms of [12_000, 30_000, 70_000]) setTimeout(() => { record(hash, signer).catch(() => {}); }, ms);
   return NextResponse.json({ events: events.length });
 }

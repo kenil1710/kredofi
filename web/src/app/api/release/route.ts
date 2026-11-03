@@ -1,7 +1,7 @@
 // POST /api/release {borrower}: after a recorded default and a release request, run the scorer's
 // release op (re-seal the name to the partner key) and submit dev_submit_release (Dev mode).
 import { NextResponse } from 'next/server';
-import { KREDOFI_CONTRACT } from '@/lib/config';
+import { IN_ENCLAVE, KREDOFI_CONTRACT } from '@/lib/config';
 import { call, clientIp, isTestnetAccount, overQuota, rateLimited, scorerAccount, viewPool } from '@/server/near';
 import { publicError } from '@/server/guards';
 import { checkPinned, loadSubmitted, runScorer } from '@/server/scorer';
@@ -10,6 +10,7 @@ import { recordSoon } from '@/server/ledger';
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
+  if (IN_ENCLAVE) return NextResponse.json({ error: 'The enclave releases the name in the default step (/api/default).' }, { status: 409 });
   const { borrower } = (await req.json().catch(() => ({}))) as { borrower?: unknown };
   if (!isTestnetAccount(borrower)) return NextResponse.json({ error: 'Use a NEAR testnet account.' }, { status: 400 });
   if (rateLimited(`release:${borrower}`, 20_000)) return NextResponse.json({ error: 'Already working on it.' }, { status: 429 });

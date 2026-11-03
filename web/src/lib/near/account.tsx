@@ -16,9 +16,11 @@ type AccountCtx = {
   kind: 'wallet' | 'demo' | null;
   signAndSend: (receiverId: string, actions: Action[]) => Promise<unknown>;
   /** Signed and paid by the account itself (no relayer): request_score needs signer == borrower
-   *  (OutLayer mode). Resolves with the final outcome, all receipts included. */
+   *  (OutLayer mode). Demo accounts resolve once the transaction is included; wallets as their wallet answers. */
   signDirect: (receiverId: string, actions: Action[]) => Promise<{ transaction?: { hash?: string }; transaction_outcome?: { id?: string }; receipts_outcome?: { outcome: Record<string, unknown> }[] }>;
   createDemo: () => Promise<string>;
+  /** Demo accounts (OutLayer mode): send test NEAR above `keepYocto` back to the relayer that funded it. */
+  returnLeftover: (keepYocto: bigint) => Promise<void>;
   /** Wallet accounts: the reply key derived from a fixed signed message (same in any browser). Null for demo accounts. */
   walletReplyKey: (accountId: string, opts?: { refresh?: boolean }) => Promise<{ secret: string; public: string } | null>;
   /** Proof for /api/score that this browser controls `accountId` (NEP-413 signed challenge). */
@@ -135,7 +137,8 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
           const { Account, JsonRpcProvider, actions } = await import('near-api-js');
           const a = new Account(d.accountId, new JsonRpcProvider({ url: RPC }), d.secretKey as `ed25519:${string}`);
           out = await a.signAndSendTransaction({
-            receiverId, waitUntil: 'EXECUTED_OPTIMISTIC', throwOnFailure: false,
+            // INCLUDED: the OutLayer callback takes 8-20 s, longer than an RPC wait (408); callers follow the chain.
+            receiverId, waitUntil: 'INCLUDED', throwOnFailure: false,
             actions: acts.map((x) => actions.functionCall(x.params.methodName, x.params.args, BigInt(x.params.gas), BigInt(x.params.deposit))),
           });
         } else if (kind === 'wallet') out = await wallet.signAndSend(receiverId, acts);
@@ -147,6 +150,16 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
         return JSON.parse(JSON.stringify(out, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
       },
       createDemo,
+      returnLeftover: async (keep) => {
+        const d = kind === 'wallet' ? null : loadDemo(slot);
+        if (!d) return;
+        const { Account, JsonRpcProvider } = await import('near-api-js');
+        const a = new Account(d.accountId, new JsonRpcProvider({ url: RPC }), d.secretKey as `ed25519:${string}`);
+        const st = await a.getState();
+        const free = BigInt(st.balance.available);
+        const parent = d.accountId.split('.').slice(1).join('.');
+        if (free > keep + 10n ** 21n && parent) await a.transfer({ receiverId: parent, amount: free - keep });
+      },
       proveScore,
       walletReplyKey,
       resetDemo,
@@ -154,7 +167,7 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
       connectWallet: wallet.connect,
       signOut: async () => { if (kind === 'wallet') await wallet.disconnect(); },
     };
-  }, [wallet, demo, createDemo, proveScore, walletReplyKey, resetDemo, relay, slot]);
+  }, [wallet, demo, createDemo, proveScore, walletReplyKey, resetDemo, relay, slot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

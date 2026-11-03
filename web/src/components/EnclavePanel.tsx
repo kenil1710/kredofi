@@ -11,6 +11,8 @@ export type EnclaveStep = 'signing' | 'sent' | 'reading' | 'sealed' | 'failed';
 export const PHASES = ['Waiting for your signature', 'Request sent', 'Enclave reading your transactions', 'Sealed'] as const;
 /** Testnet Dev mode: no user signature, and the pinned scorer runs outside the enclave (SPEC 2). */
 export const DEV_PHASES = ['Request sent', 'Scorer reading your transactions', 'Result submitted on-chain', 'Sealed'] as const;
+/** OutLayer mode on testnet: the account signs request_score itself; the TEE answers in the same transaction. */
+export const OL_PHASES = ['Request signed by your account', 'Enclave reading your transactions', 'Answer checked by the contract', 'Sealed'] as const;
 const INDEX: Record<EnclaveStep, number> = { signing: 0, sent: 1, reading: 2, sealed: 4, failed: -1 };
 
 /** Decoration only: abstract bar widths (%, label and amount), no text or numbers at all, so

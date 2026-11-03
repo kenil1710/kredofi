@@ -38,7 +38,7 @@ const HERO_NOTE = NETWORK === 'mainnet'
   : IN_ENCLAVE
     ? 'Testnet demo with Plaid\'s sandbox bank, scored inside the same enclave as mainnet. No wallet needed; we pay the network fees.'
     : 'Testnet demo with Plaid\'s sandbox bank. No wallet needed; we pay the network fees. On this demo the scorer runs on our server, so our server sees the test bank data while it scores.';
-const RULES_SUB = NETWORK === 'testnet'
+const RULES_SUB = !IN_ENCLAVE
   ? 'Five rules decide the band, and they\'re published as code. On mainnet the contract takes a score only from the enclave, so nobody at KredoFi can nudge it. On this testnet demo our server runs the same scorer and submits the result.'
   : 'Five rules decide the band, and they\'re published as code. The contract takes a score only from the enclave, so nobody at KredoFi can nudge it up or down.';
 const STATEMENT = 'Lenders see a band and a limit. They never see your salary, your rent, your name, or the night you went over budget.';
@@ -458,7 +458,7 @@ export function Landing() {
             <div className="enclave" aria-live="off">
               <div className="wrap">
                 <div>
-                  <div className="head"><h2>{NETWORK === 'testnet' ? 'Inside the enclave (mainnet)' : 'Inside the enclave'}</h2><span className="reading" id="reading">Reading October</span></div>
+                  <div className="head"><h2>{IN_ENCLAVE ? 'Inside the enclave' : 'Inside the enclave (mainnet)'}</h2><span className="reading" id="reading">Reading October</span></div>
                   <div className="rows-box">
                     <ul id="rows">
                       {ROWS.map((r, i) => <li key={i} className={r[3] ? 'in' : undefined}><span className="d">{r[0]}</span><span>{r[1]}</span><span className="a">{r[2]}</span></li>)}

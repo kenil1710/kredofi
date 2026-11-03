@@ -4,7 +4,7 @@
 // borrower record, and a full contract makes on_score fail (audit M1). Top up the contract account.
 import { NextResponse } from 'next/server';
 import { KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
-import { rpc, viewPool } from '@/server/near';
+import { relayerBalance, RELAYER_FLOOR, rpc, viewPool } from '@/server/near';
 
 export const dynamic = 'force-dynamic';
 const RESERVE_FLOOR = 200_000_000n; // $200, same floor as scripts/reserve_guard.sh
@@ -22,9 +22,12 @@ export async function GET() {
     cached = { at: Date.now(), reserve: pool?.reserve ?? cached.reserve, storageFree: free };
   }
   const { reserve, storageFree } = cached;
+  const relayer = await relayerBalance();
   return NextResponse.json({
     ok: true, network: NETWORK, time: new Date().toISOString(),
     reserve, reserveLow: reserve === null ? null : BigInt(reserve) < RESERVE_FLOOR,
     storageFree, storageLow: storageFree === null ? null : BigInt(storageFree) < STORAGE_FLOOR,
+    // The relayer funds demo accounts (and, in OutLayer mode, wallet fee top-ups): under 3 NEAR it stops.
+    relayerLow: relayer === null ? null : relayer < RELAYER_FLOOR,
   });
 }

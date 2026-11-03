@@ -60,6 +60,18 @@ export async function call(signer: Account, receiverId: string, method: string, 
   return { ok: true, hash };
 }
 
+/** Below this the relayer stops funding demo accounts and fee top-ups (OutLayer mode, ENCLAVE_PLAN). */
+export const RELAYER_FLOOR = 3n * 10n ** 24n;
+let relayerCache = { at: 0, balance: null as bigint | null };
+/** The relayer's spendable NEAR (cached 60 s), or null if it can't be read. */
+export async function relayerBalance(): Promise<bigint | null> {
+  if (Date.now() - relayerCache.at < 60_000) return relayerCache.balance;
+  const id = process.env.RELAYER_ACCOUNT_ID;
+  const a = id ? await rpc<{ amount: string; storage_usage: number }>('query', { request_type: 'view_account', finality: 'final', account_id: id }).catch(() => null) : null;
+  relayerCache = { at: Date.now(), balance: a ? BigInt(a.amount) - BigInt(a.storage_usage) * 10n ** 19n : null };
+  return relayerCache.balance;
+}
+
 /** True when the account exists on chain (the faucet refuses made-up ids). */
 export async function accountExists(accountId: string): Promise<boolean> {
   return !!(await rpc('query', { request_type: 'view_account', finality: 'final', account_id: accountId }).catch(() => null));

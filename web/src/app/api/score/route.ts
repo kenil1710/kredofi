@@ -6,37 +6,18 @@
 import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { checkCustom, customProfile, profileFor, type BorrowerKey, type CustomInputs } from '@/lib/borrowers';
-import { KREDOFI_CONTRACT } from '@/lib/config';
+import { IN_ENCLAVE, KREDOFI_CONTRACT } from '@/lib/config';
 import { call, clientIp, isTestnetAccount, overQuota, rateLimited, scorerAccount } from '@/server/near';
 import { checkPinned, saveExtra, saveSubmitted, startScorer } from '@/server/scorer';
 import { recordSoon } from '@/server/ledger';
-import { consumeChallenge } from '@/server/challenge';
 import { publicError } from '@/server/guards';
-import { fromB64, verifyScoreSignature } from '@/lib/ownership';
-import { rpc } from '@/server/near';
-
-/** The signed challenge is for this account and request, and the key is one of its full-access keys. */
-async function provesOwnership(accountId: string, replyPubkey: string, proof: { nonce?: unknown; publicKey?: unknown; signature?: unknown } | undefined): Promise<true | string> {
-  const nonce = proof?.nonce, publicKey = proof?.publicKey, signature = proof?.signature;
-  if (typeof nonce !== 'string' || typeof publicKey !== 'string' || typeof signature !== 'string') return 'Sign the score request with your account first.';
-  let n: Uint8Array;
-  try { n = fromB64(nonce); } catch { return 'Invalid challenge.'; }
-  if (!verifyScoreSignature({ accountId, replyPubkey, recipient: KREDOFI_CONTRACT, nonce: n, publicKey, signature })) return 'The signature does not match this score request.';
-  if (!consumeChallenge(accountId, nonce)) return 'This challenge expired or was already used. Try again.';
-  // A demo account created a moment ago may not be visible yet: retry briefly.
-  for (let i = 0; i < 4; i++) {
-    const key = await rpc<{ permission?: unknown }>('query', { request_type: 'view_access_key', finality: 'optimistic', account_id: accountId, public_key: publicKey }).catch(() => null);
-    if (key?.permission === 'FullAccess') return true;
-    if (key?.permission) return 'Use a full-access key of this account.';
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  return 'This key does not belong to the account.';
-}
+import { provesOwnership } from '@/server/ownership';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  if (IN_ENCLAVE) return NextResponse.json({ error: 'This demo scores inside the enclave: your account signs request_score.' }, { status: 409 });
   const body = await req.json().catch(() => ({}));
   const { accountId, borrower, replyPubkey, custom, publicToken, proof } = body as { accountId?: unknown; borrower?: unknown; replyPubkey?: unknown; custom?: unknown; publicToken?: unknown; proof?: { nonce?: unknown; publicKey?: unknown; signature?: unknown } };
   if (!isTestnetAccount(accountId)) return NextResponse.json({ error: 'Use a NEAR testnet account.' }, { status: 400 });

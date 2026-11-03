@@ -30,3 +30,22 @@ export const getBorrowerAt = (id: string) => viewAt<BorrowerView | null>(KREDOFI
 export const getPool = () => view<PoolView>(KREDOFI_CONTRACT, 'get_pool');
 export const getConfig = () => view<ConfigView>(KREDOFI_CONTRACT, 'get_config');
 export const usdcBalance = (id: string) => view<string>(USDC_CONTRACT, 'ft_balance_of', { account_id: id });
+
+async function rpcCall<T>(method: string, params: object): Promise<T> {
+  const res = await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 'kf', method, params }) });
+  const j = await res.json();
+  if (j.error) throw new Error(j.error?.data ?? j.error?.message ?? 'RPC error');
+  return j.result as T;
+}
+
+/** Spendable NEAR (yocto) of an account, or 0 if it doesn't exist yet. */
+export async function nearBalance(id: string): Promise<bigint> {
+  const a = await rpcCall<{ amount: string; storage_usage: number }>('query', { request_type: 'view_account', finality: 'optimistic', account_id: id }).catch(() => null);
+  return a ? BigInt(a.amount) - BigInt(a.storage_usage) * 10n ** 19n : 0n;
+}
+
+/** Receipt outcomes of a transaction executed so far (OutLayer mode reads the score from them). */
+export async function txReceipts(hash: string, signer: string): Promise<{ outcome: Record<string, unknown> }[]> {
+  const r = await rpcCall<{ receipts_outcome: { outcome: Record<string, unknown> }[] }>('EXPERIMENTAL_tx_status', { tx_hash: hash, sender_account_id: signer, wait_until: 'NONE' });
+  return r.receipts_outcome;
+}

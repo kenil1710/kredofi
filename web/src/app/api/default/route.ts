@@ -2,7 +2,7 @@
 // default steps (SPEC 4): mark_default once the contract's own date check allows it, then
 // request_identity_release, then the dev scorer re-seals the name to the partner key.
 import { NextResponse } from 'next/server';
-import { KREDOFI_CONTRACT } from '@/lib/config';
+import { IN_ENCLAVE, KREDOFI_CONTRACT } from '@/lib/config';
 import { call, clientIp, isTestnetAccount, overQuota, rateLimited, relayerAccount, scorerAccount, viewPool } from '@/server/near';
 import { pastDue, publicError } from '@/server/guards';
 import { checkPinned, loadSubmitted, runScorer } from '@/server/scorer';
@@ -31,6 +31,19 @@ export async function POST(req: Request) {
     }
     if (!(await viewPool<boolean>('is_release_allowed', { account_id: borrower }))) return NextResponse.json({ txs });
     b = await viewPool<B>('get_borrower', { account_id: borrower });
+    if (IN_ENCLAVE) {
+      // OutLayer mode: the relayer pays the 0.01 NEAR fee (OutLayer refunds the unused part to it) and
+      // the enclave re-seals the name to the partner key; on_release stores it in the same transaction.
+      if (!b?.pending_request && !b?.released_identity) {
+        const r = await call(relayerAccount(), KREDOFI_CONTRACT, 'request_identity_release', { borrower }, 150n, 10n ** 22n);
+        if (r.hash) txs.push(r.hash);
+        if (!r.ok) return NextResponse.json({ error: r.error, txs }, { status: 409 });
+      }
+      txs.forEach((h) => recordSoon(h, relayerAccount().accountId));
+      const after = await viewPool<B>('get_borrower', { account_id: borrower });
+      if (!after?.released_identity) return NextResponse.json({ error: 'The enclave did not release the name this time. Try again.', txs }, { status: 409 });
+      return NextResponse.json({ txs });
+    }
     if (!b?.pending_request) {
       const r = await call(relayerAccount(), KREDOFI_CONTRACT, 'request_identity_release', { borrower });
       if (r.hash) txs.push(r.hash);
