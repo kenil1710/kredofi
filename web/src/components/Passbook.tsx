@@ -28,6 +28,8 @@ import { usableSummary } from '@/lib/aiSummary';
 import { openWithAny, rememberSecret } from '@/lib/replyKey';
 import { durationWords, levelPlan, levelRuleText, limitAt, mmss, noLevelUpReason } from '@/lib/levels';
 import { NETWORK } from '@/lib/config';
+/** Testnet Dev mode has no enclave (SPEC 2), so the receipt is named after the scorer there. */
+const LEFT_TITLE = NETWORK === 'testnet' ? 'What left the scorer' : 'What left the enclave';
 import { loanHistory, type LoanRecord } from '@/lib/history';
 import type { LedgerEvent } from '@/lib/events';
 
@@ -632,7 +634,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                   <p style={{ marginTop: 8 }}>Lenders see only the band. Nothing else about this result is on-chain.</p>
                 </div>
               ) : (
-                <p>Band {sc.band}, level {b?.level}. You can borrow up to {usd(limit)} today. Only the line in &ldquo;What left the enclave&rdquo; is on-chain.</p>
+                <p>Band {sc.band}, level {b?.level}. You can borrow up to {usd(limit)} today. Only the line in &ldquo;{LEFT_TITLE}&rdquo; is on-chain.</p>
               )}
             </Entry>
           )}
@@ -771,7 +773,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
 
       <aside className="rail" aria-label="Proof">
         <div className="card">
-          <h3>What left the enclave</h3>
+          <h3>{LEFT_TITLE}</h3>
           {outputJson ? (
             <>
               <ul className="stayed" aria-label="Stayed inside">

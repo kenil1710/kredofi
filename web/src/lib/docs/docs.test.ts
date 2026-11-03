@@ -32,7 +32,7 @@ test('every internal docs link resolves', () => {
 test('every page is reachable and has a unique slug', () => {
   const slugs = DOC_PAGES.map((p) => p.slug);
   assert.equal(new Set(slugs).size, slugs.length);
-  for (const s of ['overview', 'how-it-works', 'borrowers', 'lenders', 'scoring-model', 'privacy', 'verify', 'fees-treasury', 'contracts-api', 'security', 'testnet-vs-mainnet', 'faq', 'roadmap']) {
+  for (const s of ['overview', 'how-it-works', 'borrowers', 'lenders', 'scoring-model', 'privacy', 'verify', 'fees-treasury', 'contracts-api', 'integrate', 'security', 'testnet-vs-mainnet', 'faq', 'roadmap']) {
     assert.ok(slugs.includes(s), s);
   }
 });

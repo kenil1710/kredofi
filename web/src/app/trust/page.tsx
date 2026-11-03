@@ -4,6 +4,7 @@ import { AppChrome } from '@/components/AppChrome';
 import { AppFooter } from '@/components/AppFooter';
 import { GuillocheStrip } from '@/components/GuillocheStrip';
 import { SandboxBanner } from '@/components/SandboxBanner';
+import { NETWORK } from '@/lib/config';
 
 export const metadata: Metadata = { title: 'Why is this safe?, KredoFi', description: 'What KredoFi reads, where it is scored, what leaves, who holds the money, and what is test only.' };
 
@@ -17,7 +18,7 @@ export default function Trust() {
         <article className="doc">
           <GuillocheStrip height={12} />
           <p className="doc-kicker">Why is this safe?</p>
-          <h1>Your bank data stays sealed.</h1>
+          <h1>{NETWORK === 'testnet' ? 'Who sees your bank data.' : 'Your bank data stays sealed.'}</h1>
           <p className="doc-summary">A two-minute read. Every point links to the full details in the <Link href="/docs">docs</Link>.</p>
           <SandboxBanner link={false} />
 
@@ -25,11 +26,11 @@ export default function Trust() {
           <p>The scorer fetches your transactions from the bank, up to two years, and uses only the <b>last 6 full months</b> of your main account to work out your income and spending patterns: money in, money out, overdraft fees and your balance. On this demo, that is Plaid&apos;s test bank. <Link href="/docs/scoring-model">The five rules</Link></p>
 
           <h2 id="where-its-scored">Where it&apos;s scored</h2>
-          <p><b>On mainnet:</b> inside a sealed enclave (OutLayer, Intel TDX). Not on our server and not by us; even the machine&apos;s operator can&apos;t read it. A real mainnet score: <a href={TX_SCORE} target="_blank" rel="noreferrer">transaction</a>.</p>
+          <p><b>On mainnet:</b> inside a sealed enclave (OutLayer, Intel TDX), not on our server; even the machine&apos;s operator can&apos;t read it. One caveat: the developer also holds the Plaid keys the enclave uses, so could in principle use your one-time bank token (it is visible on-chain for 30 minutes) before the enclave does; your score would then fail. Production would keep those keys only in the enclave. A real mainnet score: <a href={TX_SCORE} target="_blank" rel="noreferrer">transaction</a>.</p>
           <p><b>On this testnet demo, honestly:</b> the same pinned scorer runs on our server, outside an enclave, so that server sees the test bank data while it scores. It keeps only the public result. <Link href="/docs/testnet-vs-mainnet">Testnet vs mainnet</Link></p>
 
           <h2 id="what-leaves">What leaves</h2>
-          <p>Only a band, a score, an income cap (the most your limit can be), a fingerprint and your name sealed so nobody can read it. A real receipt from this demo:</p>
+          <p>Only a band, a score, an income cap (the most your limit can be), a fingerprint and your name, sealed. Today the developer holds the sealing key (production would make it inside the enclave). A real receipt from this demo:</p>
           <blockquote className="trust-receipt">Plaid sent 386 transactions from 14 accounts; the scorer read the last 6 months (36 transactions from your main account), and none of it left.</blockquote>
           <p>And everything that went on-chain for that score:</p>
           <pre className="doc-code"><code>{`{
@@ -44,8 +45,8 @@ export default function Trust() {
 
           <h2 id="why-you-dont-have-to-trust-us">Why you don&apos;t have to trust us</h2>
           <ul>
-            <li>The scorer is a <b>pinned public WASM</b>: its SHA-256 is fixed in the contract, and anyone can download the file and check the hash.</li>
-            <li>The contract accepts a score <b>only from that exact scorer</b>, through its own request.</li>
+            <li>The mainnet scorer is a <b>pinned public WASM</b>: its SHA-256 is fixed in the contract, and anyone can download the file and check the hash. The testnet demo build is pinned the same way but isn&apos;t published as a file yet.</li>
+            <li>On mainnet the contract accepts a score <b>only from that exact scorer</b>, through its own request to the enclave. On this testnet demo it accepts scores from our scorer account (Dev mode), so here you trust our server to run that scorer unchanged.</li>
             <li>Only you can ask for your score: each request is signed with your account&apos;s own key.</li>
             <li>Every score, loan, repayment and default is a <b>public transaction</b> on the <Link href="/ledger">ledger</Link>.</li>
           </ul>

@@ -28,6 +28,13 @@ const ROWS: [string, string, string, number?][] = [
 const FN = ['Income level', 'Steady income', 'On-time payments', 'Money left over', 'Savings buffer'];
 const FV = [250, 250, 250, 150, 100];
 const MONTHS = ['October', 'September', 'August', 'July', 'June', 'May'];
+// Hero copy per network (SPEC 2: never claim more privacy than the network the visitor uses gives).
+const HERO_LEDE = NETWORK === 'testnet'
+  ? 'First use: no-collateral USDC loans. A pinned scorer reads six months of bank history, applies five published rules and puts only a band and a limit on NEAR. On mainnet it runs inside a sealed enclave. On this testnet demo it runs on our server with Plaid\'s test bank, so our server sees that test data while it scores.'
+  : 'First use: no-collateral USDC loans. A pinned scorer reads six months of your bank history inside a sealed enclave, applies five published rules and puts only a band and a limit on NEAR. Lenders never see your statements.';
+const RULES_SUB = NETWORK === 'testnet'
+  ? 'Five rules decide the band, and they\'re published as code. On mainnet the contract takes a score only from the enclave, so nobody at KredoFi can nudge it. On this testnet demo our server runs the same scorer and submits the result.'
+  : 'Five rules decide the band, and they\'re published as code. The contract takes a score only from the enclave, so nobody at KredoFi can nudge it up or down.';
 const STATEMENT = 'Lenders see a band and a limit. They never see your salary, your rent, your name, or the night you went over budget.';
 const FEATS: [string, string][] = [
   ['The amount', '$100 is your limit. The rules set it, not a loan officer. Repay this one on time and your next note says $250.'],
@@ -432,8 +439,8 @@ export function Landing() {
             <div className="hero-copy">
               <div className="wrap">
                 <div className="hero-inner">
-                  <h1><span className="ln"><span>Borrow against</span></span><span className="ln"><span>your payslip.</span></span></h1>
-                  <p className="lede">KredoFi reads six months of your bank history inside a sealed computer, works out a limit, and lends you USDC on NEAR. Lenders never see your statements. Neither do we.</p>
+                  <h1><span className="ln"><span>Prove your income on NEAR</span></span><span className="ln"><span>without showing your</span></span><span className="ln"><span>bank statements.</span></span></h1>
+                  <p className="lede">{HERO_LEDE}</p>
                   <div className="ctas">
                     <Link className="btn btn-light magnetic" href="/borrow">Check my limit</Link>
                     <a className="btn btn-ghost magnetic" href="#check">How the privacy works</a>
@@ -445,7 +452,7 @@ export function Landing() {
             <div className="enclave" aria-live="off">
               <div className="wrap">
                 <div>
-                  <div className="head"><h2>Inside the enclave</h2><span className="reading" id="reading">Reading October</span></div>
+                  <div className="head"><h2>{NETWORK === 'testnet' ? 'Inside the enclave (mainnet)' : 'Inside the enclave'}</h2><span className="reading" id="reading">Reading October</span></div>
                   <div className="rows-box">
                     <ul id="rows">
                       {ROWS.map((r, i) => <li key={i} className={r[3] ? 'in' : undefined}><span className="d">{r[0]}</span><span>{r[1]}</span><span className="a">{r[2]}</span></li>)}
@@ -495,7 +502,7 @@ export function Landing() {
           <div className="pin">
             <div className="wrap">
               <h2 id="two-h">Riya gets $100. Sam doesn&apos;t, and he&apos;s told why.</h2>
-              <p className="sub">Five rules decide the band, and they&apos;re published as code. Nobody at KredoFi can nudge a score up or down.</p>
+              <p className="sub">{RULES_SUB}</p>
               <div className="cheques">
                 {CHEQUES.map((c) => (
                   <article className="cheque" id={`chq-${c.id}`} key={c.id}>
@@ -522,7 +529,7 @@ export function Landing() {
 
         <section id="proof" aria-labelledby="proof-h">
           <div className="wrap">
-            <h2 id="proof-h">Numbers from a real enclave run on 25 October, not from a pitch deck.</h2>
+            <h2 id="proof-h">Numbers from a real mainnet enclave run on 25 October, not from a pitch deck.</h2>
             <div className="nums">
               <div><b className="cnt" data-to="3.9" data-dec="1" data-suf=" s">3.9 s</b><span>to read 30 transactions inside Intel TDX</span></div>
               <div><b className="cnt" data-to="0.00145" data-dec="5">0.00145</b><span>NEAR for the whole scoring run</span></div>

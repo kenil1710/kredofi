@@ -20,7 +20,7 @@ export const DOC_PAGES: DocPage[] = [
     title: 'Overview',
     summary: 'What KredoFi is, who it is for, and what is live today.',
     body: `
-KredoFi lends USDC on NEAR against your income instead of collateral. A program anyone can check reads your bank history inside a sealed computer (a TEE), applies five published rules, and puts only a band and a limit on the chain. Lenders never see your statements, and neither do we.
+**Prove your income on NEAR without showing your bank statements.** A pinned scorer reads your bank history, applies five published rules, and puts only a band and a limit on the chain. On mainnet it runs inside a sealed computer (a TEE, OutLayer on Intel TDX); on the testnet demo it runs on our server, which sees the test bank data while it scores.\n\n**First use: no-collateral USDC loans.** Borrow against that limit, repay, and the limit grows. Any other NEAR app can read the same band and limit: [Use KredoFi scores in your app](/docs/integrate).
 
 ## What is live
 
@@ -264,7 +264,7 @@ Exactly one short line (under 900 bytes), checked field by field by the contract
 | \`band\`, \`score\` | A to D, 0 to 1,000 |
 | \`income_cap\` | the cap on your limit, in USDC |
 | \`fingerprint\` | a keyed hash of your bank identity (institution, owner name, account mask). Without the scorer's key it can't be reversed or linked to a bank |
-| \`sealed_identity\` | your name, encrypted to a key only the scorer holds |
+| \`sealed_identity\` | your name, encrypted to the scorer's sealing key. Today the developer generated that key and can open it (see [Security](/docs/security)); production would make it inside the enclave |
 | \`caller\` | your NEAR account (from the request, never from input) |
 | \`reply\` (optional) | the five rule results, encrypted to a key your browser made for this request |
 
@@ -276,7 +276,7 @@ No transactions, balances, account numbers or names. The bank connection is remo
 |---|---|
 | Band, score, income cap, loans | everyone (public chain) |
 | Rule results (\`reply\`) | only the browser that asked for the score |
-| Your name (\`sealed_identity\`) | nobody, until a default; then the scorer re-seals it to the recovery partner's key, and only the partner can open it. No contract view ever returns it. |
+| Your name (\`sealed_identity\`) | the holder of the sealing key (today the developer, on both networks); after a default the scorer re-seals it to the recovery partner's key. No contract view ever returns it. |
 
 ## What we can't promise
 
@@ -447,6 +447,86 @@ The demo's server routes (\`/api/score\`, \`/api/relay\`, \`/api/demo\`, \`/api/
 `,
   },
   {
+    slug: 'integrate',
+    title: 'Use KredoFi scores in your app',
+    summary: 'Read a borrower’s band and limit from any NEAR contract or frontend, and what that never reveals.',
+    body: `
+A KredoFi score is public, on-chain state. Any NEAR contract or frontend can read it with the contract's existing view methods: no API key, no permission from KredoFi, no new code on our side. Use it to gate a feature, size a limit or skip a deposit for people who have proven their income.
+
+## The two views you need
+
+| Method | Returns |
+|---|---|
+| \`get_limit({ account_id })\` | KredoFi's current credit limit for the account, in USDC base units (6 decimals). \`"0"\` without a valid score, after expiry, or if the account defaulted. |
+| \`get_borrower({ account_id })\` | \`null\`, or \`{ level, score: { band, score, income_cap, expires_at, expired, scorer_version, … }, defaults, blocked, has_active_loan, loan, limit }\` |
+| \`get_config({})\` | includes \`scorer_mode\` (\`OutLayer\` or \`Dev\`) and the pinned \`scorer_version\` |
+
+Contracts: \`kredofi.near\` (mainnet, OutLayer mode) and \`kredofi.kency.testnet\` (testnet, Dev mode). See [Contracts & API](/docs/contracts-api).
+
+## From a frontend (near-api-js)
+
+\`\`\`js
+import { JsonRpcProvider } from 'near-api-js';
+
+const near = new JsonRpcProvider({ url: 'https://rpc.mainnet.fastnear.com' });
+const view = (method, args) => near.callFunction({ contractId: 'kredofi.near', method, args });
+
+const b = await view('get_borrower', { account_id: 'alice.near' });
+const proven = b?.score && !b.score.expired && !b.blocked;     // income proven and still valid
+const band = proven ? b.score.band : null;                      // 'A' | 'B' | 'C' | 'D'
+const limitUsd = Number(await view('get_limit', { account_id: 'alice.near' })) / 1e6;
+\`\`\`
+
+From a terminal: \`near contract call-function as-read-only kredofi.near get_borrower json-args '{"account_id":"alice.near"}' network-config mainnet now\`.
+
+## From a contract (Rust, near-sdk 5)
+
+A view method can be called across contracts like any other method; read the answer in a callback.
+
+\`\`\`rust
+#[ext_contract(ext_kredofi)]
+trait KredoFi {
+    fn get_borrower(&self, account_id: AccountId) -> Option<serde_json::Value>;
+}
+
+pub fn check_income(&mut self) -> Promise {
+    let user = env::predecessor_account_id();
+    ext_kredofi::ext("kredofi.near".parse().unwrap())
+        .with_static_gas(Gas::from_tgas(5))
+        .get_borrower(user.clone())
+        .then(Self::ext(env::current_account_id()).with_static_gas(Gas::from_tgas(10)).on_kredofi(user))
+}
+
+#[private]
+pub fn on_kredofi(&mut self, user: AccountId,
+                  #[callback_result] r: Result<Option<serde_json::Value>, PromiseError>) -> bool {
+    let Ok(Some(b)) = r else { return false };
+    let score = &b["score"];
+    let ok = !score.is_null() && score["expired"] == false && b["blocked"] == false
+        && matches!(score["band"].as_str(), Some("A" | "B"));
+    // store or act on \`ok\` for \`user\`
+    ok
+}
+\`\`\`
+
+## Check before you rely on it
+
+- **Mode.** Trust a score as enclave-made only if \`get_config\` says \`scorer_mode: "OutLayer"\` (mainnet). On the testnet contract (\`Dev\`), scores are submitted by our server.
+- **Version.** \`score.scorer_version\` is the SHA-256 of the scorer that made it. Compare it with the pinned version you have checked yourself ([Verify it yourself](/docs/verify)).
+- **Freshness.** Scores last 30 days (\`expires_at\`, nanoseconds). An expired score reads \`expired: true\` and a limit of 0.
+- **Who controls the account.** A score proves that someone's bank data was scored for this NEAR account. It doesn't prove who holds the account's keys today.
+
+## What it never reveals
+
+No transactions, balances, account numbers, bank names or the borrower's name: none of these reach the chain, and no view returns the sealed name (\`sealed_identity\` has no view at all).
+
+What it does reveal, publicly, to everyone:
+- the band, the score and the KredoFi loan history (level, loans, repayments, defaults);
+- \`income_cap\`, which is half of the average monthly income rounded down to $50 and capped at $1,000. Below $2,000 a month it narrows income to a $100 range; above that it says only "at least $2,000".
+- a keyed \`fingerprint\` of the bank identity, which can't be reversed but is the same for every score of that bank identity.
+`,
+  },
+  {
     slug: 'security',
     title: 'Security',
     summary: 'What we protect, what we don’t, and the known limits, in plain language.',
@@ -455,14 +535,14 @@ The demo's server routes (\`/api/score\`, \`/api/relay\`, \`/api/demo\`, \`/api/
 
 - **Your bank data** is read only by the pinned scorer, inside the enclave on mainnet. Only a band, a score, an income cap, a fingerprint and a sealed name come out.
 - **Your name** stays sealed unless you default.
-- **Scores can't be faked.** The contract accepts a score only from its own pinned OutLayer request.
+- **Scores can't be faked on mainnet.** The contract accepts a score only from its own pinned OutLayer request. On the testnet demo (Dev mode) it accepts scores from one scorer account that our server holds, so there you trust our server.
 - **Only you can ask for your score.** On mainnet the contract requires your account's signature. On the testnet demo, every score request carries a one-time challenge signed with a full-access key of your account (a NEAR NEP-413 signed message), so nobody can re-score someone else's account.
 - **Lender money.** Checked math, state written before every transfer with rollback on failure, a 10% per-borrower limit, the reserve pays first, and no owner method can move lender cash, loans or the reserve.
 
 ## What we don't protect, or only partly
 
 - **The owner can still change the code.** The contract accounts still have their full-access keys, so the owner could deploy different code, and different code could move funds. Before real money this needs locked keys, a DAO or time-locked upgrades. The mainnet pool holds no funds today.
-- **The sealing key was made outside the enclave.** The mainnet sealing key was generated by the developer and handed to OutLayer as a secret, so the developer could open sealed names. The recovery partner is simulated and its key is also held by the developer. Production would generate the key inside the enclave.
+- **The Plaid keys are also held by the developer.** The enclave's Plaid keys were handed to OutLayer by the developer, and the one-time bank token is visible on-chain for 30 minutes, so the developer could exchange it first and read that bank data (the score would then fail). Production would create and keep these keys only inside the enclave.\n- **The sealing key was made outside the enclave.** The mainnet sealing key was generated by the developer and handed to OutLayer as a secret, so the developer could open sealed names. The recovery partner is simulated and its key is also held by the developer. Production would generate the key inside the enclave.
 - **The testnet demo isn't private from us.** Its scorer runs on our server, so that server sees the data while scoring. It uses its own sealing key, sandbox banks and test money.
 - **Trust in the enclave.** We rely on Intel TDX and on OutLayer's worker registration and secrets service.
 - **The chain is public.** Your band, score, loans and repayments are linked to your NEAR account.
@@ -495,7 +575,7 @@ The full write-up is \`THREAT_MODEL.md\` in the repository.
 | Money | test USDC and test NEAR | native USDC configured; pool empty, no loans yet |
 | Accounts | no-wallet demo accounts, a relayer pays every fee, or any testnet wallet | your own wallet |
 | Loan term / grace / minimum hold | 2 min / 1 min / 1 min | 30 days / 7 days / 15 days |
-| AI summary | yes, generated on our server | no |
+| AI summary | yes: our server sends your band and rule results in words (no numbers, no bank data) to NEAR AI Cloud | no |
 | Extras in the scorer | prepared borrowers (Riya, Sam, Max, build your own); the shared sandbox login is tied to your account; a fetch receipt | none |
 
 ## Proof of the mainnet path
@@ -527,7 +607,7 @@ No. Every score request is signed with your account's own key: on mainnet by you
 
 ## Can KredoFi see my transactions?
 
-On mainnet, no: they are read inside the enclave and never leave it. On the testnet demo the scorer runs on our server, which sees them while scoring and keeps only the public output.
+On mainnet they are read inside the enclave and never leave it; the one exception is the Plaid-key caveat in [Security](/docs/security) (the developer holds the same keys). On the testnet demo the scorer runs on our server, which sees them while scoring and keeps only the public output.
 
 ## Why is my band lower than I expected?
 

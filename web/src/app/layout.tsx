@@ -6,7 +6,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'KredoFi',
-  description: 'Borrow against your payslip. Private, income-based USDC loans on NEAR.',
+  description: 'Prove your income on NEAR without showing your bank statements. First use: no-collateral USDC loans.',
 };
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#08130F' };

@@ -1,6 +1,12 @@
 # KredoFi
 
-KredoFi lends USDC on NEAR against your income instead of collateral. Your bank history is read and scored by a pinned program inside a TEE (OutLayer, Intel TDX); only a band, a score, a limit cap, a keyed fingerprint and your name sealed for a recovery partner ever reach the contract.
+**Prove your income on NEAR without showing your bank statements.**
+
+A pinned, open scorer reads six months of bank history, applies five published rules, and puts only a band, a score and a limit cap on-chain, with a keyed fingerprint and a sealed name. No transactions, balances or account numbers leave it.
+- **Mainnet** (`kredofi.near`): the scorer runs inside a TEE (OutLayer, Intel TDX), and the contract accepts a score only from its own request to the pinned build ([a real score](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu)).
+- **Testnet demo**: a testnet build of the same scorer runs on our server (Dev mode), which sees Plaid's test bank data while it scores.
+
+**First use: no-collateral USDC loans.** Borrow up to your limit, repay one fixed amount, and the limit grows. Any NEAR contract or app can read the same band and limit with view calls: [Use KredoFi scores in your app](https://kredofi.xyz/docs/integrate).
 
 **Live demo (NEAR testnet):** https://kredofi.xyz · **Documentation:** https://kredofi.xyz/docs
 
@@ -20,7 +26,7 @@ Testnet terms are shortened so the whole loop fits a demo: loan term 2 minutes, 
 
 ## The problem
 
-You can't borrow on-chain without locking up more collateral than you borrow, and proving income off-chain means handing your whole bank history to the lender. KredoFi checks income privately: a program anyone can verify reads the history inside an enclave, applies five published rules, and returns only what a lender needs.
+You can't borrow on-chain without locking up more collateral than you borrow, and proving income off-chain means handing your whole bank history to the lender. KredoFi checks income privately: a program anyone can verify reads the history (inside an enclave on mainnet), applies five published rules, and returns only what a lender needs.
 
 ## What is real and what is test
 
@@ -32,7 +38,7 @@ You can't borrow on-chain without locking up more collateral than you borrow, an
 | Bank data | Plaid sandbox (public test logins) | Plaid sandbox (no production access yet) |
 | Money | mock USDC (`musdc.kency.testnet`), test NEAR | real USDC contract configured; no loans made yet |
 | AI summary | NEAR AI Cloud, asked for by your browser after the score (band + rule results only, `web/src/app/api/summary/route.ts`) | not in the production build |
-| Web app | live (Hugging Face Space) | not deployed |
+| Web app | live at https://kredofi.xyz (Cloudflare Worker in front of a Hugging Face Space) | not deployed |
 
 Mainnet proof, all on `kredofi.near` (Nov 1, 2026):
 - Deployed in OutLayer mode: [tx Ags89jDR…](https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp); upgraded with a state migration: [tx 5fqzZSKC…](https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34).
@@ -57,7 +63,7 @@ browser ── Plaid Link (sandbox login) ──> public token
    borrow / repay / default ──> pool of lender USDC; the reserve pays losses first
 ```
 
-- **Contract** (`contracts/kredofi`, Rust, near-sdk 5): pool shares, scores, loans, levels, defaults, reserve, treasury. It trusts a score only from its own pinned OutLayer request (`on_score`, `#[private]`); a fingerprint already used by another borrower is refused (one bank identity, one borrower).
+- **Contract** (`contracts/kredofi`, Rust, near-sdk 5): pool shares, scores, loans, levels, defaults, reserve, treasury. In OutLayer mode (mainnet) it trusts a score only from its own pinned OutLayer request (`on_score`, `#[private]`); in Dev mode (the testnet demo) it also takes `dev_submit_score` from one configured scorer account; a fingerprint already used by another borrower is refused (one bank identity, one borrower).
 - **Scorer** (`scorer/`, Rust to `wasm32-wasip2`): Plaid fetch, the rules in [SPEC section 6](docs/SPEC.md), sealing (x25519 + ChaCha20-Poly1305). Its SHA-256 is the OutLayer `version_key` the contract pins.
 - **Web** (`web/`, Next.js 16): landing page, passbook (`/borrow`), lender page (`/lend`), public ledger (`/ledger`), demo scenarios (`/scenarios`); a relayer for no-wallet accounts; the Dev-mode scorer runner.
 
@@ -101,6 +107,7 @@ Every security rule in [SPEC section 7](docs/SPEC.md) has a test. Build and run 
 - On testnet every judge can use the shared sandbox login because the testnet scorer ties the sandbox identity to your NEAR account ([SPEC 8c](docs/SPEC.md)); the mainnet build keeps the strict one-identity rule.
 - The scorer is built reproducibly on x86_64 Linux in a pinned image: `./scorer/build-docker.sh` (or the GitHub workflow) gives the exact pinned bytes; builds on macOS or ARM give other hashes ([VERIFY.md](VERIFY.md) section 3).
 - Both contract accounts still have their full-access keys, so the owner can redeploy the code. Owner methods can't move lender funds or the reserve (rule 10, tested), but a redeploy could. See [THREAT_MODEL.md](THREAT_MODEL.md).
+- The developer generated the sealing keys and also holds the Plaid keys the enclave uses. The one-time Plaid token in `request_score` is visible on-chain for 30 minutes, so the developer could exchange it first and read that bank data (the score would then fail), and could open sealed names. Production would create both inside the enclave.
 - Trust assumptions: Intel TDX, OutLayer's worker registration, Plaid, NEAR AI Cloud (summary only; the score never depends on it).
 
 Built for NEAR HACKATHON, November 2026. Specification: [docs/SPEC.md](docs/SPEC.md). Build log: [docs/LOG.md](docs/LOG.md).

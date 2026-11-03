@@ -10,26 +10,32 @@ One change from the PLAN wording: the complete loop uses the real bank connectio
 2. **Max, 4 minutes before recording** (his default needs the 2-minute term plus 1-minute grace): in window B, **Use Max**, wait for the note, click **Borrow $100.00**. Leave the tab open.
 3. Window A: open the landing page and let it load once (so the intro animation is cached), then reload.
 4. Have a third tab ready on the public ledger: https://kredofi.xyz/ledger
+5. Tab 4: https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7 (receipts expanded). Tab 5: a clean terminal, 24 pt font, with the `curl … | shasum -a 256` command from https://kredofi.xyz/docs/verify typed in.
 
 ## Script
 
+The first 30 seconds are the privacy proof (the enclave and how to check it); the loan comes after.
+
 | Time | On screen (exact clicks) | Voice-over |
 |---|---|---|
-| 0:00-0:08 | Window A, landing hero "Borrow against your payslip." | "On-chain, you can't borrow without locking up more than you borrow. And proving your income means showing a lender everything." |
-| 0:08-0:15 | Scroll once: the camera dives into the enclave; the tally counts to 1000 and stamps BAND A. | "KredoFi reads your bank history inside a sealed computer and puts only a band and a limit on NEAR." |
-| 0:15-0:22 | Click **Check my limit**, then **Connect your bank (sandbox)**. Plaid opens. | "Here's the real flow, on testnet, with Plaid's public sandbox bank. No wallet needed." |
-| 0:22-0:35 | In Plaid: **Continue without phone number**, search **First Platypus**, pick **First Platypus Bank**, type `user_good` / `pass_good`, **Submit**, **Continue**, **Finish without saving**. (Speed this part up 2x in editing.) | "Plaid hands a one-time token to the scorer, never to us or to the chain." |
-| 0:35-0:50 | The "Checking your limit" box with its four phases, then "Limit checked in N s", the receipt line, the credit note stamped **BAND B, $75**, the five rule rows. | "The pinned scorer pulled 386 transactions, applied five published rules, and kept none of it. The receipt shows counts, never the transactions." |
-| 0:50-0:57 | Point at the right rail, "What left the enclave": the JSON with band, score, fingerprint, sealed_identity. | "This one line is everything that left: a band, a keyed fingerprint so one bank backs one borrower, and the name sealed for a recovery partner." |
-| 0:57-1:07 | Click **Borrow $75.00**. "Loan issued" appears with "Repay after 0:5x to level up". Click **Repay $79.50**. The Repaid entry and PAID stamp appear. | "Borrow, repay. Interest is split: half to lenders, half to the treasury. Hold the loan longer and your limit grows." |
-| 1:07-1:13 | Click the transaction link under Repaid; testnet.nearblocks.io opens on that transaction. | "Every step is a real transaction on NEAR." |
-| 1:13-1:28 | Window B, `/scenarios`: click **Try another scenario**, **Use Sam**. The note stamped **NOT THIS TIME** and "What would change this". | "Sam is refused, and he's told why: income in only four of six months, four overdraft fees. Lenders only see the band." |
-| 1:28-1:45 | Switch to Max's tab (borrowed 4 minutes ago). Click **Mark as defaulted**, then **Release the name to the recovery partner**. The Defaulted entry: "Reserve paid the pool back first", "sealed, then opened". | "Max looked perfect and never paid. After the grace period anyone can mark the default: the reserve pays lenders first, and only now is his sealed name opened, for the recovery partner." |
-| 1:45-1:55 | Ledger tab: the newest rows (Default, the reserve paid; Loan repaid; Score issued, band B), then the Verify panel. | "The public ledger shows every score and loan, and the scorer's hash that anyone can check." |
-| 1:55-2:00 | End card: "KredoFi, built at NEAR HACKATHON" and the live URL. | "KredoFi. Private credit on NEAR." |
+| 0:00-0:06 | Window A, landing hero "Prove your income on NEAR without showing your bank statements." | "To borrow, you prove your income by handing a lender every bank statement. KredoFi proves it without showing them." |
+| 0:06-0:14 | Scroll once: the camera dives into "Inside the enclave (mainnet)"; the tally counts to 1000 and stamps BAND A. | "On mainnet a pinned scorer reads six months of history inside a sealed enclave, Intel TDX, and puts only a band and a limit on NEAR." |
+| 0:14-0:22 | Tab 4: the real mainnet score on nearblocks, [tx CNsoyGSj…](https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7). Zoom on the receipts: `request_score` -> `outlayer.near`, the log with version `7048cc92…`, then `score_issued`, band A. | "This is a real mainnet score. The contract asked OutLayer for one exact program, by its hash, and accepted the answer only in its own callback." |
+| 0:22-0:30 | Tab 5: a terminal with one command in large type, `curl -sL <pinned WASM URL from /docs/verify> \| shasum -a 256`, printing `7048cc92…`; cut to the /ledger Verify panel. | "Anyone can download that program and check the hash. Now the first use, a loan, live on testnet." |
+| 0:30-0:36 | Window A: **Check my limit**, then **Connect your bank (sandbox)**. Plaid opens. | "This demo is testnet: Plaid's sandbox bank, test money, and the same rules running on our server instead of the enclave. No wallet needed." |
+| 0:36-0:46 | In Plaid: **Continue without phone number**, search **First Platypus**, pick **First Platypus Bank**, `user_good` / `pass_good`, **Submit**, **Continue**, **Finish without saving**. (2x speed.) | "Plaid hands back a one-time token. The scorer uses it once and removes the bank connection." |
+| 0:46-0:57 | "Limit checked in N s", the receipt line, the credit note stamped **BAND B, $75**, the five rule rows. | "The scorer pulled 386 transactions, applied five published rules, and kept none of them." |
+| 0:57-1:02 | Point at the right rail, "What left the scorer": band, score, fingerprint, sealed_identity. | "This line is all that went on-chain: a band, a keyed fingerprint so one bank backs one borrower, and a sealed name." |
+| 1:02-1:11 | **Borrow $75.00**; "Loan issued" with the countdown. **Repay $79.50**; Repaid and the PAID stamp. | "Borrow, repay, and your limit grows." |
+| 1:11-1:15 | Click the transaction link under Repaid; testnet.nearblocks.io opens. | "Every step is a real NEAR transaction." |
+| 1:15-1:27 | Window B, `/scenarios`: **Try another scenario**, **Use Sam**. **NOT THIS TIME** and "What would change this". | "Sam is refused and told why. Lenders only see the band." |
+| 1:27-1:42 | Max's tab (borrowed 4 minutes ago): **Mark as defaulted**, then **Release the name to the recovery partner**. | "Max never paid. Anyone can mark the default; the reserve pays lenders first, and only now is his sealed name opened, for the recovery partner." |
+| 1:42-1:53 | Ledger tab: the newest rows, then the Verify panel. | "Every score and loan is public; the bank data never is." |
+| 1:53-2:00 | End card: "KredoFi. Prove your income on NEAR. Built at NEAR HACKATHON" and https://kredofi.xyz. | "KredoFi. Prove your income on NEAR without showing your statements." |
 
 ## Notes
 
 - On mainnet the same scorer runs inside Intel TDX through OutLayer ([tx 4dgHrA97…](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu)). Say "testnet" once on camera; the banner on every app screen says it too.
 - If scoring takes longer than 20 s, cut the wait in editing and keep the "Limit checked in N s" title visible.
-- Don't show `.env`, terminal windows or the Hugging Face settings.
+- Don't show `.env`, other terminal windows, the Cloudflare or Hugging Face settings. The only terminal on camera is the one-command hash check.
+- If the testnet demo moves into OutLayer (docs/ENCLAVE_PLAN.md), change the 0:30 line to "the same enclave, with test money" and the rail title back to "What left the enclave".
