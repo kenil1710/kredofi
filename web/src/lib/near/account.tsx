@@ -15,6 +15,9 @@ type AccountCtx = {
   accountId: string | null;
   kind: 'wallet' | 'demo' | null;
   signAndSend: (receiverId: string, actions: Action[]) => Promise<unknown>;
+  /** Signed and paid by the account itself (no relayer): request_score needs signer == borrower
+   *  (OutLayer mode). Resolves with the final outcome, all receipts included. */
+  signDirect: (receiverId: string, actions: Action[]) => Promise<{ transaction?: { hash?: string }; transaction_outcome?: { id?: string }; receipts_outcome?: { outcome: Record<string, unknown> }[] }>;
   createDemo: () => Promise<string>;
   /** Wallet accounts: the reply key derived from a fixed signed message (same in any browser). Null for demo accounts. */
   walletReplyKey: (accountId: string, opts?: { refresh?: boolean }) => Promise<{ secret: string; public: string } | null>;
@@ -124,6 +127,24 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
         const hash = (out as { transaction?: { hash?: string } })?.transaction?.hash;
         if (hash) fetch('/api/ledger/report', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ hash, signer: wallet.accountId }) }).catch(() => {});
         return out;
+      },
+      signDirect: async (receiverId, acts) => {
+        let out: unknown;
+        const d = kind === 'wallet' ? null : loadDemo(slot);
+        if (d) {
+          const { Account, JsonRpcProvider, actions } = await import('near-api-js');
+          const a = new Account(d.accountId, new JsonRpcProvider({ url: RPC }), d.secretKey as `ed25519:${string}`);
+          out = await a.signAndSendTransaction({
+            receiverId, waitUntil: 'EXECUTED_OPTIMISTIC', throwOnFailure: false,
+            actions: acts.map((x) => actions.functionCall(x.params.methodName, x.params.args, BigInt(x.params.gas), BigInt(x.params.deposit))),
+          });
+        } else if (kind === 'wallet') out = await wallet.signAndSend(receiverId, acts);
+        else throw new Error('No account yet.');
+        const o = out as { transaction?: { hash?: string }; transaction_outcome?: { id?: string } };
+        const hash = o?.transaction?.hash ?? o?.transaction_outcome?.id;
+        const signer = d?.accountId ?? wallet.accountId;
+        if (hash && signer) fetch('/api/ledger/report', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ hash, signer }) }).catch(() => {});
+        return JSON.parse(JSON.stringify(out, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
       },
       createDemo,
       proveScore,

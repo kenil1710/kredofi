@@ -4,6 +4,10 @@
 //
 //   set -a; source .env; set +a      # PLAID_CLIENT_ID, PLAID_SECRET (sandbox), never printed
 //   OL_CONTRACT=<throwaway>.testnet OL_BORROWER=<faucet account>.testnet node scripts/testnet_outlayer_check.mjs
+//   + OL_ATTACKER=<another faucet account>.testnet: the attacker first submits a copy of the borrower's
+//     sealed token from its own account (audit H1). Expected: score_failed "sealed for another
+//     account", the token is not used up, and the borrower's own request then scores.
+// The token is sealed to the scorer's TESTNET token key (TOKEN_PUBKEY, default below; scripts/token_pubkey.mjs).
 //
 // The borrower's key is in ~/.near-credentials/testnet. The bank data is a Plaid
 // SANDBOX custom user (Riya's profile); the public token is created here, which is what the web
@@ -14,7 +18,7 @@ import { Account, JsonRpcProvider, actions } from 'near-api-js';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { keypair, openSealed } from './lib/seal.mjs';
+import { keypair, openSealed, sealToken } from './lib/seal.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const RPC = 'https://test.rpc.fastnear.com';
@@ -61,10 +65,37 @@ const { private_key } = JSON.parse(readFileSync(join(homedir(), '.near-credentia
 const dev = new Account(DEV, provider, private_key);
 const before = await balance(DEV);
 console.log(`borrower ${DEV.slice(0, 10)}… balance before: ${near(before)} NEAR`);
+const TOKEN_PUBKEY = process.env.TOKEN_PUBKEY ?? '86658adaeb78fb559a0c3da3d7daa075cea6f3df23b6d8bd868610656ffc4078';
+const sealed = sealToken(TOKEN_PUBKEY, DEV, pt.public_token);
+console.log(`token sealed to the scorer for ${DEV} (${sealed.length} chars)`);
+
+const waitDone = async (who) => {
+  for (let i = 0; i < 60; i++) {
+    await sleep(5000);
+    const v = await view('get_borrower', { account_id: who });
+    if (v && !v.pending_request) return v;
+    process.stdout.write('.');
+  }
+};
+if (process.env.OL_ATTACKER) {
+  const ATT = process.env.OL_ATTACKER;
+  if (!/\.testnet$/.test(ATT)) throw new Error('testnet only');
+  const k = JSON.parse(readFileSync(join(homedir(), '.near-credentials/testnet', `${ATT}.json`), 'utf8')).private_key;
+  const att = new Account(ATT, provider, k);
+  const a = await att.signAndSendTransaction({ receiverId: POOL, waitUntil: 'INCLUDED', throwOnFailure: false,
+    actions: [actions.functionCall('request_score', { public_token: sealed, reply_pubkey: keypair().public }, 150n * 10n ** 12n, FEE)] });
+  const ah = a.transaction?.hash || a.transaction_outcome?.id;
+  console.log(`attacker ${ATT} submitted the copied token: ${EXPLORER}${ah}`);
+  const av = await waitDone(ATT);
+  const atx = await rpc('EXPERIMENTAL_tx_status', { tx_hash: ah, sender_account_id: ATT, wait_until: 'FINAL' });
+  const ev = atx.receipts_outcome.flatMap((r) => r.outcome.logs).find((l) => l.includes('score_issued') || l.includes('score_failed'));
+  console.log(`\nattacker result: score ${av?.score ? 'STORED (H1 NOT FIXED)' : 'none'}; event ${ev}`);
+}
+
 const sent = await dev.signAndSendTransaction({
   receiverId: POOL,
   actions: [actions.functionCall('request_score',
-    { public_token: pt.public_token, reply_pubkey: reply.public }, 150n * 10n ** 12n, FEE)],
+    { public_token: sealed, reply_pubkey: reply.public }, 150n * 10n ** 12n, FEE)],
   waitUntil: 'INCLUDED',
   throwOnFailure: false,
 });
