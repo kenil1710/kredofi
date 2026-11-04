@@ -10,11 +10,12 @@
 //   KREDOFI_CONTRACT=<contract> node ... seed_ledger.mjs setup    # create accounts, test USDC, lender deposit
 //   KREDOFI_CONTRACT=<contract> node ... seed_ledger.mjs tick     # run every step that is due (cron, a few times a day)
 //   KREDOFI_CONTRACT=<contract> node ... seed_ledger.mjs status
+//   KREDOFI_CONTRACT=<contract> node ... seed_ledger.mjs behind   # exit 1 if more than 6 steps behind plan, or unfinished after SEED_UNTIL
 // Options: SEED_DAY_MS (default one day; 0 = everything due now, for a throwaway test contract),
 //          SEED_MAX_LOANS (loans per tick, default 6), SEED_ONLY (borrower numbers, e.g. "1,21,22": test runs).
 // Keys: the parent's key in ~/.near-credentials/testnet (create it with the faucet, see `setup`);
 // Plaid keys and SEAL_KEY_TESTNET from .env (set -a; source .env; set +a). Never printed.
-// `tick` runs on GitHub Actions (.github/workflows/seed-tick.yml, every 3 hours, testnet only), not on a
+// `tick` runs on GitHub Actions (.github/workflows/seed-tick.yml, hourly, testnet only), not on a
 // laptop: keys come from repository secrets, SEED_START from a repository variable, and the done-list
 // lives on the `seed-state` branch. Each step is also checked on-chain first (chainState), so a lost
 // state file or a run killed mid-loan never repeats or strands a loan.
@@ -200,6 +201,15 @@ export function chainState(step, b) {
   return b?.loan ? 'done' : 'todo';
 }
 
+/** How far behind plan: steps whose day has come and aren't done; `late` once the end date passed with
+ *  steps left. Pure, unit-tested. A day adds at most 6 steps, so more than 6 behind means ticks are missing. */
+export function seedProgress(steps, done, startMs, nowMs, untilMs, dayMs = 86_400_000) {
+  const day = Math.floor((nowMs - startMs) / dayMs);
+  const due = steps.filter((x) => x.day <= day).length, finished = steps.filter((x) => done[x.i]).length;
+  const behind = steps.filter((x) => x.day <= day && !done[x.i]).length;
+  return { day, due, finished, total: steps.length, behind, late: nowMs > untilMs && finished < steps.length };
+}
+
 async function setup() {
   guard();
   if (!(await exists(PARENT)) || !hasKey(PARENT)) {
@@ -269,6 +279,17 @@ async function status() {
   if (pool) console.log(`pool ${fmtUsd(pool.pool_value)}, reserve ${fmtUsd(pool.reserve)}`);
 }
 
+/** Exit 1 (red in GitHub Actions, which emails the owner) if seeding fell behind plan. */
+function behind() {
+  const s = load(), start = s.start ?? Date.parse(process.env.SEED_START ?? ''), max = Number(process.env.SEED_MAX_BEHIND ?? 6);
+  if (!start) throw new Error('no start date: seed state missing and SEED_START not set');
+  const until = Date.parse(process.env.SEED_UNTIL ?? '2026-11-13T23:59:00Z');
+  const p = seedProgress(plan(), s.done, start, Date.now(), until);
+  console.log(`${POOL}: day ${p.day}, ${p.finished} of ${p.total} steps done, ${p.due} due by now, ${p.behind} behind (limit ${max})`);
+  if (p.late) { console.log(`::error::seeding ended with ${p.total - p.finished} of ${p.total} steps not done`); process.exitCode = 1; }
+  else if (p.behind > max) { console.log(`::error::seeding is ${p.behind} steps behind plan (limit ${max}): check the seed tick runs`); process.exitCode = 1; }
+}
+
 function printPlan(scoreCheck) {
   const steps = plan(), t = planTotals(steps);
   console.log(`Seeded demo plan: ${t.loans} loans (A ${t.byBand.A[0]}, B ${t.byBand.B[0]}, C ${t.byBand.C[0]}), ${t.loans - t.defaults} repaid, ${t.defaults} defaults (B ${t.byBand.B[1]}, C ${t.byBand.C[1]}), ${t.dScores} band D scores without a loan.`);
@@ -295,5 +316,6 @@ if (/seed_ledger\.mjs$/.test(process.argv[1] ?? '')) try {
   else if (cmd === 'setup') await setup();
   else if (cmd === 'tick') await tick();
   else if (cmd === 'status') await status();
-  else { console.error('usage: seed_ledger.mjs plan [--score-check] | setup | tick | status'); process.exit(2); }
+  else if (cmd === 'behind') behind();
+  else { console.error('usage: seed_ledger.mjs plan [--score-check] | setup | tick | status | behind'); process.exit(2); }
 } catch (e) { console.error(e.message); process.exit(1); }

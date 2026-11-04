@@ -1,12 +1,23 @@
-# Demo health watch (no secrets, no transactions): every 6 hours until Nov 26, read https://kredofi.xyz/api/health
-# and fail if the site is down or the testnet reserve, relayer or contract storage is low. GitHub emails the
-# person who last changed this schedule when a scheduled run fails. Fix: ./scripts/reserve_guard.sh (reserve),
-# faucet top-up of relayer.kency.testnet (relayer), HF Space restart / credits (down). docs/DEPLOY_HF.md.
+# Demo health watch, every 6 hours. GitHub emails the person who last changed this schedule when a scheduled
+# run fails (and the person who dispatched a manual run).
+# - watch (no secrets, no transactions, until Nov 26): https://kredofi.xyz/api/health; fails if the site is down or the
+#   testnet reserve, relayer or contract storage is low. Fix: ./scripts/reserve_guard.sh (reserve), faucet top-up of
+#   relayer.kency.testnet (relayer), HF Space restart / credits (down). docs/DEPLOY_HF.md.
+# - seed-watch (until Nov 14): GitHub skips scheduled runs, so this starts a seed tick if none ran for 2 hours, and fails
+#   if seeding is more than 6 steps behind plan or unfinished after Nov 13.
+# - drift-guard (until Nov 26): real enclave scores once a day on devcheck accounts; fails if Riya 1000/A, Sam 270/D,
+#   Max 1000/A or the Plaid user_good band B moves (scripts/drift_guard.mjs). Testnet keys for those 4 accounts only.
+# - email-test (manual only): a deliberate failure, to prove the email arrives.
 name: demo health watch
 on:
   schedule:
     - cron: "41 */6 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      email_test:
+        description: "fail on purpose, to check the failure email arrives"
+        type: boolean
+        default: false
 permissions: {}
 jobs:
   watch:
@@ -27,3 +38,97 @@ jobs:
           if not h.get("ok"): bad.append("not ok")
           if bad: print("::error::" + ", ".join(bad)); sys.exit(1)
           print("healthy")'
+
+  seed-watch:
+    if: vars.SEED_CONTRACT != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    permissions:
+      contents: read
+      actions: write # start a seed tick when the schedule skipped them
+    env:
+      KREDOFI_CONTRACT: ${{ vars.SEED_CONTRACT }}
+      ALLOW_DEMO_CONTRACT: "1"
+      SEED_START: ${{ vars.SEED_START }}
+      SEED_UNTIL: "2026-11-13T23:59:00Z"
+    steps:
+      - name: guard
+        id: guard
+        run: if [ "$(date -u +%s)" -gt "$(date -u -d "2026-11-14T23:59:00Z" +%s)" ]; then echo "run=no" >> "$GITHUB_OUTPUT"; else echo "run=yes" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.guard.outputs.run == 'yes'
+        uses: actions/checkout@v4
+      - if: steps.guard.outputs.run == 'yes'
+        name: start a seed tick if none ran for 2 hours
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%s)" -gt "$(date -u -d "$SEED_UNTIL" +%s)" ]; then exit 0; fi
+          last=$(gh run list --workflow seed-tick.yml --limit 1 --json createdAt --jq '.[0].createdAt')
+          age=$(( $(date -u +%s) - $(date -u -d "$last" +%s) ))
+          echo "last seed tick $last ($((age / 60)) min ago)"
+          if [ "$age" -gt 7200 ]; then gh workflow run seed-tick.yml --ref "${{ github.event.repository.default_branch }}"; echo "started one"; fi
+      - if: steps.guard.outputs.run == 'yes'
+        name: state from the seed-state branch
+        run: |
+          mkdir -p scripts/.seed
+          git fetch -q origin seed-state
+          git show "origin/seed-state:$KREDOFI_CONTRACT.json" > "scripts/.seed/$KREDOFI_CONTRACT.json"
+      - if: steps.guard.outputs.run == 'yes'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - if: steps.guard.outputs.run == 'yes'
+        run: cd scripts && npm ci --no-audit --no-fund
+      - if: steps.guard.outputs.run == 'yes'
+        name: not behind plan
+        run: node --experimental-strip-types scripts/seed_ledger.mjs behind
+
+  drift-guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: guard
+        id: guard
+        run: if [ "$(date -u +%s)" -gt "$(date -u -d "2026-11-26T23:59:00Z" +%s)" ]; then echo "run=no" >> "$GITHUB_OUTPUT"; else echo "run=yes" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.guard.outputs.run == 'yes'
+        uses: actions/checkout@v4
+      - if: steps.guard.outputs.run == 'yes'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - if: steps.guard.outputs.run == 'yes'
+        run: cd scripts && npm ci --no-audit --no-fund
+      - if: steps.guard.outputs.run == 'yes'
+        name: testnet keys of the devcheck accounts (never printed)
+        env:
+          DEVCHECK_TESTNET_KEYS: ${{ secrets.DEVCHECK_TESTNET_KEYS }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          d = os.path.expanduser('~/.near-credentials/testnet'); os.makedirs(d, mode=0o700, exist_ok=True)
+          ok = re.compile(r'^devcheck-(riya|sam|max|plaid)\.relayer\.kency\.testnet$')
+          keys = json.loads(os.environ['DEVCHECK_TESTNET_KEYS'])
+          for acct, pk in keys.items():
+              if not ok.match(acct): raise SystemExit(f'unexpected account in DEVCHECK_TESTNET_KEYS: {acct}')
+              with open(os.open(os.path.join(d, acct + '.json'), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w') as f: json.dump({'account_id': acct, 'private_key': pk}, f)
+          print(f'{len(keys)} testnet keys installed')
+          PY
+      - if: steps.guard.outputs.run == 'yes'
+        name: score and compare
+        env:
+          PLAID_CLIENT_ID: ${{ secrets.PLAID_CLIENT_ID }}
+          PLAID_SECRET: ${{ secrets.PLAID_SECRET }}
+        run: node --experimental-strip-types scripts/drift_guard.mjs check
+      - if: always()
+        name: remove keys
+        run: rm -rf ~/.near-credentials
+
+  email-test:
+    if: github.event_name == 'workflow_dispatch' && inputs.email_test
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::Deliberate failure: this is the KredoFi failure-email test, nothing is wrong."
+          exit 1

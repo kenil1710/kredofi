@@ -1,5 +1,5 @@
 # Seeded demo activity for the testnet ledger (SPEC 8d, docs/LEDGER_PLAN.md): runs
-# `scripts/seed_ledger.mjs tick` every 3 hours on GitHub's runners, so seeding never depends on a laptop
+# `scripts/seed_ledger.mjs tick` every hour on GitHub's runners (it skips scheduled runs, and a tick is idempotent), so seeding never depends on a laptop
 # being awake. Testnet only. Does nothing until the repository variable SEED_CONTRACT is set (that is
 # the switch, set only after the owner's yes), and stops by itself after Nov 13.
 #
@@ -11,7 +11,7 @@
 name: seed tick (testnet)
 on:
   schedule:
-    - cron: "17 */3 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       contract:
@@ -115,6 +115,9 @@ jobs:
           if [ -n "$DAY_MS_INPUT" ]; then export SEED_DAY_MS="$DAY_MS_INPUT"; fi
           node --experimental-strip-types scripts/seed_ledger.mjs tick
           node --experimental-strip-types scripts/seed_ledger.mjs status
+      - if: always() && steps.guard.outputs.run == 'yes'
+        name: not behind plan (more than 6 steps behind goes red, and GitHub emails the owner)
+        run: node --experimental-strip-types scripts/seed_ledger.mjs behind
       - if: always() && steps.guard.outputs.run == 'yes'
         name: save state to the seed-state branch
         run: |

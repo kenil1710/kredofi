@@ -56,4 +56,5 @@ test('developer rows never count as visitors or seeded, and labels name the UTC 
   assert.equal(devCheckLabel(nov4), 'Developer check (Nov 4)');
   assert.equal(devCheckCaption(devCheckTimes(events)), 'Developer check (Nov 4)');
   assert.equal(devCheckCaption([nov5, nov4, nov4]), 'Developer check (Nov 4, Nov 5)');
+  assert.equal(devCheckCaption([nov4, nov5, Date.UTC(2026, 10, 26)]), 'Developer check (Nov 4 to Nov 26)');
 });

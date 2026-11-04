@@ -94,6 +94,9 @@ node --test scripts/seal.test.mjs   # JS <-> Rust seal compatibility
 # live retests on kredofi.xyz: ONLY on devcheck… accounts (scripts/lib/devcheck.mjs), never /api/demo, so /ledger tags them
 # "Developer check" and keeps them out of the visitor numbers (SPEC 8d). Real enclave scores with timings:
 PW=~/.npm/_npx/<hash>/node_modules N=10 node scripts/devcheck_scores.mjs
+# daily enclave drift guard and seeding-behind check run in .github/workflows/health-watch.yml (SPEC 8d); locally:
+node --experimental-strip-types scripts/drift_guard.mjs check
+node --experimental-strip-types --test scripts/seed_ledger.test.mjs scripts/drift_guard.test.mjs
 # after any retest with a default, top the live reserve back to $500:
 ALLOW_DEMO_CONTRACT=1 KREDOFI_CONTRACT=app.kency.testnet MIN_USD=499 ./scripts/reserve_guard.sh
 # web (Next.js 16): lib unit tests, typecheck, production build; component sheet at /dev/components

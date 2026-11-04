@@ -23,7 +23,10 @@ const day = (ms: number) => { const d = new Date(ms); return `${MONTHS[d.getUTCM
 /** "Developer check (Nov 4)": the UTC day of the row. */
 export const devCheckLabel = (ms: number) => `Developer check (${day(ms)})`;
 /** Caption of the band table: every day with developer rows, oldest first. */
-export const devCheckCaption = (days: number[]) => `Developer check (${[...new Set([...days].sort((a, b) => a - b).map(day))].join(', ') || 'none yet'})`;
+export const devCheckCaption = (days: number[]) => {
+  const d = [...new Set([...days].sort((a, b) => a - b).map(day))];
+  return `Developer check (${d.length > 2 ? `${d[0]} to ${d.at(-1)}` : d.join(', ') || 'none yet'})`; // daily checks would make a long list
+};
 
 export const isDevCheck = (account: unknown): boolean => typeof account === 'string' && (DEV_CHECK_PATTERN.test(account) || DEV_CHECK_NOV4.has(account));
 export const isSeeded = (account: unknown): boolean => typeof account === 'string' && SEED_PATTERN.test(account);
