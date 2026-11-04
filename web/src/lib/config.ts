@@ -13,6 +13,8 @@ export const OUTLAYER_CONTRACT = NETWORK === 'mainnet' ? 'outlayer.near' : 'outl
 export const TOKEN_PUBKEY = process.env.NEXT_PUBLIC_SCORER_TOKEN_PUBKEY
   ?? (NETWORK === 'mainnet' ? 'ddd29784c75beca2e6fcd4656e98b118dbdadf9d859092f5cf4048f66306795e' : '86658adaeb78fb559a0c3da3d7daa075cea6f3df23b6d8bd868610656ffc4078');
 export const KREDOFI_CONTRACT = process.env.NEXT_PUBLIC_KREDOFI_CONTRACT ?? 'kredofi.kency.testnet';
+/** The testnet contract of Nov 1–4 (Dev mode, v3): kept on-chain as the record of our own test runs. */
+export const EARLIER_TESTNET_CONTRACT = 'kredofi.kency.testnet';
 export const USDC_CONTRACT = process.env.NEXT_PUBLIC_USDC_CONTRACT ?? 'musdc.kency.testnet';
 export const EXPLORER = NETWORK === 'mainnet' ? 'https://nearblocks.io/txns/' : 'https://testnet.nearblocks.io/txns/';
 export const RPC = NETWORK === 'mainnet' ? 'https://rpc.mainnet.fastnear.com' : 'https://test.rpc.fastnear.com';

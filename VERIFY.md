@@ -75,13 +75,13 @@ Expected: band `A`, score `1000`, `scorer_version` `6888c15e…`. There is no `s
 
 ## 6. The testnet demo
 
-The live demo runs on testnet in Dev mode, where the server runs the pinned demo scorer and submits its output. Check what it pins and that it matches the server's file:
+Since Nov 4 the live demo runs on `app.kency.testnet` (contract v4) in **OutLayer mode**, like mainnet: the borrower signs `request_score`, OutLayer testnet runs the pinned testnet scorer inside Intel TDX, and the contract accepts the answer only in `on_score`. Check the mode and the pin:
 
 ```bash
-curl -s https://kredofi.xyz/api/ledger | python3 -c "import json,sys;print(json.load(sys.stdin)['config']['scorer_version'])"
+curl -s https://kredofi.xyz/api/ledger | python3 -c "import json,sys;c=json.load(sys.stdin)['config'];print(c['scorer_mode'],c['scorer_version'],c['scorer_delay_ns'])"
 ```
 
-Expected: `ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9`. The server refuses to score if its WASM's hash differs from the pinned value (`web/src/server/scorer.ts`, `checkPinned`), and the container build refuses a WASM with any other hash (`deploy/hf/Dockerfile`).
+Expected: `OutLayer 0515ebcad56ec6569a13a9fdc76e523025c6fd3daed399d4560604c8262e03b9 60000000000` (a 1-minute re-pin time lock on testnet). That build is published at `https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fa82707fd3a3d8a27513b8ab397d6ccb43aafe5f/kredofi_scorer_testnet.wasm` (OutLayer logs this URL in every request). The Nov 1–4 testnet contract `kredofi.kency.testnet` (Dev mode: our server ran demo build `ac8e2a9c…` and submitted its output) now holds only our own test runs; its history stays on-chain.
 
 Every event on [the public ledger](https://kredofi.xyz/ledger) links to its transaction on `testnet.nearblocks.io`; the ledger trusts only logs from receipts executed by the KredoFi contract itself (`web/src/lib/events.ts`, tested).
 

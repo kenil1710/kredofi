@@ -585,7 +585,7 @@ The full write-up is \`THREAT_MODEL.md\` in the repository.
     body: `
 | | Testnet demo | Mainnet |
 |---|---|---|
-| Contract | \`${T_CONTRACT}\` | \`kredofi.near\` |
+| Contract | \`${T_CONTRACT}\`${T_CONTRACT !== 'kredofi.kency.testnet' ? ' (since 4 November; before that \`kredofi.kency.testnet\`, Dev mode, now only our own test runs, history kept on-chain: [explorer](https://testnet.nearblocks.io/address/kredofi.kency.testnet))' : ''} | \`kredofi.near\` |
 | Scoring | ${ENC ? '**OutLayer** (`outlayer.testnet`), Intel TDX; the contract accepts a score only in its own callback' : '**Dev mode**: the pinned scorer runs on our server; the server submits its output'} | **OutLayer**, Intel TDX; the contract accepts a score only in its own callback |
 | Pinned scorer | testnet build \`${TESTNET_SCORER.slice(0, 8)}…\` | production build \`${MAINNET_SCORER.slice(0, 8)}…\` |
 | Bank data | Plaid sandbox | Plaid sandbox (no production access yet) |
@@ -602,6 +602,7 @@ The full write-up is \`THREAT_MODEL.md\` in the repository.
 - Re-pinned to the reproducible build \`7048cc92…\` and scored again inside OutLayer (band A, 1,000, 7.6 seconds): [transaction](${TX_SCORE_NOV2}) (2 November).
 - Contract upgraded with a state migration: [transaction](${TX_MIGRATE}).
 - Security review fixes (3 November; an AI-assisted review, not a professional audit): contract v3, lender deposits locked until real bank data ([transaction](${TX_V3})); scorer \`${MAINNET_SCORER.slice(0, 8)}…\` with sealed bank tokens pinned ([transaction](${TX_PIN})) and scored with a sealed token inside OutLayer (band A, 1,000, 8.5 seconds): [transaction](${TX_SCORE}).
+- Security review 2 fixes and a 24-hour time lock on scorer re-pins (4 November): contract v4 ([transaction](${TX_V4})).
 - Live view of all of this: [Mainnet proof](/mainnet).
 
 How to check these yourself: [Verify it yourself](/docs/verify).

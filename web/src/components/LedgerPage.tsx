@@ -5,7 +5,7 @@ import Link from 'next/link';
 // get_stats, and a Verify panel. Everything here is public chain data.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { describe, type LedgerEvent } from '@/lib/events';
-import { EXPLORER, KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
+import { EARLIER_TESTNET_CONTRACT, EXPLORER, KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
 import { pendingScorerText, type PinConfig } from '@/lib/pin';
 import { relativeTime, usd } from '@/lib/format';
 import { HashLink } from './HashLink';
@@ -127,6 +127,7 @@ export function LedgerPage() {
           <dl>
             <dt>Contract</dt><dd><a href={`${EXPLORER.replace('/txns/', '/address/')}${KREDOFI_CONTRACT}`} target="_blank" rel="noreferrer">{KREDOFI_CONTRACT}</a></dd>
             <dt>Network</dt><dd>{NETWORK}</dd>
+            {KREDOFI_CONTRACT !== EARLIER_TESTNET_CONTRACT && <><dt>Earlier contract</dt><dd><a href={`${EXPLORER.replace('/txns/', '/address/')}${EARLIER_TESTNET_CONTRACT}`} target="_blank" rel="noreferrer">{EARLIER_TESTNET_CONTRACT}</a> (Nov 1–4, Dev mode: our own test runs, including the default-path tests; its history stays on-chain)</dd></>}
             <dt>Scoring</dt><dd>{data ? (data.config.scorer_mode === 'Dev' ? 'Dev mode: the pinned scorer runs on our server (testnet)' : 'OutLayer: inside Intel TDX') : '…'}</dd>
             <dt>Pinned scorer</dt><dd>{data?.config.scorer_version ?? '…'}</dd>
             <dt>Pending scorer change</dt><dd>{pendingScorerText(data?.config, Date.now())}</dd>
