@@ -69,15 +69,15 @@ export function estimate(c) {
 }
 
 /** 29 loans (A 12, B 11, C 6), 27 repaid, 2 defaults (one B, one C, never A), plus 3 band D scores,
- *  spread over 8 days. Each step: { day, kind: 'loan' | 'score', borrower, share, defaults }. */
+ *  spread over 10 days (Nov 4-13, owner's decision Nov 4). Each step: { day, kind: 'loan' | 'score', borrower, share, defaults }. */
 export function plan() {
   const r = rng(2026), steps = [];
   const firsts = [...Array(21)].map((_, i) => i + 1);
   const seconds = [1, 2, 3, 4, 9, 10, 11, 17];
   const defaulters = new Set([16, 21]); // band B and band C, single loans
-  for (const n of firsts) steps.push({ day: Math.floor(r() * 5), kind: 'loan', n, share: 0.6 + 0.4 * r(), defaults: defaulters.has(n) });
-  for (const n of seconds) { const first = steps.find((s) => s.n === n).day; steps.push({ day: Math.min(7, first + 2 + Math.floor(r() * 3)), kind: 'loan', n, share: 0.55 + 0.45 * r(), defaults: false, second: true }); }
-  for (const n of [22, 23, 24]) steps.push({ day: 1 + Math.floor(r() * 6), kind: 'score', n });
+  for (const n of firsts) steps.push({ day: Math.floor(r() * 7), kind: 'loan', n, share: 0.6 + 0.4 * r(), defaults: defaulters.has(n) });
+  for (const n of seconds) { const first = steps.find((s) => s.n === n).day; steps.push({ day: Math.min(9, first + 2 + Math.floor(r() * 3)), kind: 'loan', n, share: 0.55 + 0.45 * r(), defaults: false, second: true }); }
+  for (const n of [22, 23, 24]) steps.push({ day: 1 + Math.floor(r() * 9), kind: 'score', n });
   steps.sort((a, b) => a.day - b.day || (a.second ? 1 : 0) - (b.second ? 1 : 0) || a.n - b.n);
   return steps.map((s, i) => ({ ...s, i, borrower: id(s.n), band: bandOfN(s.n) }));
 }
