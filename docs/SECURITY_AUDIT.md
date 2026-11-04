@@ -105,6 +105,10 @@ No new score transaction was needed: the pin (`6888c15e…`), OutLayer mode and 
 
 Every future mainnet re-pin now takes 24 h: publish the build and add it to OutLayer, propose, and 24 h later move the secrets lock and apply back to back.
 
+## Open for the Pilot: time-lock `production_data`
+
+Found Nov 4 while writing the trust table. `set_production_data` (`contracts/kredofi/src/params.rs`) takes effect at once: the owner can unlock lender deposits on `kredofi.near` with no public wait, unlike a scorer re-pin (24 h). Accepted for the MVP on the owner's decision, because the pool holds $0, and disclosed on `/trust` and `/docs/security`. On the Pilot list: **time-lock `production_data`**.
+
 ## Locking `kredofi.near` (not done)
 
 Locking means deleting the contract account's last full-access key.

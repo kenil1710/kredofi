@@ -1,5 +1,5 @@
 # Seeded demo activity for the testnet ledger (SPEC 8d, docs/LEDGER_PLAN.md): runs
-# `scripts/seed_ledger.mjs tick` every hour on GitHub's runners (it skips scheduled runs, and a tick is idempotent), so seeding never depends on a laptop
+# `scripts/seed_ledger.mjs tick` every hour on GitHub's runners, dispatched by the Cloudflare Worker kredofi-cron (GitHub skips scheduled runs; its own schedule stays as a second trigger, and a tick is idempotent), so seeding never depends on a laptop
 # being awake. Testnet only. Does nothing until the repository variable SEED_CONTRACT is set (that is
 # the switch, set only after the owner's yes), and stops by itself after Nov 13.
 #

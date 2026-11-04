@@ -27,10 +27,8 @@ test('seeded numbers per band, and visitors = contract totals minus seeded', () 
   const seeded = seededStats(events);
   assert.deepEqual(seeded.B, { scored: 1, loans_issued: 1, repaid: 0, defaulted: 1, volume: '75000000' });
   assert.deepEqual(seeded.A, { scored: 0, loans_issued: 0, repaid: 0, defaulted: 0, volume: '0' });
-  const total = { A: { scored: 1, loans_issued: 1, repaid: 1, defaulted: 0, volume: '100000000' }, B: { scored: 1, loans_issued: 1, repaid: 0, defaulted: 1, volume: '75000000' }, C: { scored: 0, loans_issued: 0, repaid: 0, defaulted: 0, volume: '0' }, D: { scored: 0, loans_issued: 0, repaid: 0, defaulted: 0, volume: '0' } };
-  const vis = visitorStats(total, seeded);
-  assert.deepEqual(vis.A, total.A);
-  assert.deepEqual(vis.B, { scored: 0, loans_issued: 0, repaid: 0, defaulted: 0, volume: '0' });
+  assert.deepEqual(visitorStats(events).A, { scored: 1, loans_issued: 1, repaid: 1, defaulted: 0, volume: '100000000' });
+  assert.deepEqual(visitorStats(events).B, { scored: 0, loans_issued: 0, repaid: 0, defaulted: 0, volume: '0' });
 });
 
 test('developer checks: the prefix under accounts only we control, plus the 11 retest accounts of Nov 4', () => {
@@ -51,8 +49,9 @@ test('developer rows never count as visitors or seeded, and labels name the UTC 
   const dev = devCheckStats(events), seeded = seededStats(events);
   assert.deepEqual(dev.A, { scored: 1, loans_issued: 1, repaid: 0, defaulted: 1, volume: '100000000' });
   assert.equal(seeded.A.scored, 1);
-  const total = { A: { scored: 3, loans_issued: 1, repaid: 0, defaulted: 1, volume: '100000000' }, B: dev.B, C: dev.C, D: dev.D };
-  assert.deepEqual(visitorStats(total, seeded, dev).A, { scored: 1, loans_issued: 0, repaid: 0, defaulted: 0, volume: '0' });
+  assert.deepEqual(visitorStats(events).A, { scored: 1, loans_issued: 0, repaid: 0, defaulted: 0, volume: '0' });
+  // A score the contract counted but the index hasn't delivered yet can't appear as a visitor: only rows count.
+  assert.equal(visitorStats([]).A.scored, 0);
   assert.equal(devCheckLabel(nov4), 'Developer check (Nov 4)');
   assert.equal(devCheckCaption(devCheckTimes(events)), 'Developer check (Nov 4)');
   assert.equal(devCheckCaption([nov5, nov4, nov4]), 'Developer check (Nov 4, Nov 5)');

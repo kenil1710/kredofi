@@ -94,6 +94,8 @@ node --test scripts/seal.test.mjs   # JS <-> Rust seal compatibility
 # live retests on kredofi.xyz: ONLY on devcheck… accounts (scripts/lib/devcheck.mjs), never /api/demo, so /ledger tags them
 # "Developer check" and keeps them out of the visitor numbers (SPEC 8d). Real enclave scores with timings:
 PW=~/.npm/_npx/<hash>/node_modules N=10 node scripts/devcheck_scores.mjs
+# hourly seed tick and 6-hourly health watch are dispatched by the Cloudflare Worker kredofi-cron (deploy/cloudflare/cron.js):
+set -a; source .env; set +a; python3 scripts/cf_worker.py cron
 # daily enclave drift guard and seeding-behind check run in .github/workflows/health-watch.yml (SPEC 8d); locally:
 node --experimental-strip-types scripts/drift_guard.mjs check
 node --experimental-strip-types --test scripts/seed_ledger.test.mjs scripts/drift_guard.test.mjs

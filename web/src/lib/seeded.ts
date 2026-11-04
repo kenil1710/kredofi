@@ -68,13 +68,6 @@ function statsFor(events: LedgerEvent[], matches: (account: unknown) => boolean)
   return out;
 }
 
-/** Visitors = the contract's own totals minus the seeded and developer parts (never below zero while the index lags). */
-export function visitorStats(total: Bands, ...parts: Bands[]): Bands {
-  const out = empty();
-  for (const b of ['A', 'B', 'C', 'D'] as const) {
-    const t = total[b] ?? z(), sum = (k: 'scored' | 'loans_issued' | 'repaid' | 'defaulted') => Math.max(0, parts.reduce((n, p) => n - p[b][k], t[k]));
-    const vol = parts.reduce((n, p) => n - BigInt(p[b].volume), BigInt(t.volume));
-    out[b] = { scored: sum('scored'), loans_issued: sum('loans_issued'), repaid: sum('repaid'), defaulted: sum('defaulted'), volume: (vol > 0n ? vol : 0n).toString() };
-  }
-  return out;
-}
+/** Visitors = indexed rows whose account is neither seeded nor a developer check. Counted up from known
+ *  rows, not by subtracting from the contract's totals, so a row is never a visitor before its tag is known. */
+export const visitorStats = (events: LedgerEvent[]): Bands => statsFor(events, (a) => typeof a === 'string' && !isSeeded(a) && !isDevCheck(a));

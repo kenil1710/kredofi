@@ -738,6 +738,7 @@ KredoFi today is a **hackathon MVP**: it works end to end on testnet, and the ma
 - **Owner role behind a multisig**; the **time lock on scorer re-pins** is already built (24 hours on mainnet), so users can leave before a new scorer applies; then the contract keys are locked (below).
 - **A capped pool**: small loans and a hard limit on total lending while the default rate is measured.
 - The sealing key and the Plaid keys created inside the enclave, so nobody else holds them.
+- **Time-lock \`production_data\`**: today the owner can switch it on at once, which unlocks lender deposits with no public wait.
 - A real recovery partner that holds its own key, and the OutLayer secrets owner behind the same multisig. The full list of who holds what today is in [Security](/docs/security).
 
 ## India: RBI Account Aggregator

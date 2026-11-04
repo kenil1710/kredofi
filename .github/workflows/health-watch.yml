@@ -7,6 +7,8 @@
 #   if seeding is more than 6 steps behind plan or unfinished after Nov 13.
 # - drift-guard (until Nov 26): real enclave scores once a day on devcheck accounts; fails if Riya 1000/A, Sam 270/D,
 #   Max 1000/A or the Plaid user_good band B moves (scripts/drift_guard.mjs). Testnet keys for those 4 accounts only.
+# Triggers: the Cloudflare Worker kredofi-cron dispatches this every 6 hours and the seed tick hourly (GitHub's own
+# schedule skips runs, and stays as a second trigger). Runs queue, so two drift scores never collide.
 # - email-test (manual only): a deliberate failure, to prove the email arrives.
 name: demo health watch
 on:
@@ -19,6 +21,9 @@ on:
         type: boolean
         default: false
 permissions: {}
+concurrency:
+  group: health-watch
+  cancel-in-progress: false
 jobs:
   watch:
     runs-on: ubuntu-latest
@@ -67,6 +72,8 @@ jobs:
           age=$(( $(date -u +%s) - $(date -u -d "$last" +%s) ))
           echo "last seed tick $last ($((age / 60)) min ago)"
           if [ "$age" -gt 7200 ]; then gh workflow run seed-tick.yml --ref "${{ github.event.repository.default_branch }}"; echo "started one"; fi
+          # The alarm for a dead cron: Cloudflare emails nobody when kredofi-cron fails, so go red here.
+          if [ "$age" -gt 10800 ]; then echo "::error::no seed tick for $((age / 3600)) h: check the Cloudflare Worker kredofi-cron (logs, GH_DISPATCH_TOKEN, expires Dec 5)"; exit 1; fi
       - if: steps.guard.outputs.run == 'yes'
         name: state from the seed-state branch
         run: |

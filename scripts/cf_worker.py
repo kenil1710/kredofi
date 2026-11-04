@@ -3,6 +3,8 @@
   set -a; source .env; set +a      # CLOUDFLARE_API_TOKEN, PROXY_SECRET (never printed)
   python3 scripts/cf_worker.py status
   python3 scripts/cf_worker.py deploy
+  python3 scripts/cf_worker.py cron                # kredofi-cron: hourly seed tick, 6-hourly health watch (GH_DISPATCH_TOKEN)
+  python3 scripts/cf_worker.py cron --test M1 M2   # test only: fire at minutes M1 and M2 of the hour; run `cron` again after
 
 deploy: uploads the Worker `kredofi-proxy` with PROXY_SECRET as a secret binding, turns off its
 workers.dev address, removes the old registrar parking records for kredofi.xyz / www (listed first),
@@ -57,6 +59,34 @@ def upload():
     print(f"uploaded worker {NAME} (secret binding PROXY_SECRET, workers.dev off)")
 
 
+CRON_NAME = "kredofi-cron"
+CRON_WORKER = WORKER.parent / "cron.js"
+CRONS = {"17 * * * *": "seed-tick.yml", "47 */6 * * *": "health-watch.yml"}
+
+
+def cron(test=None):
+    """kredofi-cron has no routes and no workers.dev address: it only fires on its schedule."""
+    secret = os.environ.get("GH_DISPATCH_TOKEN", "")
+    if len(secret) < 20: sys.exit("GH_DISPATCH_TOKEN missing (set -a; source .env; set +a)")
+    crons = {f"{test[0]} * * * *": "seed-tick.yml", f"{test[1]} * * * *": "health-watch.yml"} if test else CRONS
+    meta = {"main_module": "cron.js", "compatibility_date": "2026-10-01",
+            "bindings": [{"type": "secret_text", "name": "GH_DISPATCH_TOKEN", "text": secret},
+                         {"type": "plain_text", "name": "CRON_MAP", "text": json.dumps(crons)}]}
+    b = uuid.uuid4().hex
+    parts = [
+        (f'--{b}\r\nContent-Disposition: form-data; name="metadata"; filename="metadata.json"\r\n'
+         f'Content-Type: application/json\r\n\r\n').encode() + json.dumps(meta).encode() + b"\r\n",
+        (f'--{b}\r\nContent-Disposition: form-data; name="cron.js"; filename="cron.js"\r\n'
+         f'Content-Type: application/javascript+module\r\n\r\n').encode() + CRON_WORKER.read_bytes() + b"\r\n",
+        f"--{b}--\r\n".encode(),
+    ]
+    req("PUT", f"/accounts/{ACCOUNT}/workers/scripts/{CRON_NAME}", b"".join(parts), f"multipart/form-data; boundary={b}")
+    req("POST", f"/accounts/{ACCOUNT}/workers/scripts/{CRON_NAME}/subdomain", {"enabled": False})
+    req("PUT", f"/accounts/{ACCOUNT}/workers/scripts/{CRON_NAME}/schedules", [{"cron": c} for c in crons])
+    now = req("GET", f"/accounts/{ACCOUNT}/workers/scripts/{CRON_NAME}/schedules")
+    print(f"{CRON_NAME}: secret bound, workers.dev off, schedules {[s['cron'] for s in now['schedules']]} -> {list(crons.values())}")
+
+
 def domains():
     attached = {d["hostname"] for d in req("GET", f"/accounts/{ACCOUNT}/workers/domains?zone_id={ZONE}") or []}
     for rec in req("GET", f"/zones/{ZONE}/dns_records?per_page=100"):
@@ -85,5 +115,8 @@ def status():
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
+    if cmd == "cron":
+        cron(sys.argv[3:5] if "--test" in sys.argv else None)
+        sys.exit(0)
     if cmd == "deploy": upload(); domains(); settings()
     status()

@@ -9,10 +9,10 @@ import { EARLIER_TESTNET_CONTRACT, EXPLORER, KREDOFI_CONTRACT, NETWORK } from '@
 import { pendingScorerText, type PinConfig } from '@/lib/pin';
 import { relativeTime, usd } from '@/lib/format';
 import { HashLink } from './HashLink';
-import { devCheckCaption, devCheckLabel, DEV_CHECK_NOTE, isDevCheckEvent, isSeededEvent, SEEDED_LABEL, SEEDED_NOTE, visitorStats, type Bands } from '@/lib/seeded';
+import { devCheckCaption, devCheckLabel, DEV_CHECK_NOTE, isDevCheckEvent, isSeededEvent, SEEDED_LABEL, SEEDED_NOTE, type Bands } from '@/lib/seeded';
 
 type Band = { scored: number; loans_issued: number; repaid: number; defaulted: number; volume: string };
-type Data = { events: LedgerEvent[]; stats: Record<'A' | 'B' | 'C' | 'D', Band>; seeded?: Bands; devCheck?: Bands; devCheckTimes?: number[]; pool: { pool_value: string; reserve: string; treasury: string; outstanding: string }; config: PinConfig & { scorer_mode: string; scorer_version: string }; updatedAt: number };
+type Data = { events: LedgerEvent[]; stats: Record<'A' | 'B' | 'C' | 'D', Band>; seeded?: Bands; visitors?: Bands; devCheck?: Bands; devCheckTimes?: number[]; pool: { pool_value: string; reserve: string; treasury: string; outstanding: string }; config: PinConfig & { scorer_mode: string; scorer_version: string }; updatedAt: number };
 
 const KINDS: [string, string, (e: string) => boolean][] = [
   ['all', 'All', () => true],
@@ -68,13 +68,13 @@ export function LedgerPage() {
 
   const pred = KINDS.find((k) => k[0] === kind)![2];
   const rows = (data?.events ?? []).filter((e) => (showDev || !isDevCheckEvent(e)) && pred(e.event) && (band === 'all' || bandOf.get(keyOf(e)) === band)).slice(0, 60);
-  // Visitors (the contract's own get_stats minus the seeded part) and seeded demo numbers, apart.
+  // Visitors, seeded and developer numbers, apart, each counted from rows whose tag is known.
   const seeded = data?.seeded ?? null;
   const anySeeded = !!seeded && (['A', 'B', 'C', 'D'] as const).some((b) => seeded[b].scored + seeded[b].loans_issued > 0);
   const devCheck = data?.devCheck ?? null;
   const anyDev = !!data?.devCheckTimes?.length;
   const split = anySeeded || anyDev;
-  const visitors = data ? visitorStats(data.stats, ...(seeded ? [seeded] : []), ...(devCheck ? [devCheck] : [])) : null;
+  const visitors = data?.visitors ?? null;
   const devTitle = devCheckCaption(data?.devCheckTimes ?? []);
   const devScored = devCheck ? (['A', 'B', 'C', 'D'] as const).reduce((n, b) => n + devCheck[b].scored, 0) : 0;
   const groups: [string, Bands | null][] = split
