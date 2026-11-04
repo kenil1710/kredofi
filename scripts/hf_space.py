@@ -72,6 +72,9 @@ def stage():
     subprocess.run(["tar", "-x", "-C", str(BUILD)], input=arch, check=True)
     web = BUILD / "web"
     env = {**os.environ, "NEXT_TELEMETRY_DISABLED": "1"}
+    # The live demo since Nov 4: app.kency.testnet in OutLayer (enclave) mode. Override to stage another.
+    env.setdefault("NEXT_PUBLIC_SCORER_MODE", "outlayer")
+    env.setdefault("NEXT_PUBLIC_KREDOFI_CONTRACT", "app.kency.testnet")
     for k in [k for k in env if k.startswith(("PLAID", "SEAL", "NEARAI", "RELAYER", "DEV_SCORER", "HF_"))]:
         env.pop(k)  # the build never needs a secret
     subprocess.run(["npm", "ci", "--no-audit", "--no-fund"], cwd=web, check=True, env=env, stdout=subprocess.DEVNULL)
