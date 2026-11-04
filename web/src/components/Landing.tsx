@@ -12,6 +12,7 @@ import { describe, lostByLenders, type LedgerEvent } from '@/lib/events';
 import { IN_ENCLAVE, KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
 import { relativeTime, usd } from '@/lib/format';
 import { GuillocheStrip } from './GuillocheStrip';
+import { OneLineOut, ProofStrip } from './LandingProof';
 
 const FONTS = { display: display.style.fontFamily, body: body.style.fontFamily };
 const MAINNET_TX = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
@@ -479,9 +480,13 @@ export function Landing() {
           </div>
         </section>
 
+        <ProofStrip />
+
         <section id="statement" aria-label="What lenders see">
           <div className="pin"><div className="wrap"><p>{STATEMENT.split(' ').map((w, i) => <span key={i}><span className="w">{w}</span>{' '}</span>)}</p></div></div>
         </section>
+
+        <OneLineOut />
 
         <section id="check" aria-labelledby="check-h">
           <div className="pin">

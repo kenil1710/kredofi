@@ -103,7 +103,7 @@ Errors say what happened and what to do next, with no apology. Banned: revolutio
 - Rows of identical rounded cards with the same shadow (bento grids).
 - Monospace for small labels.
 - Emoji or stock icon packs.
-- Invented statistics. Use real run numbers (Nov 3 mainnet: 8.5 s, ~0.002 NEAR, 472 bytes on-chain) or label examples.
+- Invented statistics. Use real run numbers (Nov 3 mainnet: 8.5 s, ~0.002 NEAR, 472 bytes on-chain; `web/src/lib/proofFacts.ts`) or label examples.
 - Scroll-triggered fade-up on every section.
 
 ## 6. Quality floor

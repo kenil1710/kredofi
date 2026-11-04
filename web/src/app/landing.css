@@ -187,8 +187,52 @@ html.lenis,html.lenis body{height:auto}
 .lp footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px}
 .lp footer a{color:#C7D3CD}
 
+
+/* Proof strip + one line out (components/LandingProof.tsx) */
+#pstrip{background:var(--night);padding-block:72px;border-top:1px solid var(--line-night);border-bottom:1px solid var(--line-night)}
+#pstrip ul{list-style:none;margin-inline:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:40px}
+#pstrip li{display:flex;flex-direction:column;gap:12px;min-width:0}
+#pstrip b{font-family:var(--display);font-weight:500;font-size:clamp(34px,4.2vw,68px);line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+#pstrip span{font-size:15px;line-height:1.5;color:#BFCDC6}
+#pstrip a,#oneline .receipt>a{text-decoration:underline;text-underline-offset:3px;color:var(--mint);display:inline-block;padding-block:6px}
+#oneline{background:var(--night);padding-block:112px}
+#oneline h2{font-size:clamp(38px,5.2vw,84px);line-height:1;max-width:1000px}
+#oneline .count{margin-top:20px;font-size:16px;color:#BFCDC6;max-width:640px}
+#oneline .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:48px;margin-top:56px;align-items:stretch}
+#oneline .stream-box{border:1px solid var(--line-night);background:rgba(8,19,15,.5);display:flex;flex-direction:column;min-width:0}
+#oneline .slot{font-family:var(--display);font-size:26px;letter-spacing:.14em;text-align:center;padding:16px;background:var(--deep-2);border-bottom:2px solid var(--mint);color:var(--mint);position:relative;z-index:1}
+#oneline .stream{flex:1;height:380px;min-height:380px;overflow:hidden;-webkit-mask-image:linear-gradient(to bottom,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(to bottom,transparent,#000 14%,#000 86%,transparent)}
+#oneline .track{animation:lpstream 48s linear infinite}
+#oneline .stream:hover .track,#oneline .stream.paused .track{animation-play-state:paused}
+@keyframes lpstream{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+#oneline .track ul{list-style:none;margin:0;padding:0}
+#oneline .track li{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:12px;padding:12px 20px;font-size:15px;border-bottom:1px solid var(--line-night);color:#C7D3CD}
+#oneline .track li .d{color:var(--muted)}
+#oneline .track li .a{font-variant-numeric:tabular-nums}
+#oneline .track li.in .a{color:var(--mint)}
+#oneline .foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 20px;border-top:1px solid var(--line-night);font-size:14px;color:var(--muted)}
+#oneline .pause{background:transparent;border:1px solid rgba(230,234,225,.35);color:var(--paper);min-height:44px;min-width:72px;padding:0 14px;font-size:14px;cursor:pointer;border-radius:2px}
+#oneline .pause:hover{border-color:var(--paper)}
+#oneline .receipt{background:var(--paper);color:var(--ink);padding:28px;display:flex;flex-direction:column;gap:12px;min-width:0}
+#oneline .receipt h3{font-size:28px}
+#oneline .receipt>p{font-size:15px;color:var(--ink-soft)}
+#oneline .receipt pre{flex:1;margin:4px 0;font-family:var(--body);font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;border-top:1px solid var(--line-paper);border-bottom:1px solid var(--line-paper);padding-block:14px}
+#oneline .receipt pre:focus-visible,#oneline .receipt>a:focus-visible{outline:2px solid var(--violet-ink);outline-offset:3px;border-radius:2px}
+#oneline .receipt>a{color:var(--violet-ink);font-weight:600;align-self:flex-start}
+#oneline .honest{margin-top:32px;font-size:18px;color:var(--paper);max-width:760px}
+@media (max-width:899px){
+  #pstrip{padding-block:48px}
+  #pstrip ul{grid-template-columns:repeat(2,minmax(0,1fr));gap:32px 20px}
+  #oneline{padding-block:80px}
+  #oneline .grid{grid-template-columns:minmax(0,1fr);gap:24px;margin-top:36px}
+  #oneline .stream{height:300px;min-height:300px}
+  #oneline .receipt{padding:20px}
+}
+@media (max-width:420px){#oneline .track li{grid-template-columns:52px minmax(0,1fr) auto;padding-inline:14px;font-size:14px}}
+
 @media (prefers-reduced-motion: reduce){
   .lp .grain,.lp .cue i{animation:none}
+  #oneline .track{animation:none}#oneline .pause{display:none}
   #journey{height:auto}.lp .stage{position:relative;height:auto;min-height:100vh}
   .lp .enclave{position:relative;opacity:1;padding-block:80px}
   .lp .tally .lstamp{opacity:1;transform:rotate(-8deg)}
