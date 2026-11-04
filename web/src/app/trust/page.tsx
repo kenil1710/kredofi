@@ -63,9 +63,9 @@ export default function Trust() {
 
           <h2 id="who-holds-what">Who you still have to trust</h2>
           <p>Checking the code doesn&apos;t cover the people holding keys. Today most of them are one person, the developer. This is a hackathon MVP with $0 in the mainnet pool, and it would not be safe for real money as it stands.</p>
-          <div className="doc-table"><table>
+          <div className="doc-table"><table className="stack-table">
             <thead><tr><th>What</th><th>Who holds it today</th><th>What they could do if misused</th><th>How the Pilot removes it</th></tr></thead>
-            <tbody>{TRUST_ROWS.map((r) => <tr key={r.what}>{[r.what, r.holder, r.misuse, r.pilot].map((c, i) => <td key={i}>{splitCode(c).map((x, j) => x.code ? <code key={j}>{x.text}</code> : <span key={j}>{x.text}</span>)}</td>)}</tr>)}</tbody>
+            <tbody>{TRUST_ROWS.map((r) => <tr key={r.what}>{[r.what, r.holder, r.misuse, r.pilot].map((c, i) => <td key={i} data-label={['', 'Holds it today', 'If misused', 'Pilot'][i]}>{splitCode(c).map((x, j) => x.code ? <code key={j}>{x.text}</code> : <span key={j}>{x.text}</span>)}</td>)}</tr>)}</tbody>
           </table></div>
           <p>The Pilot column is a plan, not something built, except the 24 h scorer time lock. <Link href="/docs/roadmap">Roadmap</Link> · <Link href="/docs/security">Security</Link></p>
 

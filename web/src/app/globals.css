@@ -343,6 +343,15 @@ button{font-family:inherit}
 .doc-code{background:#0F2A23;color:#E6EAE1;padding:14px 16px;border-radius:3px;overflow-x:auto;margin:0 0 16px;font-size:13px;line-height:1.55}
 .doc-code code{background:none;padding:0;color:inherit;white-space:pre;overflow-wrap:normal}
 .doc-table{overflow-x:auto;margin:0 0 18px}
+.doc-table table.wide{min-width:720px}
+@media (max-width:640px){
+  .stack-table,.stack-table tbody,.stack-table tr,.stack-table td{display:block;width:100%}
+  .stack-table thead{display:none}
+  .stack-table tr{border-top:1px solid currentColor;padding-block:14px}
+  .stack-table td{border:0;padding:4px 0;overflow-wrap:anywhere}
+  .stack-table td:first-child{font-weight:600}
+  .stack-table td[data-label]:not([data-label=""])::before{content:attr(data-label);display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.7;margin-top:6px}
+}
 .doc table{border-collapse:collapse;width:100%;font-size:15px;font-variant-numeric:tabular-nums}
 .doc th,.doc td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--line-paper)}
 .doc thead th{border-bottom:2px solid var(--ink);font-weight:700}

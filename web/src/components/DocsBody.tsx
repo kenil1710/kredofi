@@ -56,7 +56,7 @@ export function DocsBody({ body }: { body: string }) {
       while (i < lines.length && lines[i].startsWith('|')) rows.push(lines[i++]);
       const [head, , ...body2] = rows;
       blocks.push(
-        <div key={key} className="doc-table"><table>
+        <div key={key} className="doc-table"><table className={cells(head).length >= 4 ? 'wide' : undefined}>
           <thead><tr>{cells(head).map((c, j) => <th key={j} scope="col">{inline(c, `${key}h${j}`)}</th>)}</tr></thead>
           <tbody>{body2.map((r, ri) => <tr key={ri}>{cells(r).map((c, j) => <td key={j}>{inline(c, `${key}r${ri}c${j}`)}</td>)}</tr>)}</tbody>
         </table></div>,

@@ -129,7 +129,7 @@ export function LedgerPage() {
               </table>
             );
           })}
-          {anyDev && <p style={{ marginTop: 12 }}><button type="button" className="btn btn-line" aria-expanded={showDev} onClick={() => setShowDev((v) => !v)}>{showDev ? 'Hide' : 'Show'} developer checks ({devScored})</button></p>}
+          {anyDev && <p style={{ marginTop: 12 }}><button type="button" className="btn btn-ghost" aria-expanded={showDev} onClick={() => setShowDev((v) => !v)}>{showDev ? 'Hide' : 'Show'} developer checks ({devScored})</button></p>}
           {data && <p className="hint">Pool {usd(data.pool.pool_value)}, lent out {usd(data.pool.outstanding)}, reserve {usd(data.pool.reserve)}, treasury {usd(data.pool.treasury)}.</p>}
         </div>
         <div className="panel verify">
