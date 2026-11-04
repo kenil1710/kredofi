@@ -71,7 +71,7 @@ The relayer holds about 17.8 testnet NEAR after the Nov 3 top-up (faucet account
 
 ## Nov 5 runbook (on the owner's yes, given Nov 3)
 
-1. `set -a; source .env; set +a; ./scripts/deploy_outlayer_testnet.sh app.kency.testnet 4` (contract v3 with the audit fixes, OutLayer mode, secrets locked to `0515ebca…` and `app.kency.testnet`).
+1. `set -a; source .env; set +a; ./scripts/deploy_outlayer_testnet.sh app.kency.testnet 4` (contract v3 with the security review fixes, OutLayer mode, secrets locked to `0515ebca…` and `app.kency.testnet`).
 2. `KREDOFI_CONTRACT=app.kency.testnet ./scripts/reserve_guard.sh`, plus a lender deposit for borrowing room.
 3. `KREDOFI_CONTRACT=app.kency.testnet node --experimental-strip-types scripts/seed_ledger.mjs setup`; then the repository variables `SEED_CONTRACT=app.kency.testnet` and `SEED_START`.
 4. Space: `NEXT_PUBLIC_SCORER_MODE=outlayer NEXT_PUBLIC_KREDOFI_CONTRACT=app.kency.testnet uv run --with huggingface_hub==0.36.0 python scripts/hf_space.py push --space kenil1710/kredofi`.

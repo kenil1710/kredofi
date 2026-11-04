@@ -19,11 +19,11 @@ The official rules say so (HACKATHON.md Q-007): "None exists or is planned. Main
 2. **The lender sends USDC** to that address from their own source-chain wallet. That needs an EVM or Solana wallet connection in the page: a new dependency, and a second wallet next to NEAR Connect.
 3. **Poll `/v0/status`** until `SUCCESS`, and show `REFUNDED` / `FAILED` states plainly.
 4. **The lender deposits** with `ft_transfer_call(kredofi.near, amount, "deposit")` from their NEAR wallet. The pool only credits the account that sends the tokens, so this has to be the lender's own step: 1Click can't deposit for them.
-5. **`kredofi.near` refuses lender deposits** until `production_data` is set (audit H2, live since Nov 3). So the last step would fail on mainnet today, on purpose.
+5. **`kredofi.near` refuses lender deposits** until `production_data` is set (security review H2, live since Nov 3). So the last step would fail on mainnet today, on purpose.
 
 Options for a hackathon demo:
 - Stop after step 3, showing USDC arriving in the lender's own NEAR account.
-- Use a separate mainnet "demo vault" contract with a cap. That is new scope and more audit surface.
+- Use a separate mainnet "demo vault" contract with a cap. That is new scope and more attack surface.
 
 ## Time and cost
 
@@ -46,7 +46,7 @@ Options for a hackathon demo:
 - **The deposit is locked by design (H2):** a full lender path can't finish on `kredofi.near` until real bank data exists. Opening it early would bring back the H2 risk.
 - **Regulatory:** taking cross-chain lender money for loans is lending. The roadmap puts it after the licensed-partner pilot.
 - **Judging:** judges can't safely try it themselves (real money, no testnet). It would be shown by video only, which Q-012 accepts but which is weaker than the clickable testnet demo.
-- **Scope:** a second wallet stack and a new contract (if we use a demo vault) are new audit surface in the last week.
+- **Scope:** a second wallet stack and a new contract (if we use a demo vault) are new attack surface in the last week.
 
 ## Recommendation
 

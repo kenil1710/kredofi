@@ -350,7 +350,7 @@ Expected: \`${TESTNET_SCORER}\`. ${TESTNET_PIN_NOTE} Every event on the [public 
 
 - Deployed in OutLayer mode: [transaction](${TX_DEPLOY}).
 - Upgraded with a state migration (fee change): [transaction](${TX_MIGRATE}).
-- Upgraded to contract v3 (security audit fixes; lender deposits locked until real bank data): [transaction](${TX_V3}). Current scorer pinned: [transaction](${TX_PIN}).
+- Upgraded to contract v3 (security review fixes; lender deposits locked until real bank data): [transaction](${TX_V3}). Current scorer pinned: [transaction](${TX_PIN}).
 `,
   },
   {
@@ -597,7 +597,7 @@ The full write-up is \`THREAT_MODEL.md\` in the repository.
 - A real score computed inside OutLayer and stored by the contract's callback (band A, 1,000), with the unused fee refunded to the borrower: [transaction](${TX_SCORE_NOV1}) (1 November, earlier build).
 - Re-pinned to the reproducible build \`7048cc92…\` and scored again inside OutLayer (band A, 1,000, 7.6 seconds): [transaction](${TX_SCORE_NOV2}) (2 November).
 - Contract upgraded with a state migration: [transaction](${TX_MIGRATE}).
-- Security audit fixes (3 November): contract v3, lender deposits locked until real bank data ([transaction](${TX_V3})); scorer \`${MAINNET_SCORER.slice(0, 8)}…\` with sealed bank tokens pinned ([transaction](${TX_PIN})) and scored with a sealed token inside OutLayer (band A, 1,000, 8.5 seconds): [transaction](${TX_SCORE}).
+- Security review fixes (3 November; an AI-assisted review, not a professional audit): contract v3, lender deposits locked until real bank data ([transaction](${TX_V3})); scorer \`${MAINNET_SCORER.slice(0, 8)}…\` with sealed bank tokens pinned ([transaction](${TX_PIN})) and scored with a sealed token inside OutLayer (band A, 1,000, 8.5 seconds): [transaction](${TX_SCORE}).
 - Live view of all of this: [Mainnet proof](/mainnet).
 
 How to check these yourself: [Verify it yourself](/docs/verify).

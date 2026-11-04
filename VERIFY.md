@@ -39,7 +39,7 @@ The pinned mainnet build was produced by that workflow (CI run 41623343936) and 
 - `strings kredofi_scorer.wasm | grep -c 'demo profiles are disabled in this build'` prints `1` (the production build refuses prepared sandbox profiles), and `strings kredofi_scorer.wasm | grep -c cloud-api.near.ai` prints `0` (no AI call in the production build).
 - The output it may produce is fixed by the contract's strict parser (`contracts/kredofi/src/score.rs`, `parse_output`): exactly `v`, `caller`, `band`, `score`, `income_cap`, `fingerprint`, `sealed_identity` and an optional `reply`; anything else is refused.
 
-History: until Nov 2 mainnet pinned `87ceab66…`, a macOS build with the builder's paths inside, reproducible only on that machine. It was replaced by `7048cc92…` (Nov 2: reproducible, stricter Plaid history check; published at commit `f174d555`), then on Nov 3 by `6888c15e…`, which accepts only a Plaid token sealed to the scorer together with the borrower's account (security audit H1).
+History: until Nov 2 mainnet pinned `87ceab66…`, a macOS build with the builder's paths inside, reproducible only on that machine. It was replaced by `7048cc92…` (Nov 2: reproducible, stricter Plaid history check; published at commit `f174d555`), then on Nov 3 by `6888c15e…`, which accepts only a Plaid token sealed to the scorer together with the borrower's account (security review H1).
 
 ## 4. Did a real score come from OutLayer?
 

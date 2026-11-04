@@ -15,7 +15,7 @@ const CONTRACT = 'kredofi.near';
 const DEV = '715363554c6216e50dbbffd81750f2c6b3b8551c4f3466fdf02eee85cc7543b0';
 /** Contract builds this repository has tested and deployed (code SHA-256 -> name). */
 const KNOWN_CODE: Record<string, string> = {
-  b7f55eaf89b2d592d1684293f5ec59d02b39e5d8e776319c65381cef94b0691c: 'v3 (3 Nov 2026: security audit fixes, deposits gated)',
+  b7f55eaf89b2d592d1684293f5ec59d02b39e5d8e776319c65381cef94b0691c: 'v3 (3 Nov 2026: security review fixes, deposits gated)',
   '339a94ea36e49d91c60317c0e4c3dd03f14bb6eab9b19d770dc0aa231da21d86': 'v2 (1 Nov 2026)',
 };
 const WASM_URL = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/6db115961a822664fdef8c8d19f02668b6f67e92/kredofi_scorer.wasm';

@@ -1,4 +1,6 @@
-# Mainnet changes for the audit fixes (H1, H2, M1)
+# Mainnet changes for the security review fixes (H1, H2, M1)
+
+The review was an AI-assisted security review by a fresh agent with no access to the build history; not a professional audit (`docs/SECURITY_AUDIT.md`).
 
 Status: **done on Nov 3, after the owner's yes to steps 0–6.** Total 0.060941 NEAR from the dev account, within the 0.08 limit; every step cost what was listed.
 

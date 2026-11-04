@@ -1,6 +1,8 @@
-# Security audit (Nov 3, 2026)
+# Security review (Nov 3, 2026)
 
-An independent agent audited KredoFi. It had not seen how the code was written and was given only the repository and `docs/SPEC.md`. Its limits:
+**What this is:** an AI-assisted security review by a fresh agent with no access to the build history; not a professional audit.
+
+Review 1 was done by a fresh AI agent (Claude, run by the developer) that had not seen how the code was written and was given only the repository and `docs/SPEC.md`. Treat it as a careful second look, not as assurance. Its limits:
 - read-only calls to `kredofi.near` and testnet;
 - 25 live HTTP requests;
 - no transactions;
@@ -34,7 +36,7 @@ It found 2 High, 3 Medium, 5 Low and 5 Info issues. Every finding below has a st
 | I4 | Info | Routes returned raw RPC error text. | **Fixed, live.** Internal errors go to the server log only. | `224ab9b` | `publicError` tests. |
 | I5 | Info | `on_score` records the version pinned when the callback runs. | **Accepted.** It differs only if the owner re-pins during a request, and a re-pin is public with an event. | — | — |
 
-**Found before the audit (domain work, Nov 3):** the Space's `X-Forwarded-For` header could be forged to dodge rate limits (22 of 22 spoofed requests got through). **Fixed, live** in `39995f2`: through the Worker the app trusts only Cloudflare's client IP, and direct Space hits share one bucket.
+**Found before the review (domain work, Nov 3):** the Space's `X-Forwarded-For` header could be forged to dodge rate limits (22 of 22 spoofed requests got through). **Fixed, live** in `39995f2`: through the Worker the app trusts only Cloudflare's client IP, and direct Space hits share one bucket.
 
 ## Checked and found sound
 
