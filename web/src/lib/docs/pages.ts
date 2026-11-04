@@ -19,6 +19,7 @@ const TESTNET_PIN_NOTE = ENC
   : "The server refuses to score if its WASM's hash differs from the pinned one.";
 const TX_SCORE = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
 const TX_SCORE_NOV2 = 'https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7';
+const TX_V4 = 'https://nearblocks.io/txns/Gj3X9axsGU2ctvrsPLo3Uhn93YzbL9XYRtC15fHPEp5c';
 const TX_V3 = 'https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu';
 const TX_SCORE_NOV1 = 'https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu';
 const TX_PIN = 'https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG';
@@ -351,6 +352,7 @@ Expected: \`${TESTNET_SCORER}\`. ${TESTNET_PIN_NOTE} Every event on the [public 
 - Deployed in OutLayer mode: [transaction](${TX_DEPLOY}).
 - Upgraded with a state migration (fee change): [transaction](${TX_MIGRATE}).
 - Upgraded to contract v3 (security review fixes; lender deposits locked until real bank data): [transaction](${TX_V3}). Current scorer pinned: [transaction](${TX_PIN}).
+- Upgraded to contract v4 (4 November: security review 2 fixes; new scorer pins wait 24 hours): [transaction](${TX_V4}).
 `,
   },
   {

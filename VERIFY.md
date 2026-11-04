@@ -20,7 +20,7 @@ curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"j
   | python3 -c "import json,sys;r=json.load(sys.stdin)['result'];print(bytes(r['result']).decode() if 'result' in r else r.get('error'))"
 ```
 
-Expected on v4: `null` (nothing pending) or `{"version":…,"proposed_at":…,"apply_at":…}`. On v3 the method doesn't exist yet (`MethodNotFound`).
+Expected: `null` (nothing pending). A pending change would print `{"version":…,"proposed_at":…,"apply_at":…}`, and `get_config` shows the lock itself: `scorer_delay_ns` = `86400000000000` (24 h).
 
 ## 2. Is the published WASM that exact file?
 
@@ -98,14 +98,14 @@ curl -s https://archival-rpc.testnet.fastnear.com -H 'content-type: application/
 
 ## 8. Are lender deposits locked on mainnet?
 
-`kredofi.near` runs contract v3 (Nov 3: deploy + migration in one transaction, [tx 2zyjvpPa…](https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu)). Its code is the build tested in this repository:
+`kredofi.near` runs contract v4 (Nov 4: security review 2 fixes and the scorer re-pin time lock; deploy + v3 → v4 migration in one transaction, [tx Gj3X9axs…](https://nearblocks.io/txns/Gj3X9axsGU2ctvrsPLo3Uhn93YzbL9XYRtC15fHPEp5c); earlier v3 on Nov 3, [tx 2zyjvpPa…](https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu)). Its code is the build tested in this repository:
 
 ```bash
 curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_code","finality":"final","account_id":"kredofi.near"}}' \
   | python3 -c "import json,sys,base64,hashlib;print(hashlib.sha256(base64.b64decode(json.load(sys.stdin)['result']['code_base64'])).hexdigest())"
 ```
 
-Expected: `b7f55eaf89b2d592d1684293f5ec59d02b39e5d8e776319c65381cef94b0691c` (`cd contracts/kredofi && cargo near build non-reproducible-wasm --no-embed-abi` from commit `2d5ca4d`; contract builds are not byte-reproducible across machines, so compare the source). With `require_production_data: true` and `production_data: false` (section 1), every lender `deposit` is refused and the tokens go back (`contracts/kredofi/src/lib.rs` `internal_deposit`; tests `h2_*` and `migrate_from_deployed_v2_keeps_everything`). Mainnet scores come from Plaid's sandbox, where anyone can invent an income, so no lender money may come in before real bank data.
+Expected: `147d863d9413b1531eacec9dd5ad69a727837c9c0de10b270e3237306c5ed148` (`cd contracts/kredofi && cargo near build non-reproducible-wasm --no-embed-abi` from commit `40f245f`; contract builds are not byte-reproducible across machines, so compare the source). With `require_production_data: true` and `production_data: false` (section 1), every lender `deposit` is refused and the tokens go back (`contracts/kredofi/src/lib.rs` `internal_deposit`; tests `h2_*` and `migrate_from_deployed_v3_keeps_everything`). Mainnet scores come from Plaid's sandbox, where anyone can invent an income, so no lender money may come in before real bank data.
 
 ## 9. The money rules
 

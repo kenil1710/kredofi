@@ -28,7 +28,8 @@ const SCORES = [
   { tx: '4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu', when: '1 Nov 2026', scorer: '87ceab66', note: 'band A, 1,000, first mainnet score' },
 ];
 const CHANGES = [
-  { tx: '2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu', what: 'Contract v3 deployed and migrated' },
+  { tx: 'Gj3X9axsGU2ctvrsPLo3Uhn93YzbL9XYRtC15fHPEp5c', what: 'Contract v4 deployed and migrated (4 Nov: security review 2 fixes, 24 h time lock on scorer re-pins)' },
+  { tx: '2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu', what: 'Contract v3 deployed and migrated (3 Nov)' },
   { tx: '2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG', what: 'Scorer 6888c15e… pinned' },
   { tx: 'EhEiZGuqK7o7UEg7EbUq2GsRVT6YMJv6mYgnGcKaJqrt', what: 'Scorer secrets locked to that build, called from kredofi.near' },
 ];
