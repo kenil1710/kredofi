@@ -1,10 +1,12 @@
+import { TRUST_ROWS } from '../trustModel.ts';
+import { readFileSync } from 'node:fs';
 // Every internal link in the docs must work: /docs/<slug> pages exist, #anchors exist on their page,
 // and other app paths exist as routes (src/app/**/page.tsx).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { DOC_PAGES, anchorOf } from './pages.ts';
+import { DOC_PAGES, anchorOf, docBySlug } from './pages.ts';
 
 const APP = join(import.meta.dirname, '..', '..', 'app');
 const anchors = (body: string) => new Set([...body.matchAll(/^#{2,3} (.+)$/gm)].map((m) => anchorOf(m[1])));
@@ -49,4 +51,10 @@ test('key numbers match the contract and scorer', () => {
   for (const s of ['$100, $250, $500 and $1,000', 'A 100%, B 75%, C 50%', 'A 4%, B 6%, C 8%', '$104.00', '10% of the pool', '800 to 1,000', '650 to 799', '500 to 649', '250 minus 60', '15 days (half the term)', 'Hold your next loan at least 1 minute to level up.', 'Limits can rise at most once per term (30 days).']) {
     assert.ok(all.includes(s), s);
   }
+});
+
+test('the trust table in the README matches /trust and /docs/security', () => {
+  const readme = readFileSync(new URL('../../../../README.md', import.meta.url), 'utf8');
+  for (const r of TRUST_ROWS) assert.ok(readme.includes(`| ${r.what} | ${r.holder} | ${r.misuse} | ${r.pilot} |`), r.what);
+  assert.ok(docBySlug('security')!.body.includes(TRUST_ROWS[2].misuse));
 });

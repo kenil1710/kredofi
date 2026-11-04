@@ -86,6 +86,11 @@ export default async function Mainnet() {
           <ul>
             {SCORES.map((s) => <li key={s.tx}><a href={NB + s.tx} target="_blank" rel="noreferrer">{s.when}</a>: scorer <code>{s.scorer}…</code>, {s.note}.</li>)}
           </ul>
+          <h2 id="attestation">TDX attestation of the newest score</h2>
+          <p>OutLayer publishes an Intel-signed TDX quote for each run. For the 3 November score, <a href="https://app.outlayer.ai/attestation/1257953" target="_blank" rel="noreferrer">job 1257953</a> commits to scorer <code>6888c15e…</code> (the pin above) and to that transaction&apos;s input and output. We ran OutLayer&apos;s open-source verifier on it: <b>PROVEN</b>.</p>
+          <pre className="doc-code"><code>{`cargo install --git https://github.com/out-layer/outlayer-verify outlayer-verify
+outlayer-verify tx 3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo --api https://api.outlayer.ai`}</code></pre>
+          <p>It proves the run used approved TDX hardware and this scorer. It doesn&apos;t prove the enclave deletes the data afterwards, and OutLayer controls which enclave builds are approved. <Link href="/docs/verify">What it does and doesn&apos;t show</Link></p>
           <h2 id="changes">Latest changes</h2>
           <ul>
             {CHANGES.map((c) => <li key={c.tx}><a href={NB + c.tx} target="_blank" rel="noreferrer">{c.what}</a></li>)}

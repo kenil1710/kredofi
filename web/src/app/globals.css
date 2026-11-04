@@ -233,7 +233,7 @@ button{font-family:inherit}
 .feed li.new{animation:rowin .6s var(--ease-out)}
 @keyframes rowin{0%{background:rgba(159,217,191,.16);transform:translateY(-12px);opacity:0}100%{background:transparent;transform:none;opacity:1}}
 .lend-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:72px;align-items:start;padding-block:72px 120px}
-@media (max-width:899px){.lend-grid{grid-template-columns:1fr;gap:40px;padding-block:48px 90px}}
+@media (max-width:899px){.lend-grid{grid-template-columns:minmax(0,1fr);gap:40px;padding-block:48px 90px}}
 .panel{border:1px solid var(--line-night);padding:24px;display:flex;flex-direction:column;gap:14px}
 .panel h2{font-size:26px}
 .g-deep .money,.g-night .money{background:rgba(8,19,15,.4);border-color:rgba(230,234,225,.35)}

@@ -14,8 +14,8 @@ import { relativeTime, usd } from '@/lib/format';
 import { GuillocheStrip } from './GuillocheStrip';
 
 const FONTS = { display: display.style.fontFamily, body: body.style.fontFamily };
-const PROOF_TX = 'https://nearblocks.io/txns/8u8RsNzgxKSdhSbzSwi5qb7CGeWrk9RJWhHzVvWfZfbW';
-const MAINNET_TX = 'https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu';
+const MAINNET_TX = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
+const ATTESTATION = 'https://app.outlayer.ai/attestation/1257953';
 
 const ROWS: [string, string, string, number?][] = [
   ['Oct 01', 'Salary, Acme Corp', '+4,000.00', 1], ['Oct 02', 'Rent', '−1,200.00'], ['Oct 06', 'Groceries', '−186.40'], ['Oct 11', 'Electricity', '−92.10'], ['Oct 15', 'To savings', '−600.00'],
@@ -31,23 +31,23 @@ const MONTHS = ['October', 'September', 'August', 'July', 'June', 'May'];
 // Hero copy per network (SPEC 2: never claim more privacy than the network the visitor uses gives).
 // The hero leads with the product; the Dev-mode caveat is the small note under the buttons (and /trust).
 const HERO_LEDE = IN_ENCLAVE
-  ? 'First use: no-collateral USDC loans. A pinned scorer reads six months of your bank history inside a sealed enclave, applies five published rules and puts only a band and a limit on NEAR. Lenders never see your statements.'
-  : 'First use: no-collateral USDC loans. A pinned scorer reads six months of bank history, applies five published rules and puts only a band and a limit on NEAR. On mainnet it runs inside a sealed enclave.';
+  ? 'First use: no-collateral USDC loans. A pinned scorer fetches up to two years of your bank history inside a sealed enclave, uses the last six full months, applies five published rules and puts eight fields on NEAR: v, caller, band, score, income_cap, fingerprint, sealed_identity and reply. Lenders never see your statements.'
+  : 'First use: no-collateral USDC loans. A pinned scorer fetches up to two years of bank history, uses the last six full months, applies five published rules and puts eight fields on NEAR: v, caller, band, score, income_cap, fingerprint, sealed_identity and reply. On mainnet it runs inside a sealed enclave.';
 const HERO_NOTE = NETWORK === 'mainnet'
   ? 'Mainnet.'
   : IN_ENCLAVE
-    ? 'Testnet demo with Plaid\'s sandbox bank, scored inside the same enclave as mainnet. No wallet needed; we pay the network fees.'
+    ? 'Testnet demo with Plaid\'s sandbox bank, scored in the same enclave service as mainnet (OutLayer), testnet deployment. No wallet needed; we pay the network fees.'
     : 'Testnet demo with Plaid\'s sandbox bank. No wallet needed; we pay the network fees. On this demo the scorer runs on our server, so our server sees the test bank data while it scores.';
 const RULES_SUB = !IN_ENCLAVE
-  ? 'Five rules decide the band, and they\'re published as code. On mainnet the contract takes a score only from the enclave, so nobody at KredoFi can nudge it. On this testnet demo our server runs the same scorer and submits the result.'
-  : 'Five rules decide the band, and they\'re published as code. The contract takes a score only from the enclave, so nobody at KredoFi can nudge it up or down.';
+  ? 'Five rules decide the band, and they\'re published as code. On mainnet the contract takes a score only from its own request to the pinned scorer. On this testnet demo our server runs the same scorer and submits the result. The developer still holds the keys that could change this; /trust lists them.'
+  : 'Five rules decide the band, and they\'re published as code. The contract takes a score only from its own request to the pinned scorer, and each run has a checkable attestation. The developer still holds the keys that could change this; /trust lists them.';
 const STATEMENT = 'Lenders see a band and a limit. They never see your salary, your rent, your name, or the night you went over budget.';
 const FEATS: [string, string][] = [
   ['The amount', '$100 is your limit. The rules set it, not a loan officer. Repay this one on time and your next note says $250.'],
   ['The letter', "Your band, from A to D. Like the colour-shifting ink on a real note, it changes as you move. It's the only score that goes on-chain."],
-  ['The serial number', 'A keyed fingerprint of your bank account. One account can back only one borrower, ever.'],
+  ['The serial number', 'A keyed fingerprint of your bank identity: bank, owner name and account mask. On this contract one identity backs one borrower. Someone with accounts at several banks could still become several borrowers.'],
   ['The thread', 'Your name, encrypted and woven in. It opens for our recovery partner only if you never repay.'],
-  ['The watermark', 'Proof that the scoring ran inside Intel TDX with the published code. Anyone can check it against the transaction on NEAR.'],
+  ['The watermark', 'An Intel-signed attestation for each enclave run: this input and output, this pinned scorer, on an approved TDX build. Anyone can check it with OutLayer’s verifier.'],
 ];
 const RINGS: React.CSSProperties[] = [
   { left: '77.2%', top: '71.2%', width: '15.8%', height: '18.8%' },
@@ -63,7 +63,7 @@ const CHEQUES = [
 ];
 // Shown only until the live ledger answers (and labelled as examples).
 const EXAMPLE_EVENTS: [string, string][] = [
-  ['Score issued, band A', '—'], ['Loan repaid', '$104.00'], ['Lender deposit from Base', '$250.00'], ['Score issued, band D', '—'],
+  ['Score issued, band A', '—'], ['Loan repaid', '$104.00'], ['Lender deposit', '$250.00'], ['Score issued, band D', '—'],
   ['Loan issued, band A', '$100.00'], ['Reserve covered a default', '$100.00'],
 ];
 
@@ -471,7 +471,7 @@ export function Landing() {
                   <dl id="factors">{FN.map((n) => <div className="row" key={n}><dt>{n}</dt><dd>0</dd></div>)}</dl>
                   <div className="total"><span>Score</span><b id="score">0</b></div>
                   <div className="lstamp" id="stamp">BAND A, $100</div>
-                  <p className="leaves" id="leaves">That one line is all that leaves. The 30 transactions are deleted when the run ends.</p>
+                  <p className="leaves" id="leaves">That one line is all that leaves. The scorer stores nothing, but nobody outside can verify the 30 transactions are deleted when the run ends.</p>
                 </div>
               </div>
             </div>
@@ -536,12 +536,13 @@ export function Landing() {
 
         <section id="proof" aria-labelledby="proof-h">
           <div className="wrap">
-            <h2 id="proof-h">Numbers from a real mainnet enclave run on 25 October, not from a pitch deck.</h2>
+            <h2 id="proof-h">Numbers from a real mainnet enclave run on 3 November, not from a pitch deck.</h2>
+            <p style={{ marginTop: 14, maxWidth: 640, opacity: 0.8 }}>Plaid sandbox data and our own test account: it proves the path, not a real borrower.</p>
             <div className="nums">
-              <div><b className="cnt" data-to="3.9" data-dec="1" data-suf=" s">3.9 s</b><span>to read 30 transactions inside Intel TDX</span></div>
-              <div><b className="cnt" data-to="0.00145" data-dec="5">0.00145</b><span>NEAR for the whole scoring run</span></div>
-              <div><b>0 bytes</b><span>of bank data written to the chain</span></div>
-              <div><b>12 of 13</b><span>risky pieces proven before the build. <a href={PROOF_TX}>See the transaction</a></span></div>
+              <div><b className="cnt" data-to="8.5" data-dec="1" data-suf=" s">8.5 s</b><span>for the scorer run inside Intel TDX</span></div>
+              <div><b>~0.002</b><span>NEAR charged by OutLayer for the run</span></div>
+              <div><b className="cnt" data-to="472" data-dec="0">472</b><span>bytes of output on-chain, in the eight listed fields</span></div>
+              <div><b>PROVEN</b><span>by OutLayer&apos;s verifier against Intel&apos;s signature. <a href={ATTESTATION}>Attestation</a> · <a href={MAINNET_TX}>Transaction</a></span></div>
             </div>
           </div>
         </section>
@@ -564,7 +565,7 @@ export function Landing() {
       <footer>
         <div className="wrap">
           <p>KredoFi, built for NEAR HACKATHON in November 2026. Plaid sandbox data only; not a lending offer.</p>
-          <p><a href={MAINNET_TX}>A real mainnet score</a> · <Link href="/trust">Why is this safe?</Link> · <Link href="/docs">Docs</Link> · <Link href="/ledger">Public ledger</Link> · <Link href="/scenarios">Demo scenarios</Link></p>
+          <p><a href={MAINNET_TX}>A real mainnet score</a> (sandbox data, our test account) · <Link href="/trust">Why is this safe?</Link> · <Link href="/docs">Docs</Link> · <Link href="/ledger">Public ledger</Link> · <Link href="/scenarios">Demo scenarios</Link></p>
         </div>
       </footer>
     </div>
@@ -637,7 +638,7 @@ function LiveLend() {
     <div className="wrap grid" ref={box}>
       <div className="copy">
         <h2 id="lend-h">Lending is the boring part, on purpose.</h2>
-        <p>Put USDC into the pool from NEAR, or bring it from Base, Ethereum or Solana through NEAR Intents. When a loan isn&apos;t repaid, the reserve pays you back before you lose anything.</p>
+        <p>Put USDC into the pool from NEAR. Deposits from other chains through NEAR Intents are a dry-run quote only for now: no money moves. When a loan isn&apos;t repaid, the reserve covers it first, up to the reserve&apos;s balance; lenders take whatever it can&apos;t.</p>
         <table className="ledger">
           <caption>The {NETWORK} pool, live from {KREDOFI_CONTRACT}</caption>
           <tbody>
@@ -663,8 +664,8 @@ function LiveLend() {
           <Link className="link" href="/ledger">See every event</Link>
         </div>
         <div className="chains">
-          <p>Deposits from other chains arrive in about 35 seconds.</p>
-          <svg viewBox="0 0 520 170" role="img" aria-label="USDC moving from Base, Ethereum and Solana into NEAR">
+          <p>Planned: deposits from other chains through NEAR Intents. Today this is a dry-run quote only; no money moves.</p>
+          <svg viewBox="0 0 520 170" role="img" aria-label="Planned route: USDC from Base, Ethereum and Solana into NEAR">
             <path id="cp0" d="M86 30 C 250 30, 300 85, 432 85" fill="none" stroke="rgba(230,234,225,.25)" strokeWidth="1" />
             <path id="cp1" d="M86 85 L 432 85" fill="none" stroke="rgba(230,234,225,.25)" strokeWidth="1" />
             <path id="cp2" d="M86 140 C 250 140, 300 85, 432 85" fill="none" stroke="rgba(230,234,225,.25)" strokeWidth="1" />

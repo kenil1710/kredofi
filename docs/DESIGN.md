@@ -8,7 +8,7 @@
 |---|---|
 | The amount | Your limit ($100, then $250, $500, $1,000) |
 | The letter, in colour-shifting ink | Your band, A to D, the only score on-chain |
-| The serial number | Fingerprint of your bank account: one account, one borrower |
+| The serial number | Fingerprint of your bank account: one bank identity, one borrower on this contract (several banks can get around it) |
 | The security thread | Your name, sealed; opened only after a default |
 | The watermark | Proof the scoring ran inside Intel TDX with the pinned code |
 
@@ -103,7 +103,7 @@ Errors say what happened and what to do next, with no apology. Banned: revolutio
 - Rows of identical rounded cards with the same shadow (bento grids).
 - Monospace for small labels.
 - Emoji or stock icon packs.
-- Invented statistics. Use the real prep numbers (3.9 s, 0.00145 NEAR, 30 transactions) or label examples.
+- Invented statistics. Use real run numbers (Nov 3 mainnet: 8.5 s, ~0.002 NEAR, 472 bytes on-chain) or label examples.
 - Scroll-triggered fade-up on every section.
 
 ## 6. Quality floor

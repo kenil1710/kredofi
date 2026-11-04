@@ -2,7 +2,7 @@
 
 **Prove your income on NEAR without showing your bank statements.**
 
-A pinned, open scorer reads six months of bank history, applies five published rules, and puts only a band, a score and a limit cap on-chain, with a keyed fingerprint and a sealed name. No transactions, balances or account numbers leave it.
+A pinned, open scorer fetches up to two years of bank history, uses the last six full months, applies five published rules, and puts exactly eight fields on-chain: `v`, `caller`, `band`, `score`, `income_cap`, `fingerprint`, `sealed_identity`, `reply` (a band, a score and a limit cap, a keyed fingerprint, a sealed name, sealed rule results). No transactions, balances or account numbers leave it.
 - **Mainnet** (`kredofi.near`): the scorer runs inside a TEE (OutLayer, Intel TDX), and the contract accepts a score only from its own request to the pinned build ([a real score, Nov 3](https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo)).
 - **Testnet demo** (since Nov 4): a testnet build of the same scorer also runs inside the enclave (OutLayer testnet), and the contract accepts a score only from its own request, as on mainnet.
 
@@ -20,7 +20,7 @@ No wallet and no sign-up: the app creates a throwaway testnet account and a rela
 4. Click **Borrow**. A "Loan issued" entry appears with a live countdown: "Repay after 0:52 to level up to $187.50".
 5. Wait for "Repaying now levels you up to $187.50", then click **Repay**. The Repaid entry says your limit rose to level 2.
 6. Open **Public ledger** (top nav): every score, loan and repayment is listed with a link to its transaction, and the **Verify** panel shows the contract and the pinned scorer hash.
-7. Optional, footer link **Demo scenarios**: Riya (band A, $100), Sam (refused, with the reasons and what would change them), Max (borrows and never repays; after 3 minutes anyone can mark the default, the reserve pays the pool first and his name is released to the recovery partner).
+7. Optional, footer link **Demo scenarios**: Riya (band A, $100), Sam (refused, with the reasons and what would change them), Max (borrows and never repays; after 3 minutes anyone can mark the default, the reserve pays the pool first, up to its balance, and his name is released to the recovery partner).
 
 Testnet terms are shortened so the whole loop fits a demo: loan term 2 minutes, grace 1 minute, minimum hold 1 minute (mainnet: 30 days).
 
@@ -129,6 +129,20 @@ This is a **hackathon MVP**: it works end to end on testnet, and the mainnet con
 5. **Cross-chain:** lenders from other chains through NEAR Intents (today only dry-run quotes).
 
 Details: [/docs/roadmap](https://kredofi.xyz/docs/roadmap).
+
+## Who holds what today
+
+Checking the code doesn't cover the people holding keys. Today most of them are one person, the developer. This is a hackathon MVP with $0 in the mainnet pool, and it would not be safe for real money as it stands. The Pilot column is a plan, not something built, except the 24 h scorer time lock. Same table: [/trust](https://kredofi.xyz/trust#who-holds-what), `web/src/lib/trustModel.ts`.
+
+| What | Who holds it today | What they could do if misused | How the Pilot removes it |
+|---|---|---|---|
+| Sealing key (`SEAL_KEY`) | The developer, who created it on a laptop. A copy is an OutLayer secret. | Open any sealed bank token from the chain and, if it is still unused, exchange it first and read that bank data (the real score then fails). Open any sealed name. Compute fingerprints offline. | Generated inside the enclave, never held outside it. |
+| Plaid keys | The developer. A copy is an OutLayer secret. Sandbox keys today. | With an opened token, read that bank data outside the enclave. Alone they read no bank data, because each read needs a token. | Production keys kept inside the enclave, under a licensed lending partner’s Plaid account. |
+| `kredofi.near` full-access key | The developer. It is the only key on the account. | Deploy any code. New code could move every token the contract holds and bypass every rule here, including the scorer time lock. No delay and no warning. The mainnet pool holds $0 today. | Final reviewed build, then the key is deleted (lock), so the code can never change again. |
+| Owner role on `kredofi.near` | The developer, one account. | Withdraw the treasury. Change loan settings within fixed bounds. Pin another scorer after a 24 h public wait (built). Switch `production_data` on at once, which unlocks lender deposits, with no wait. It cannot move lender cash, loans or the reserve. | Multisig, so several keys must sign. Time lock extended to the other owner settings. |
+| Recovery partner key | The developer. The partner is simulated: no real partner exists. | Read the name of any borrower whose identity was released after a default. | Held only by a real, licensed recovery partner. We keep only its public key. |
+| OutLayer secrets owner | The developer’s account, which also owns the scorer project. | Replace the secrets, or change which build and caller may read them, so another build could read the sealing and Plaid keys. Publish new scorer versions (the contract runs only the pinned one). | Same multisig as the owner. No secret left that a person ever knew. |
+| OutLayer and Intel (not us) | OutLayer controls the approved enclave builds on `worker.outlayer.near`. Intel signs the hardware proof. | A build OutLayer approves could leak what it runs, and a TDX flaw could too. Attestation proves which approved build ran, not that the build behaves well. OutLayer can also refuse to run. | Not removed. We would review its governance and rely on more than one operator if available. |
 
 ## Known limits
 

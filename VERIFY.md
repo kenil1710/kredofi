@@ -68,6 +68,23 @@ curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"j
 
 Expected: band `A`, score `1000`, `scorer_version` `6888c15e…`. There is no `sealed_identity` in the view: the sealed name is stored but no view returns it (rule 9).
 
+## 4b. Did that run really happen inside Intel TDX?
+
+OutLayer publishes an Intel-signed TDX quote for each run ([job 1257953](https://app.outlayer.ai/attestation/1257953) is the transaction above). Check it with OutLayer's open-source verifier, not its website:
+
+```bash
+cargo install --git https://github.com/out-layer/outlayer-verify outlayer-verify   # commit we used: 90c27d9d4fc8
+outlayer-verify tx 3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo --api https://api.outlayer.ai
+```
+
+Expected: `PROVEN`, exit code 0, `wasm sha256 6888c15e…`, `task 1257953`. The `--api` flag is needed for now: the tool's default address is retired. For a testnet score, add `--network testnet --api https://testnet-api.outlayer.ai` (we checked `Fp1ud4Vy…` and `2S18xg8W…`).
+
+Offline, from the saved evidence: `outlayer-verify bundle docs/proofs/mainnet-score-2026-11-03.attestation.json --offline`.
+
+It checks four things: the quote chains to the Intel root and the hardware is up to date; all five measurements (MRTD, RTMR0-3) are on the approved list of `worker.outlayer.near`; the quote commits to the scorer hash, input and output; those match the bytes in the transaction. See the [approved list](https://app.outlayer.ai/docs/trust-verification) with `near contract call-function as-read-only worker.outlayer.near get_approved_measurements json-args '{}' network-config mainnet now`.
+
+**What it doesn't prove:** that the enclave deletes the data after the run, or that the approved enclave image is good. OutLayer controls that approved list, and this check doesn't link the image to published source (section 3 does that for our scorer, not for OutLayer's image). The record comes from OutLayer's API, although the quote inside it is Intel-signed.
+
 ## 5. Can anyone else write a score?
 
 - On mainnet the contract is in `OutLayer` mode: `dev_submit_score` is refused, and `on_score` is `#[private]`. Tests: `contracts/kredofi/src/score_tests.rs` and `tests/tests/scores.rs` (fake scores, wrong caller, wrong version, reused fingerprint, OutLayer `null` or error results).

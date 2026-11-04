@@ -558,12 +558,12 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
             <article className="who connect" id="pa-start">
               <GuillocheStrip />
               <h3>Connect your bank (sandbox)</h3>
-              <p>Log in to a test bank through Plaid Link. The scorer fetches six months of history, works out your limit, and keeps none of it.</p>
+              <p>Log in to a test bank through Plaid Link. The scorer fetches up to two years of history, uses the last six full months, works out your limit, and keeps none of it.</p>
               <dl className="login" aria-label="Plaid sandbox login">
                 <dt>Username</dt><dd><code>user_good</code><CopyButton text="user_good" label="username" /></dd>
                 <dt>Password</dt><dd><code>pass_good</code><CopyButton text="pass_good" label="password" /></dd>
               </dl>
-              <p className="expect">This is Plaid&apos;s public sandbox login: a test bank with test money, the same for everyone. Pick any bank in the list.</p>
+              <p className="expect">This is Plaid&apos;s public sandbox login: a test bank with test money, the same for everyone. Pick First Platypus Bank (not the OAuth one).</p>
               <p className="connect-row">
                 <button type="button" className="btn btn-violet btn-big" disabled={!!starting} onClick={connectBank}>Connect your bank (sandbox)</button>
                 <Link href="/trust" className="linkbtn">How we keep your data private</Link>
@@ -687,7 +687,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 <div className="change ai-summary">
                   <h3>In plain words</h3>
                   <p>{summaryText}</p>
-                  <p className="hint" style={{ marginTop: 6 }}>Written by {summary?.by ?? 'Qwen'} on NEAR AI Cloud (Qwen with a NEAR AI fallback) from your band and rule results only (no bank data), after your score was set. On testnet our server asks for it and keeps nothing. The score never depends on it.</p>
+                  <p className="hint" style={{ marginTop: 6 }}>Written by {summary?.by ?? 'Qwen'} on NEAR AI Cloud (Qwen with a NEAR AI fallback) after your score was set. Your browser sends our server your band and rule results in words (no numbers, no bank data); our server asks NEAR AI and keeps nothing. The score never depends on it.</p>
                 </div>
               ) : summaryLoading && (
                 <p className="hint ai-wait" aria-live="polite"><span className="placeholder">Writing a plain-English summary…</span></p>
@@ -788,7 +788,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                   <div ref={loanBox} style={{ position: 'relative' }}>
                     <ul className="chain">
                       <li><span>Loan marked as defaulted</span><span>{usd(loan.principal)}</span></li>
-                      <li><span>Reserve paid the pool back first</span><span>up to {usd(loan.principal)}</span></li>
+                      <li><span>Reserve paid the pool back first</span><span>up to {usd(loan.principal)}, if the reserve has it</span></li>
                       <li><span>Name released to the recovery partner</span><span>{b.released_identity ? 'sealed, then opened' : 'pending'}</span></li>
                       <li><span>Can borrow again</span><span>Never</span></li>
                     </ul>

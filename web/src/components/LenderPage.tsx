@@ -75,7 +75,7 @@ export function LenderPage() {
       <div>
         <h1 style={{ fontSize: 'clamp(40px,4.6vw,66px)', lineHeight: 1.02 }}>Lend test USDC to the pool.</h1>
         <p style={{ fontSize: 17, color: '#BFCDC6', marginTop: 18, maxWidth: 480 }}>
-          Borrowers pay 4% to 8% a term. Lenders get half through the share price; the other half goes to the KredoFi treasury. When a loan isn&apos;t repaid, the reserve pays you back before you lose anything.
+          Borrowers pay 4% to 8% a term. Lenders get half through the share price; the other half goes to the KredoFi treasury. When a loan isn&apos;t repaid, the reserve pays first, up to its balance; lenders take what it can&apos;t cover.
         </p>
         <table className="ledger" style={{ marginTop: 44 }}>
           <caption>The testnet pool, read from {KREDOFI_CONTRACT}</caption>

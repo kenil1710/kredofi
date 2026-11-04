@@ -6,7 +6,7 @@ Draft only. The human posts it (HACKATHON.md: it must say the project was built 
 
 Built at NEAR HACKATHON: KredoFi. Prove your income on NEAR without showing your bank statements.
 
-A scorer in a TEE reads your bank history; only a band and a limit go on-chain. First use: no-collateral USDC loans.
+A scorer in a TEE reads your bank history; a band, a limit and sealed fields go on-chain, no raw data. First use: no-collateral USDC loans.
 
 Try it: https://kredofi.xyz
 @NEARProtocol #NEARHackathon

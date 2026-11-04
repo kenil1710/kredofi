@@ -5,11 +5,49 @@
 
 import { IN_ENCLAVE, KREDOFI_CONTRACT, NETWORK } from '../config.ts';
 
+import { trustTableMarkdown } from '../trustModel.ts';
 export type DocPage = { slug: string; title: string; summary: string; body: string };
 
 // Testnet text follows how the demo scores: Dev mode (our server) until Nov 5, then OutLayer (the
 // same enclave service as mainnet). SCORER_MODE in lib/config.ts; nothing here may claim more.
 const ENC = IN_ENCLAVE;
+const CREDIT_MODEL = `
+## How 4–8% compares
+
+Interest is flat per loan of up to 30 days: **A 4%, B 6%, C 8%**. That is about 49%, 73% and 97% a year if you borrowed all year, so this is expensive credit, and repaying early doesn't reduce it.
+
+| Credit | Cost per about 30 days | APR |
+|---|---|---|
+| KredoFi, bands A to C | 4% to 8% | about 49% to 97% |
+| US credit card | about 1.7% | [21.19% (Federal Reserve, August 2026)](https://www.federalreserve.gov/releases/g19/current/) |
+| US payday loan | about 32% if rolled over ($15 per $100, two weeks) | [almost 400% (CFPB)](https://www.consumerfinance.gov/ask-cfpb/what-are-the-costs-and-fees-for-a-payday-loan-en-1589/) |
+
+Cheaper than a payday loan, far dearer than a card. These rates are our starting assumption: **no real loan has been made, so they aren't priced from real default data.**
+
+## How many defaults this can absorb
+
+Each default loses up to the whole principal, while each repaid loan earns far less. Roughly, if every loan is the same size:
+
+| Band | Lenders earn per repaid loan | Lenders break even at, with no reserve | All interest goes to losses, at |
+|---|---|---|---|
+| A | 2% | about 2.0% of loans defaulting | about 3.8% |
+| B | 3% | about 2.9% | about 5.7% |
+| C | 4% | about 3.8% | about 7.4% |
+
+The last column is the most the rate could cover even if the owner moved the whole treasury share into the reserve.
+
+## Treasury to reserve
+
+The reserve earns no interest by itself. It grows only when the owner seeds it (\`seed_reserve\`) or moves treasury money into it (\`treasury_to_reserve\`): an owner choice, one-way, a public event, and nothing makes it automatic.
+
+## When the reserve is empty
+
+A default then falls entirely on lenders: the share price drops by the uncovered amount, for everyone in the pool. Nothing refills the reserve by itself. There is no collateral and no on-chain way to collect. The borrower stays blocked and their sealed name goes to the recovery partner, who is simulated today. Withdrawals only ever pay out cash the pool holds, so they can also wait until loans come back. On the testnet demo we top up the reserve by hand; that is a demo convenience, not a promise.
+
+## The Pilot plan
+
+Planned, not built: a licensed lending partner makes the loans, the pool is capped, loans stay small, and the default rate is measured before rates or limits grow. The rates and how much treasury goes to the reserve would then be set from that data. See the [Roadmap](/docs/roadmap).
+`;
 const T_CONTRACT = NETWORK === 'testnet' ? KREDOFI_CONTRACT : 'kredofi.kency.testnet';
 const MAINNET_SCORER = '6888c15e1442b508202141daf8cc246dddb9ecf5e586f1f0743671de7c23e6e2';
 const TESTNET_SCORER = ENC ? '0515ebcad56ec6569a13a9fdc76e523025c6fd3daed399d4560604c8262e03b9' : 'ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9';
@@ -33,7 +71,7 @@ export const DOC_PAGES: DocPage[] = [
     title: 'Overview',
     summary: 'What KredoFi is, who it is for, and what is live today.',
     body: `
-**Prove your income on NEAR without showing your bank statements.** A pinned scorer reads your bank history, applies five published rules, and puts only a band and a limit on the chain. ${ENC ? 'It runs inside a sealed computer (a TEE, OutLayer on Intel TDX), on mainnet and on the testnet demo alike; our server never sees your bank data.' : 'On mainnet it runs inside a sealed computer (a TEE, OutLayer on Intel TDX); on the testnet demo it runs on our server, which sees the test bank data while it scores.'}\n\n**First use: no-collateral USDC loans.** Borrow against that limit, repay, and the limit grows. Any other NEAR app can read the same band and limit: [Use KredoFi scores in your app](/docs/integrate).
+**Prove your income on NEAR without showing your bank statements.** A pinned scorer fetches up to two years of your bank history, uses the last six full months, applies five published rules, and puts eight fields on the chain: \`v\`, \`caller\`, \`band\`, \`score\`, \`income_cap\`, \`fingerprint\`, \`sealed_identity\` and \`reply\`. ${ENC ? 'It runs inside a sealed computer (a TEE, OutLayer on Intel TDX), on mainnet and on the testnet demo alike; our server never sees your bank data.' : 'On mainnet it runs inside a sealed computer (a TEE, OutLayer on Intel TDX); on the testnet demo it runs on our server, which sees the test bank data while it scores.'}\n\n**First use: no-collateral USDC loans.** Borrow against that limit, repay, and the limit grows. Any other NEAR app can read the same band and limit: [Use KredoFi scores in your app](/docs/integrate).
 
 ## What is live
 
@@ -96,7 +134,7 @@ The answer can only arrive in the contract's own callback (\`on_score\`), for it
 
 ## 6. If a loan isn't repaid
 
-After the due date plus the grace period, anyone can mark the loan as defaulted. The reserve pays the pool back first, the borrower can never borrow again, and the sealed name is re-sealed by the scorer to the recovery partner's key. See [Security](/docs/security).
+After the due date plus the grace period, anyone can mark the loan as defaulted. The reserve pays the pool back first, up to the reserve's balance, the borrower can never borrow again, and the sealed name is re-sealed by the scorer to the recovery partner's key. See [Security](/docs/security).
 
 ## On the testnet demo
 
@@ -160,7 +198,7 @@ A score is valid for 30 days. After that, check your limit again. While a score 
 
 After the due date plus the grace period, **anyone** can mark the loan as defaulted; the contract checks the dates itself. Then:
 
-- the reserve pays the pool back first, up to the loan's principal;
+- the reserve pays the pool back first, up to the loan's principal and the reserve's balance;
 - your account is blocked from borrowing for good, and your bank fingerprint stays taken, so the same bank identity can't start over with a new account;
 - anyone can ask for your sealed name to be released to the recovery partner (once). Only the partner's key can open it.
 
@@ -192,15 +230,15 @@ The share price only moves with repaid interest (up) and uncovered losses (down)
 
 ## Losses
 
-When a loan defaults, the **reserve pays first**, up to the loan's principal. Only what the reserve can't cover is lost by lenders, through the share price. Every default shows on the [public ledger](/ledger) with how much the reserve covered and how much lenders lost.
+When a loan defaults, the **reserve pays first**, up to the loan's principal and the reserve's balance. Only what the reserve can't cover is lost by lenders, through the share price. Every default shows on the [public ledger](/ledger) with how much the reserve covered and how much lenders lost.
 
 ## Limits that protect the pool
 
 - One borrower can take at most 10% of the pool's value.
-- One bank identity can back only one borrower.
+- One bank identity (bank, owner name, account mask) can back only one borrower on this contract. Someone with accounts at several banks could become several borrowers.
 - Limits start at $100 and grow only after on-time repayment of meaningful loans.
 - The owner can't withdraw lender cash, outstanding loans or the reserve (see [Fees & treasury](/docs/fees-treasury) and [Security](/docs/security) for the caveat about code upgrades).
-`,
+${CREDIT_MODEL}`,
   },
   {
     slug: 'scoring-model',
@@ -266,7 +304,7 @@ The testnet scorer also accepts prepared sandbox borrowers, and it ties the shar
     body: `
 ## The enclave
 
-On mainnet the scorer runs on OutLayer inside **Intel TDX**, a trusted execution environment: memory is encrypted and the operator can't read it. The contract asks OutLayer for one exact program, identified by its SHA-256 (the pinned version). OutLayer releases the scorer's secrets (the Plaid keys and the sealing key) only to that program **and** only for requests that come from the KredoFi contract.
+On mainnet the scorer runs on OutLayer inside **Intel TDX**, a trusted execution environment: memory is encrypted and it is designed so the operator can't read it. [Verify it yourself](/docs/verify) shows how to check the attestation of a run, and what that does and doesn't prove. The contract asks OutLayer for one exact program, identified by its SHA-256 (the pinned version). OutLayer releases the scorer's secrets (the Plaid keys and the sealing key) only to that program **and** only for requests that come from the KredoFi contract.
 
 ## What leaves the scorer
 
@@ -295,13 +333,13 @@ No transactions, balances, account numbers or names. The bank connection is remo
 
 - Plaid sees what any Plaid connection sees.
 - The enclave relies on Intel TDX and OutLayer's operations.
-${ENC ? '- The **testnet demo** scores in the same enclave service with a testnet build, Plaid sandbox data and test money.' : '- On the **testnet demo** the scorer runs on our server, not in an enclave, so that server sees the data while it scores (it keeps only the public output).'}
+${ENC ? '- The **testnet demo** scores in the same enclave service (OutLayer), testnet deployment, with a testnet build, Plaid sandbox data and test money.' : '- On the **testnet demo** the scorer runs on our server, not in an enclave, so that server sees the data while it scores (it keeps only the public output).'}
 
 Details: [Security](/docs/security).
 
 ## The AI summary (testnet only)
 
-On the testnet demo, a short plain-English summary is generated by NEAR AI Cloud, Qwen with a NEAR AI fallback (\`Qwen/Qwen3.8-27B\` first; if it hasn't answered in 8 seconds, \`Qwen/Qwen3.6-35B-A3B-FP8\`, also hosted by NEAR AI Cloud), after your score is set: your browser sends our server only the band and the five rule results (described in words, no numbers), never transactions, and our server asks NEAR AI and keeps nothing. It is a separate request, so it can't delay or change the score; if it fails, nothing is shown, and the page hides it if it contains numbers (models sometimes get them wrong). The mainnet scorer has no AI.
+On the testnet demo, a short plain-English summary is generated by NEAR AI Cloud, Qwen with a NEAR AI fallback (\`Qwen/Qwen3.8-27B\` first; if it hasn't answered in 8 seconds, \`Qwen/Qwen3.6-35B-A3B-FP8\`, also hosted by NEAR AI Cloud), after your score is set: your browser sends our server only the band and the five rule results (described in words, no numbers), never transactions, so our server does see those, and it asks NEAR AI and keeps nothing. It is a separate request, so it can't delay or change the score; if it fails, nothing is shown, and the page hides it if it contains numbers (models sometimes get them wrong). The mainnet scorer has no AI.
 `,
   },
   {
@@ -330,6 +368,19 @@ Expected: \`${MAINNET_SCORER}\`. OutLayer downloads the scorer from this commit-
 ## 3. Did a real score come from the enclave?
 
 Open [the scoring transaction](${TX_SCORE}) (mainnet, 3 November 2026, with the current scorer; earlier builds scored on [2 November](${TX_SCORE_NOV2}) and [1 November](${TX_SCORE_NOV1})). Its receipts show \`request_score\` (its bank token starts with \`sealed1:\`: sealed to the scorer with the borrower's account, so a copied token is refused), the request to \`outlayer.near\` with the pinned version, the private callback \`on_score\`, the event \`score_issued\` (band A, 1,000) and the unused fee refunded to the borrower.
+
+## 3b. Did that run really happen inside Intel TDX?
+
+OutLayer publishes an Intel-signed TDX quote for each run. [Job 1257953](https://app.outlayer.ai/attestation/1257953) is that transaction. Check it with OutLayer's open-source verifier, not its website:
+
+\`\`\`
+cargo install --git https://github.com/out-layer/outlayer-verify outlayer-verify
+outlayer-verify tx 3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo --api https://api.outlayer.ai
+\`\`\`
+
+Expected: \`PROVEN\`, exit code 0, \`wasm sha256 6888c15e…\`. (The \`--api\` flag is needed for now: the tool's default address is retired. For a testnet score add \`--network testnet --api https://testnet-api.outlayer.ai\`.) It checks that the quote chains to Intel, that all five measurements are on the approved list of \`worker.outlayer.near\`, that the quote commits to the scorer hash, input and output, and that those match the bytes in the transaction. A saved copy is in the repository: \`outlayer-verify bundle docs/proofs/mainnet-score-2026-11-03.attestation.json --offline\`.
+
+**What it doesn't prove:** that the enclave deletes the data after the run, or that the approved enclave image is good. OutLayer controls that approved list, and the image isn't linked to published source by this check. The attestation record comes from OutLayer's API, although the quote inside it is Intel-signed.
 
 ## 4. Can anyone else write a score?
 
@@ -378,7 +429,7 @@ Band B on $75: you repay $79.50, of which $2.25 goes to lenders and $2.25 to the
 
 ## The reserve
 
-The reserve pays losses first when a loan defaults, up to the loan's principal. It gets no share of interest. It grows only when the owner seeds it with USDC (\`seed_reserve\`) or moves treasury money into it. Moving treasury into the reserve is one-way.
+The reserve pays losses first when a loan defaults, up to the loan's principal and the reserve's balance. It gets no share of interest. It grows only when the owner seeds it with USDC (\`seed_reserve\`) or moves treasury money into it. Moving treasury into the reserve is one-way.
 
 ## Other costs
 
@@ -398,7 +449,7 @@ The reserve pays losses first when a loan defaults, up to the loan's principal. 
 No owner method can move **lender cash, outstanding loans or the reserve**. This is tested.
 
 One caveat, said plainly: the contract accounts still have their full-access keys, so the owner could deploy different code. See [Security](/docs/security).
-`,
+${CREDIT_MODEL}`,
   },
   {
     slug: 'contracts-api',
@@ -550,24 +601,30 @@ What it does reveal, publicly, to everyone:
     body: `
 ## What we protect
 
-- **Your bank data** is read only by the pinned scorer, inside the enclave on mainnet. Only a band, a score, an income cap, a fingerprint and a sealed name come out.
+- **Your bank data** is read only by the pinned scorer, inside the enclave on mainnet. Only eight fields come out: \`v\`, \`caller\`, \`band\`, \`score\`, \`income_cap\`, \`fingerprint\`, \`sealed_identity\` and \`reply\`. Nobody outside can verify the enclave deletes the data when the run ends.
 - **Your name** stays sealed unless you default.
 ${ENC ? "- **Scores can't be faked.** The contract accepts a score only from its own pinned OutLayer request, on mainnet and on the testnet demo." : "- **Scores can't be faked on mainnet.** The contract accepts a score only from its own pinned OutLayer request. On the testnet demo (Dev mode) it accepts scores from one scorer account that our server holds, so there you trust our server."}
-- **Only you can ask for your score.** ${ENC ? 'The contract requires your account to sign the request, and the bank token inside it is sealed to the enclave together with your account, so a copied token is refused.' : "On mainnet the contract requires your account's signature."} ${ENC ? 'Before Nov 5 the testnet demo used' : 'On the testnet demo,'} every score request carries a one-time challenge signed with a full-access key of your account (a NEAR NEP-413 signed message), so nobody can re-score someone else's account.
-- **Lender money.** Checked math, state written before every transfer with rollback on failure, a 10% per-borrower limit, the reserve pays first, and no owner method can move lender cash, loans or the reserve.
+- **Only you can ask for your score.** ${ENC ? 'The contract requires your account to sign the request, and the bank token inside it is sealed to the enclave together with your account, so a copied token is refused.' : "On mainnet the contract requires your account's signature."} ${ENC ? '(Until the testnet demo moved into the enclave on 4 November, it asked for a one-time challenge signed with a full-access key of your account, a NEAR NEP-413 signed message, instead.)' : "On the testnet demo, every score request carries a one-time challenge signed with a full-access key of your account (a NEAR NEP-413 signed message), so nobody can re-score someone else's account."}
+- **Lender money.** Checked math, state written before every transfer with rollback on failure, a 10% per-borrower limit, the reserve pays first up to its balance, and no owner method can move lender cash, loans or the reserve.
 
 ## What we don't protect, or only partly
 
 - **The owner can still change the code.** The contract accounts still have their full-access keys, so the owner could deploy different code, and different code could move funds. Before real money this needs locked keys, a DAO or time-locked upgrades. The mainnet pool holds no funds today.
 - **The Plaid keys are also held by the developer.** The enclave's Plaid keys were handed to OutLayer by the developer. Since 3 November the one-time bank token goes on-chain sealed to the scorer with your account (a copy is refused), but the developer also holds the sealing key, so could open it, exchange it first and read that bank data (the score would then fail). Production would create and keep these keys only inside the enclave.\n- **The sealing key was made outside the enclave.** The mainnet sealing key was generated by the developer and handed to OutLayer as a secret, so the developer could open sealed names. The recovery partner is simulated and its key is also held by the developer. Production would generate the key inside the enclave.
 ${ENC ? '- **The testnet demo uses test data.** It scores in the enclave like mainnet, with its own sealing key, sandbox banks and test money.' : "- **The testnet demo isn't private from us.** Its scorer runs on our server, so that server sees the data while scoring. It uses its own sealing key, sandbox banks and test money."}
-- **Trust in the enclave.** We rely on Intel TDX and on OutLayer's worker registration and secrets service.
+- **Trust in the enclave.** We rely on Intel TDX and on OutLayer's worker registration and secrets service. An attestation proves an approved build ran; OutLayer decides which builds are approved.
 - **The chain is public.** Your band, score, loans and repayments are linked to your NEAR account.
 - **Fingerprints rely on identity data.** Someone with accounts at several banks could become several borrowers.
 - **A missed deadline releases your name.** After the due date plus grace, anyone can mark the default; that is the deterrent by design.
 - **Partial bank history.** Plaid's sandbox sometimes reports the history as complete before it has arrived. The scorer waits for it (and the testnet scorer also checks every month is present); a partial history can lower a score, never raise it.
 - **Rebuilding the scorer needs x86_64 Linux.** The pinned file rebuilds byte for byte in the pinned Docker image on x86_64 (or in the repository's GitHub workflow); macOS and ARM builds give other bytes. See [Verify it yourself](/docs/verify).
 - **Demo accounts live in your browser.** Their key is in local storage; anything that can run script on the page could take it. They hold only test funds.
+
+## Who holds what today
+
+Today most of this is one person, the developer. This is a hackathon MVP with $0 in the mainnet pool, and it would not be safe for real money as it stands. The Pilot column is a plan, not something built, except the 24 h scorer time lock.
+
+${trustTableMarkdown()}
 
 ## Known limits
 
@@ -643,11 +700,11 @@ A repayment raises your level only after the minimum hold, on a loan of at least
 
 ## Can I use the same bank with two accounts?
 
-No. One bank identity backs one borrower. (On testnet, the shared sandbox login is tied to each NEAR account so every visitor can try it.)
+Not with the same bank identity (bank, owner name, account mask) on this contract: it backs one borrower. Accounts at other banks are different identities, so someone with several banks could become several borrowers. (On testnet, the shared sandbox login is tied to each NEAR account so every visitor can try it.)
 
 ## What happens if I don't repay?
 
-After the due date plus grace, anyone can mark the default. The reserve pays lenders first, you can't borrow again, and your sealed name can be released to the recovery partner.
+After the due date plus grace, anyone can mark the default. The reserve pays lenders first, up to its balance, you can't borrow again, and your sealed name can be released to the recovery partner.
 
 ## Who is the recovery partner?
 
@@ -681,6 +738,7 @@ KredoFi today is a **hackathon MVP**: it works end to end on testnet, and the ma
 - **Owner role behind a multisig**; the **time lock on scorer re-pins** is already built (24 hours on mainnet), so users can leave before a new scorer applies; then the contract keys are locked (below).
 - **A capped pool**: small loans and a hard limit on total lending while the default rate is measured.
 - The sealing key and the Plaid keys created inside the enclave, so nobody else holds them.
+- A real recovery partner that holds its own key, and the OutLayer secrets owner behind the same multisig. The full list of who holds what today is in [Security](/docs/security).
 
 ## India: RBI Account Aggregator
 
