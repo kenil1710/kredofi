@@ -577,3 +577,17 @@ fn cancel_by_stranger_panics() {
     set(max());
     c.cancel_pending_score();
 }
+
+/// OutLayer refuses a request whose worst case isn't covered by the deposit. Its formula (read from
+/// `estimate_execution_cost` on outlayer.near and outlayer.testnet, Nov 4): 0.001 NEAR base, 0.0001
+/// NEAR per second, 1e14 yocto per million instructions. 90 s would no longer fit the 0.01 NEAR fee.
+#[test]
+fn execution_limit_is_60_s_and_the_fee_deposit_covers_it() {
+    let limits = score::outlayer_limits();
+    assert_eq!(limits["max_execution_seconds"], 60);
+    let seconds = limits["max_execution_seconds"].as_u64().unwrap() as u128;
+    let million_instr = limits["max_instructions"].as_u64().unwrap() as u128 / 1_000_000;
+    let worst_case = 10u128.pow(21) + seconds * 10u128.pow(20) + million_instr * 10u128.pow(14);
+    assert_eq!(worst_case, 7_000_100_000_000_000_000_000);
+    assert!(worst_case <= score::MIN_SCORE_DEPOSIT.as_yoctonear());
+}

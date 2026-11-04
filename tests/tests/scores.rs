@@ -187,7 +187,7 @@ async fn rule2_request_pins_version_and_change_is_public() -> anyhow::Result<()>
     assert_eq!(req["secrets_ref"]["profile"], "kredofi");
     assert_eq!(req["secrets_ref"]["account_id"], env.owner.id().as_str());
     assert_eq!(req["response_format"], "Json");
-    assert_eq!(req["resource_limits"]["max_execution_seconds"], 30);
+    assert_eq!(req["resource_limits"]["max_execution_seconds"], 60);
     assert_eq!(req["deposit"], NearToken::from_millinear(10).as_yoctonear().to_string());
     assert_eq!(req["predecessor"], env.pool.id().as_str());
     assert_eq!(req["signer"], env.alice.id().as_str(), "NEAR_SENDER_ID would be the borrower");

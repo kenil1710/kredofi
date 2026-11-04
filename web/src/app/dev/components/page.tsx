@@ -160,7 +160,7 @@ export default function ComponentSheet() {
           rows={DECOR_ROWS.steady} failure="The bank history was not ready yet. Check your limit again in a minute." />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
           <button type="button" className="btn btn-ink" onClick={simulateScore}>Simulate a scoring run</button>
-          <button type="button" className="btn btn-line" onClick={() => { simRun.current++; setStep('reading'); setElapsed(34); }}>Show the 30 s note</button>
+          <button type="button" className="btn btn-line" onClick={() => { simRun.current++; setStep('reading'); setElapsed(24); }}>Show the 20 s note</button>
           <button type="button" className="btn btn-red" onClick={() => { simRun.current++; setStep('failed'); }}>Show a failure</button>
         </div>
       </section>

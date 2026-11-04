@@ -33,7 +33,11 @@ const GAS_REQUEST_EXECUTION: Gas = Gas::from_tgas(100);
 const GAS_ON_SCORE: Gas = Gas::from_tgas(30);
 const MAX_INSTRUCTIONS: u64 = 1_000_000_000;
 const MAX_MEMORY_MB: u32 = 128;
-const MAX_EXECUTION_SECONDS: u32 = 30;
+/// Plaid sandbox can take 15-19 s per run on a slow day; 30 s lost 2 of 5 enclave scores (Nov 4).
+/// OutLayer only charges for time used, but it needs the worst case covered by the deposit at signing:
+/// 0.0070001 NEAR at 60 s (`estimate_execution_cost`, both networks), 0.0100001 NEAR at 90 s, which
+/// would no longer fit MIN_SCORE_DEPOSIT.
+const MAX_EXECUTION_SECONDS: u32 = 60;
 
 /// Output keys the scorer may emit. Anything else is rejected (SPEC 5 / CLAUDE.md scorer rules).
 const OUTPUT_KEYS: [&str; 8] = [

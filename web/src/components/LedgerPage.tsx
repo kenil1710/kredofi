@@ -9,10 +9,10 @@ import { EARLIER_TESTNET_CONTRACT, EXPLORER, KREDOFI_CONTRACT, NETWORK } from '@
 import { pendingScorerText, type PinConfig } from '@/lib/pin';
 import { relativeTime, usd } from '@/lib/format';
 import { HashLink } from './HashLink';
-import { isSeededEvent, SEEDED_LABEL, SEEDED_NOTE, visitorStats, type Bands } from '@/lib/seeded';
+import { devCheckCaption, devCheckLabel, DEV_CHECK_NOTE, isDevCheckEvent, isSeededEvent, SEEDED_LABEL, SEEDED_NOTE, visitorStats, type Bands } from '@/lib/seeded';
 
 type Band = { scored: number; loans_issued: number; repaid: number; defaulted: number; volume: string };
-type Data = { events: LedgerEvent[]; stats: Record<'A' | 'B' | 'C' | 'D', Band>; seeded?: Bands; pool: { pool_value: string; reserve: string; treasury: string; outstanding: string }; config: PinConfig & { scorer_mode: string; scorer_version: string }; updatedAt: number };
+type Data = { events: LedgerEvent[]; stats: Record<'A' | 'B' | 'C' | 'D', Band>; seeded?: Bands; devCheck?: Bands; devCheckTimes?: number[]; pool: { pool_value: string; reserve: string; treasury: string; outstanding: string }; config: PinConfig & { scorer_mode: string; scorer_version: string }; updatedAt: number };
 
 const KINDS: [string, string, (e: string) => boolean][] = [
   ['all', 'All', () => true],
@@ -70,8 +70,14 @@ export function LedgerPage() {
   // Visitors (the contract's own get_stats minus the seeded part) and seeded demo numbers, apart.
   const seeded = data?.seeded ?? null;
   const anySeeded = !!seeded && (['A', 'B', 'C', 'D'] as const).some((b) => seeded[b].scored + seeded[b].loans_issued > 0);
-  const visitors = data ? (seeded ? visitorStats(data.stats, seeded) : data.stats) : null;
-  const groups: [string, Bands | null][] = anySeeded ? [['Visitors and judges', visitors], [SEEDED_LABEL, seeded]] : [['All borrowers', visitors]];
+  const devCheck = data?.devCheck ?? null;
+  const anyDev = !!data?.devCheckTimes?.length;
+  const split = anySeeded || anyDev;
+  const visitors = data ? visitorStats(data.stats, ...(seeded ? [seeded] : []), ...(devCheck ? [devCheck] : [])) : null;
+  const devTitle = devCheckCaption(data?.devCheckTimes ?? []);
+  const groups: [string, Bands | null][] = split
+    ? [['Visitors and judges', visitors], ...(anySeeded ? [[SEEDED_LABEL, seeded] as [string, Bands | null]] : []), ...(anyDev ? [[devTitle, devCheck] as [string, Bands | null]] : [])]
+    : [['All borrowers', visitors]];
 
   return (
     <main className="wrap lend-grid">
@@ -93,7 +99,7 @@ export function LedgerPage() {
               const d = describe(e);
               return (
                 <li key={keyOf(e)} className={fresh.has(keyOf(e)) ? 'new' : undefined}>
-                  <span>{d.text}{isSeededEvent(e) && <> <span className="seedtag">{SEEDED_LABEL}</span></>}</span><span className="v">{d.value}</span>
+                  <span>{d.text}{isSeededEvent(e) && <> <span className="seedtag">{SEEDED_LABEL}</span></>}{isDevCheckEvent(e) && <> <span className="seedtag">{devCheckLabel(e.ts)}</span></>}</span><span className="v">{d.value}</span>
                   <span className="t" title={new Date(e.ts).toISOString()}>{relativeTime(e.ts, now)}, <HashLink hash={e.txHash} /></span>
                 </li>
               );
@@ -106,12 +112,13 @@ export function LedgerPage() {
         <div className="panel">
           <h2>By band</h2>
 {anySeeded && <p className="hint seeded-note">{SEEDED_NOTE}</p>}
+          {anyDev && <p className="hint seeded-note">{DEV_CHECK_NOTE}</p>}
           {groups.map(([title, st]) => {
             const bands = (['A', 'B', 'C', 'D'] as const).map((b) => [b, st?.[b]] as const);
             const tot = bands.reduce((s, [, x]) => ({ scored: s.scored + (x?.scored ?? 0), loans: s.loans + (x?.loans_issued ?? 0), repaid: s.repaid + (x?.repaid ?? 0), defaulted: s.defaulted + (x?.defaulted ?? 0), volume: s.volume + BigInt(x?.volume ?? '0') }), { scored: 0, loans: 0, repaid: 0, defaulted: 0, volume: 0n });
             return (
               <table className="bandt" key={title} aria-label={title}>
-                {anySeeded && <caption>{title === SEEDED_LABEL ? <span className="seedtag">{SEEDED_LABEL}</span> : title}</caption>}
+                {split && <caption>{title === SEEDED_LABEL || title === devTitle ? <span className="seedtag">{title}</span> : title}</caption>}
                 <thead><tr><th>Band</th><th>Scored</th><th>Loans</th><th>Repaid</th><th>Defaulted</th><th>Lent</th></tr></thead>
                 <tbody>
                   {bands.map(([b, x]) => <tr key={b}><td>{b}</td><td>{x?.scored ?? '…'}</td><td>{x?.loans_issued ?? '…'}</td><td>{x?.repaid ?? '…'}</td><td>{x?.defaulted ?? '…'}</td><td>{x ? usd(x.volume) : '…'}</td></tr>)}

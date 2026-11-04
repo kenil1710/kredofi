@@ -50,7 +50,7 @@ export function describe(e: LedgerEvent): { text: string; value: string; band?: 
   }
 }
 
-/** A transaction's receipts are done well within 5 minutes (the OutLayer callback has a 30 s run limit);
+/** A transaction's receipts are done well within 5 minutes (the OutLayer callback has a 60 s run limit);
  *  until then the ledger reads it again. */
 export const SETTLE_MS = 5 * 60_000;
 export const settled = (txMs: number, nowMs: number) => nowMs - txMs >= SETTLE_MS;

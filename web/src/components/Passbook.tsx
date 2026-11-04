@@ -178,7 +178,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     setScoring((s) => (s ? { ...s, hash } : s));
     updateSession({ pendingHash: hash }, acctId); // a reload mid-scoring finishes from this transaction
     let res = scoreFromReceipts((out?.receipts_outcome ?? []) as never, KREDOFI_CONTRACT, OUTLAYER_CONTRACT, acctId);
-    // Follow the chain until on_score has run (OutLayer answers in 8-20 s; at most ~2 minutes).
+    // Follow the chain until on_score has run (OutLayer answers in 8-60 s; at most ~2 minutes).
     for (let i = 0; !res.event && i < 45; i++) {
       await new Promise((r) => setTimeout(r, 2500));
       res = scoreFromReceipts((await txReceipts(hash, acctId).catch(() => [])) as never, KREDOFI_CONTRACT, OUTLAYER_CONTRACT, acctId);
