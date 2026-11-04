@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { describe, eventsFromReceipts, lostByLenders } from './events.ts';
+import { describe, eventsFromReceipts, lostByLenders, settled } from './events.ts';
 
 const K = 'kredofi.kency.testnet';
 const ev = (event: string, data: object) => `EVENT_JSON:${JSON.stringify({ standard: 'kredofi', version: '1.0.0', event, data: [data] })}`;
@@ -41,4 +41,9 @@ test('scorer time-lock events read plainly', () => {
   const ev = (event: string, data: Record<string, unknown>) => ({ event, data, tx: 't', ts: 0 }) as unknown as Parameters<typeof describe>[0];
   assert.equal(describe(ev('scorer_change_proposed', { new: 'ab'.repeat(32) })).text, 'Scorer change proposed: abababab… (time lock)');
   assert.equal(describe(ev('scorer_change_cancelled', { version: 'cd'.repeat(32) })).text, 'Scorer change cancelled: cdcdcdcd…');
+});
+
+test('a transaction is re-read until its callbacks have surely run', () => {
+  assert.equal(settled(0, 4 * 60_000), false);
+  assert.equal(settled(0, 5 * 60_000), true);
 });

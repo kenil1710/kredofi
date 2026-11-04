@@ -8,12 +8,14 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
 import { rpc } from './near';
-import { eventsFromReceipts, type LedgerEvent } from '@/lib/events';
+import { eventsFromReceipts, settled, type LedgerEvent } from '@/lib/events';
 
 const FASTNEAR = NETWORK === 'mainnet' ? 'https://tx.main.fastnear.com' : 'https://tx.test.fastnear.com';
 const FILE = () => /* turbopackIgnore: true */ process.env.LEDGER_CACHE ?? '';
-type Entry = { ts: number; events: LedgerEvent[] };
-const CACHE_V = 2; // 2: events from failed receipts skipped (audit L4)
+// pending: read while its receipts may still run (an OutLayer callback lands ~10-30 s later, a transfer
+// callback a block or two later), so it is read again until it is old enough to be settled.
+type Entry = { ts: number; events: LedgerEvent[]; pending?: boolean };
+const CACHE_V = 3; // 2: events from failed receipts skipped (audit L4); 3: re-read unsettled txs (Nov 4)
 const cache = new Map<string, Entry>();
 let loaded = false, lastSync = 0, syncing: Promise<void> | null = null, changedAt = 0;
 /** When the last transaction was recorded directly (cached answers older than this are stale). */
@@ -47,7 +49,7 @@ async function fetchDetails(hashes: string[]) {
       if (!t) continue;
       const ts = Math.round(Number(t.execution_outcome.block_timestamp) / 1e6);
       const receipts = t.receipts.map((x) => ({ executor_id: x.execution_outcome.outcome.executor_id, logs: x.execution_outcome.outcome.logs, status: x.execution_outcome.outcome.status }));
-      cache.set(t.transaction.hash, { ts, events: eventsFromReceipts(receipts, KREDOFI_CONTRACT, t.transaction.hash, ts) });
+      cache.set(t.transaction.hash, { ts, events: eventsFromReceipts(receipts, KREDOFI_CONTRACT, t.transaction.hash, ts), pending: !settled(ts, Date.now()) });
     }
   }
 }
@@ -61,7 +63,7 @@ export async function sync(): Promise<void> {
     try {
       const r = await fetch(`${FASTNEAR}/v0/account`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ account_id: KREDOFI_CONTRACT }) });
       const j = (await r.json()) as { account_txs: { transaction_hash: string }[] };
-      const missing = (j.account_txs ?? []).map((x) => x.transaction_hash).filter((h) => !cache.has(h));
+      const missing = (j.account_txs ?? []).map((x) => x.transaction_hash).filter((h) => !cache.has(h) || cache.get(h)!.pending);
       if (missing.length) { await fetchDetails(missing); await save(); }
     } catch { /* index unavailable: serve what we have */ }
   })();
@@ -71,7 +73,7 @@ export async function sync(): Promise<void> {
 /** Add one transaction now, read from the RPC (it needs the signer). */
 export async function record(hash: string, signer: string): Promise<LedgerEvent[]> {
   await load();
-  if (cache.has(hash)) return cache.get(hash)!.events;
+  if (cache.has(hash) && !cache.get(hash)!.pending) return cache.get(hash)!.events;
   type Tx = { transaction_outcome: { block_hash: string }; receipts_outcome: { outcome: { executor_id: string; logs: string[]; status?: unknown } }[] };
   const res = await rpc<Tx>('EXPERIMENTAL_tx_status', { tx_hash: hash, sender_account_id: signer, wait_until: 'FINAL' }).catch(() => null);
   if (!res) return [];
@@ -79,7 +81,7 @@ export async function record(hash: string, signer: string): Promise<LedgerEvent[
   const ts = block ? Math.round(Number(block.header.timestamp) / 1e6) : Date.now();
   const receipts = res.receipts_outcome.map((x) => ({ executor_id: x.outcome.executor_id, logs: x.outcome.logs, status: x.outcome.status }));
   const events = eventsFromReceipts(receipts, KREDOFI_CONTRACT, hash, ts);
-  cache.set(hash, { ts, events });
+  cache.set(hash, { ts, events, pending: !settled(ts, Date.now()) });
   changedAt = Date.now();
   await save();
   return events;

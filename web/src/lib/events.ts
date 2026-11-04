@@ -50,6 +50,11 @@ export function describe(e: LedgerEvent): { text: string; value: string; band?: 
   }
 }
 
+/** A transaction's receipts are done well within 5 minutes (the OutLayer callback has a 30 s run limit);
+ *  until then the ledger reads it again. */
+export const SETTLE_MS = 5 * 60_000;
+export const settled = (txMs: number, nowMs: number) => nowMs - txMs >= SETTLE_MS;
+
 /** Sum of lender_loss over defaults: "lost by lenders so far". */
 export const lostByLenders = (events: LedgerEvent[]) =>
   events.filter((e) => e.event === 'loan_defaulted').reduce((s, e) => s + BigInt(String(e.data.lender_loss ?? 0)), 0n);
