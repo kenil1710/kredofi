@@ -171,6 +171,7 @@ html.lenis,html.lenis body{height:auto}
 .lp .nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:56px;border-top:1px solid var(--line-paper)}
 .lp .nums div{padding:28px 24px 0 0;display:flex;flex-direction:column;gap:10px}
 .lp .nums b{font-family:var(--display);font-weight:500;font-size:clamp(48px,5.4vw,84px);line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lp .nums b.word{font-size:clamp(32px,4vw,64px);padding-block:8px}
 .lp .nums span{font-size:15px;color:#2C4A41;max-width:230px}
 .lp .nums a{color:var(--violet-ink);font-weight:600}
 @media (max-width:899px){.lp .nums{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:28px}}

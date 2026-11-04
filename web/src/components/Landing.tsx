@@ -542,7 +542,7 @@ export function Landing() {
               <div><b className="cnt" data-to="8.5" data-dec="1" data-suf=" s">8.5 s</b><span>for the scorer run inside Intel TDX</span></div>
               <div><b>~0.002</b><span>NEAR charged by OutLayer for the run</span></div>
               <div><b className="cnt" data-to="472" data-dec="0">472</b><span>bytes of output on-chain, in the eight listed fields</span></div>
-              <div><b>PROVEN</b><span>by OutLayer&apos;s verifier against Intel&apos;s signature. <a href={ATTESTATION}>Attestation</a> · <a href={MAINNET_TX}>Transaction</a></span></div>
+              <div><b className="word">PROVEN</b><span>by OutLayer&apos;s verifier against Intel&apos;s signature. <a href={ATTESTATION}>Attestation</a> · <a href={MAINNET_TX}>Transaction</a></span></div>
             </div>
           </div>
         </section>

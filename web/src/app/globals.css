@@ -385,6 +385,12 @@ button{font-family:inherit}
 
 /* Seeded demo activity on the public ledger (SPEC 8d) */
 .seedtag{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border:1px solid currentColor;opacity:.85;vertical-align:1px;white-space:nowrap}
+.lend-grid .panel{min-width:0}
+@media (max-width:480px){
+  .lend-grid .panel{padding:16px}
+  .bandt{display:block;overflow-x:auto;font-size:13px}
+  .bandt th,.bandt td{padding:8px 4px}
+}
 .bandt caption{caption-side:top;text-align:left;font-size:13px;padding:14px 0 6px;color:inherit}
 .seeded-note{margin-bottom:6px}
 /* /mainnet: a credit-note card with the live contract state */
