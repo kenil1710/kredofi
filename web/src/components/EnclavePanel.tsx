@@ -1,7 +1,7 @@
 'use client';
 // The scoring box on the passbook (passbook reference + DESIGN 7.3, "waiting honestly").
 // Four real phases, each confirmed by something real; elapsed seconds while the enclave reads;
-// after 20 s an honest note on why it can take longer and that it is safe to leave. Never a bare spinner or a fake percentage.
+// after 28 s (normal runs take ~20 s) an honest note on why it can take longer and that it is safe to leave. Never a bare spinner or a fake percentage.
 // The blurred rows are abstract bars (aria-hidden, no text or numbers): no bank data, real or
 // realistic, ever reaches the browser.
 import { HashLink } from './HashLink';
@@ -77,7 +77,7 @@ export function EnclavePanel({
           })}
         </ol>
         {note && <p className="note-long" style={{ color: 'var(--muted)' }}>{note}</p>}
-        {step !== 'sealed' && step !== 'failed' && elapsed >= 20 && (
+        {step !== 'sealed' && step !== 'failed' && elapsed >= 28 && (
           <p className="note-long">Still waiting for the test bank, which can be slow. The enclave has up to 60 s. You can leave this page; the result will be here when you come back.</p>
         )}
         {step === 'failed' && failure && <p className="note-long" style={{ color: 'var(--red-night)' }}>{failure}</p>}

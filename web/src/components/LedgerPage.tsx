@@ -28,6 +28,7 @@ export function LedgerPage() {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState('all');
+  const [showDev, setShowDev] = useState(false);
   const [band, setBand] = useState('all');
   const seen = useRef<Set<string> | null>(null);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
@@ -75,8 +76,9 @@ export function LedgerPage() {
   const split = anySeeded || anyDev;
   const visitors = data ? visitorStats(data.stats, ...(seeded ? [seeded] : []), ...(devCheck ? [devCheck] : [])) : null;
   const devTitle = devCheckCaption(data?.devCheckTimes ?? []);
+  const devScored = devCheck ? (['A', 'B', 'C', 'D'] as const).reduce((n, b) => n + devCheck[b].scored, 0) : 0;
   const groups: [string, Bands | null][] = split
-    ? [['Visitors and judges', visitors], ...(anySeeded ? [[SEEDED_LABEL, seeded] as [string, Bands | null]] : []), ...(anyDev ? [[devTitle, devCheck] as [string, Bands | null]] : [])]
+    ? [['Visitors and judges', visitors], ...(anySeeded ? [[SEEDED_LABEL, seeded] as [string, Bands | null]] : []), ...(anyDev && showDev ? [[devTitle, devCheck] as [string, Bands | null]] : [])]
     : [['All borrowers', visitors]];
 
   return (
@@ -127,6 +129,7 @@ export function LedgerPage() {
               </table>
             );
           })}
+          {anyDev && <p style={{ marginTop: 12 }}><button type="button" className="btn btn-line" aria-expanded={showDev} onClick={() => setShowDev((v) => !v)}>{showDev ? 'Hide' : 'Show'} developer checks ({devScored})</button></p>}
           {data && <p className="hint">Pool {usd(data.pool.pool_value)}, lent out {usd(data.pool.outstanding)}, reserve {usd(data.pool.reserve)}, treasury {usd(data.pool.treasury)}.</p>}
         </div>
         <div className="panel verify">
