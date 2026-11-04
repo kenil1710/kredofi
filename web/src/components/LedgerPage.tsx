@@ -67,7 +67,7 @@ export function LedgerPage() {
   }, [data]);
 
   const pred = KINDS.find((k) => k[0] === kind)![2];
-  const rows = (data?.events ?? []).filter((e) => pred(e.event) && (band === 'all' || bandOf.get(keyOf(e)) === band)).slice(0, 60);
+  const rows = (data?.events ?? []).filter((e) => (showDev || !isDevCheckEvent(e)) && pred(e.event) && (band === 'all' || bandOf.get(keyOf(e)) === band)).slice(0, 60);
   // Visitors (the contract's own get_stats minus the seeded part) and seeded demo numbers, apart.
   const seeded = data?.seeded ?? null;
   const anySeeded = !!seeded && (['A', 'B', 'C', 'D'] as const).some((b) => seeded[b].scored + seeded[b].loans_issued > 0);
