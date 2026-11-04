@@ -438,17 +438,19 @@ Amounts are USDC with 6 decimals ($100 = \`100000000\`), passed as strings. Time
 
 ## Owner
 
-\`set_scorer_version\`, \`set_loan_term_ns\`, \`set_grace_ns\`, \`set_min_hold_ns\`, \`set_score_ttl_ns\`, \`set_max_borrower_share_bps\`, \`withdraw_treasury\`, \`treasury_to_reserve\`, and \`ft_transfer_call\` with \`msg: "seed_reserve"\`. Each needs 1 yoctoNEAR and emits an event.
+\`propose_scorer_version\`, \`apply_scorer_version\`, \`cancel_scorer_version\`, \`set_scorer_delay_ns\`, \`set_loan_term_ns\`, \`set_grace_ns\`, \`set_min_hold_ns\`, \`set_score_ttl_ns\`, \`set_max_borrower_share_bps\`, \`withdraw_treasury\`, \`treasury_to_reserve\`, and \`ft_transfer_call\` with \`msg: "seed_reserve"\`. Each needs 1 yoctoNEAR and emits an event.
+
+A new scorer version never applies at once (contract v4, security review 2): the owner proposes it in public, and can apply it only after the time lock (24 hours on mainnet, never below 1 hour; 1 minute on testnet). The owner can cancel a pending change, and the lock can only be made longer. [Mainnet proof](/mainnet) shows any pending change.
 
 ## Views
 
-\`get_config\`, \`get_pool\`, \`get_lender(account_id)\`, \`get_borrower(account_id)\` (never returns the sealed name), \`get_limit(account_id)\`, \`get_stats\`, \`is_release_allowed(account_id)\`.
+\`get_config\`, \`get_pending_scorer\` (the proposed scorer and when it can apply, or \`null\`), \`get_pool\`, \`get_lender(account_id)\`, \`get_borrower(account_id)\` (never returns the sealed name), \`get_limit(account_id)\`, \`get_stats\`, \`is_release_allowed(account_id)\`.
 
 ## Events
 
 NEP-297 logs with standard \`kredofi\`, version \`1.0.0\`:
 
-\`score_issued\`, \`score_failed\`, \`loan_issued\`, \`loan_repaid\`, \`loan_defaulted\`, \`identity_released\`, \`lender_deposit\`, \`lender_withdraw\`, \`reserve_seeded\`, \`treasury_withdrawn\`, \`treasury_to_reserve\`, \`scorer_version_changed\`, \`param_changed\`.
+\`score_issued\`, \`score_failed\`, \`loan_issued\`, \`loan_repaid\`, \`loan_defaulted\`, \`identity_released\`, \`lender_deposit\`, \`lender_withdraw\`, \`reserve_seeded\`, \`treasury_withdrawn\`, \`treasury_to_reserve\`, \`scorer_change_proposed\`, \`scorer_change_cancelled\`, \`scorer_version_changed\` (the applied change), \`param_changed\`.
 
 The [public ledger](/ledger) is built from these events and trusts only logs from receipts executed by the KredoFi contract itself.
 
@@ -673,7 +675,7 @@ KredoFi today is a **hackathon MVP**: it works end to end on testnet, and the ma
 ## Pilot: real banks, small and capped
 
 - **Plaid production access**, and a **licensed lending partner** to make the loans; KredoFi supplies the score.
-- **Owner role behind a multisig**, and a **time lock on scorer re-pins**, so users can leave before a new scorer applies; then the contract keys are locked (below).
+- **Owner role behind a multisig**; the **time lock on scorer re-pins** is already built (24 hours on mainnet), so users can leave before a new scorer applies; then the contract keys are locked (below).
 - **A capped pool**: small loans and a hard limit on total lending while the default rate is measured.
 - The sealing key and the Plaid keys created inside the enclave, so nobody else holds them.
 
@@ -693,9 +695,9 @@ Lenders deposit USDC from other chains through NEAR Intents (1Click) and earn on
 
 The contract account \`kredofi.near\` still has a full-access key. Whoever holds it could deploy new code, and new code could move any funds; owner methods can't (tested). Deleting that key now would also block every fix, so the lock comes last:
 
-1. Deploy the **final audited build**, with the fixes from the 3 November security audit (\`docs/SECURITY_AUDIT.md\` in the repository).
+1. Deploy the **final audited build**, with the fixes from both security reviews (AI-assisted, not professional audits; \`docs/SECURITY_AUDIT.md\` in the repository).
 2. Move the **owner role to a multisig**, so several keys must sign every owner call.
-3. Add a **time lock on scorer re-pins**: a new \`set_scorer_version\` takes effect only after a delay, so lenders and borrowers can leave before a new scorer build applies.
+3. **Time lock on scorer re-pins** (built, contract v4): a proposed scorer applies only after 24 hours, so lenders and borrowers can leave before a new scorer build applies.
 4. **Lock**: delete the contract account's full-access key, so the code can never change again.
 
 Not done yet: today the mainnet pool holds no money.

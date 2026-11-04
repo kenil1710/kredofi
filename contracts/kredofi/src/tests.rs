@@ -46,6 +46,7 @@ pub fn config_input() -> ConfigInput {
         score_ttl_ns: U64(30 * 24 * 3600 * 1_000_000_000),
         max_borrower_share_bps: 1000,
         require_production_data: Some(false),
+        scorer_delay_ns: None,
     }
 }
 

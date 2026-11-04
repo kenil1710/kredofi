@@ -67,11 +67,11 @@ fn scored_pool() -> Contract {
 
 
 
-/// Checked: running `migrate` on v3 state (twice) panics instead of mis-reading the layout, for
-/// realistic and for extreme-but-u112 balances.
+/// Checked: running `migrate` on already-migrated (v4) state panics instead of mis-reading the
+/// layout or wiping a pending scorer change, for realistic and for extreme balances.
 #[test]
-#[should_panic(expected = "Cannot deserialize")]
-fn r2_migrate_on_v3_state_panics() {
+#[should_panic(expected = "State is not v3")]
+fn r2_migrate_on_v4_state_panics() {
     let mut c = scored_pool();
     c.pool.treasury = (1u128 << 112) - 1;
     c.pool.reserve = u128::MAX;
@@ -243,17 +243,18 @@ fn r2_mul_div_wide_matches_exact_math() {
     assert!(r.is_err());
 }
 
-/// Review 2 High, accepted for the MVP (time lock on the roadmap): a new scorer pin applies to the
-/// next request with no delay, and the contract accepts what that build outputs. Kept as a test so
-/// the behaviour is documented; a time lock would change it.
+/// Review 2 High, fixed by the time lock (pin.rs): a proposed scorer pin does not apply to the
+/// next request; requests keep pinning the old version until the delay has passed and the owner
+/// applies it. Full time-lock tests: pin_tests.rs.
 #[test]
-fn r2_scorer_pin_change_is_immediate() {
+fn r2_scorer_pin_change_waits_for_time_lock() {
     let mut c = scored_pool();
     testing_env!(ctx(owner()).attached_deposit(NearToken::from_yoctonear(1)).build());
-    c.set_scorer_version("ab".repeat(32));
+    c.propose_scorer_version("ab".repeat(32));
+    assert_eq!(c.get_config().scorer_version, VERSION, "not pinned yet");
     let sybil = acc("sybil1.near");
     request_at(&mut c, sybil.clone(), 1);
     callback_at(1, PromiseResult::Successful(near_sdk::serde_json::to_vec(&out(&sybil, "A", 1000, 0x99)).unwrap()));
     assert!(c.on_score(sybil.clone()));
-    assert_eq!(c.get_borrower(sybil).unwrap().score.unwrap().scorer_version, "ab".repeat(32));
+    assert_eq!(c.get_borrower(sybil).unwrap().score.unwrap().scorer_version, VERSION);
 }

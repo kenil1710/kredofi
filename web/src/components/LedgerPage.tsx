@@ -6,12 +6,13 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { describe, type LedgerEvent } from '@/lib/events';
 import { EXPLORER, KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
+import { pendingScorerText, type PinConfig } from '@/lib/pin';
 import { relativeTime, usd } from '@/lib/format';
 import { HashLink } from './HashLink';
 import { isSeededEvent, SEEDED_LABEL, SEEDED_NOTE, visitorStats, type Bands } from '@/lib/seeded';
 
 type Band = { scored: number; loans_issued: number; repaid: number; defaulted: number; volume: string };
-type Data = { events: LedgerEvent[]; stats: Record<'A' | 'B' | 'C' | 'D', Band>; seeded?: Bands; pool: { pool_value: string; reserve: string; treasury: string; outstanding: string }; config: { scorer_mode: string; scorer_version: string }; updatedAt: number };
+type Data = { events: LedgerEvent[]; stats: Record<'A' | 'B' | 'C' | 'D', Band>; seeded?: Bands; pool: { pool_value: string; reserve: string; treasury: string; outstanding: string }; config: PinConfig & { scorer_mode: string; scorer_version: string }; updatedAt: number };
 
 const KINDS: [string, string, (e: string) => boolean][] = [
   ['all', 'All', () => true],
@@ -19,7 +20,7 @@ const KINDS: [string, string, (e: string) => boolean][] = [
   ['loans', 'Loans', (e) => e === 'loan_issued' || e === 'loan_repaid'],
   ['defaults', 'Defaults', (e) => e === 'loan_defaulted' || e === 'identity_released'],
   ['lenders', 'Lenders', (e) => e.startsWith('lender_')],
-  ['admin', 'Owner', (e) => ['reserve_seeded', 'scorer_version_changed', 'param_changed', 'treasury_withdrawn', 'treasury_to_reserve'].includes(e)],
+  ['admin', 'Owner', (e) => ['reserve_seeded', 'scorer_version_changed', 'scorer_change_proposed', 'scorer_change_cancelled', 'param_changed', 'treasury_withdrawn', 'treasury_to_reserve'].includes(e)],
 ];
 const keyOf = (e: LedgerEvent) => `${e.txHash}:${e.idx}`;
 
@@ -128,6 +129,7 @@ export function LedgerPage() {
             <dt>Network</dt><dd>{NETWORK}</dd>
             <dt>Scoring</dt><dd>{data ? (data.config.scorer_mode === 'Dev' ? 'Dev mode: the pinned scorer runs on our server (testnet)' : 'OutLayer: inside Intel TDX') : '…'}</dd>
             <dt>Pinned scorer</dt><dd>{data?.config.scorer_version ?? '…'}</dd>
+            <dt>Pending scorer change</dt><dd>{pendingScorerText(data?.config, Date.now())}</dd>
           </dl>
           <p className="hint">On mainnet, kredofi.near pins a scorer you can check yourself:</p>
           <code>curl -sL https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/6db115961a822664fdef8c8d19f02668b6f67e92/kredofi_scorer.wasm | shasum -a 256</code>

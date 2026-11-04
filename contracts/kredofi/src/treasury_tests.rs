@@ -135,21 +135,21 @@ fn reserve_gets_no_interest_and_still_covers_defaults() {
     assert_eq!(c.get_pool().reserve.0, 300 * USDC);
 }
 
-// ------------------------------------------------------------------ migration v2 -> v3
+// ------------------------------------------------------------------ migration v3 -> v4
 
-fn v2_state(cash: u128) -> crate::migrate::ContractV2 {
+fn v3_state(cash: u128, production_data: bool) -> crate::migrate::ContractV3 {
     use crate::migrate::*;
     let mut lenders: LookupMap<AccountId, u128> = LookupMap::new(b"l".to_vec());
     lenders.insert(alice(), 1_000 * USDC);
     lenders.flush();
     let i = config_input();
-    ContractV2 {
-        config: ConfigV2 {
+    ContractV3 {
+        config: ConfigV3 {
             owner: i.owner, usdc: i.usdc, scorer_mode: i.scorer_mode, dev_scorer: i.dev_scorer, outlayer: i.outlayer,
             scorer_project: i.scorer_project, scorer_version: i.scorer_version, secrets_profile: i.secrets_profile,
             secrets_account: i.secrets_account, partner_pubkey: [1u8; 32], loan_term_ns: 120_000_000_000,
             grace_ns: 60_000_000_000, score_ttl_ns: 30 * DAY, min_hold_ns: 60_000_000_000,
-            max_borrower_share_bps: 1000,
+            max_borrower_share_bps: 1000, require_production_data: true, production_data,
         },
         pool: Pool { cash, outstanding: 0, total_shares: 1_000 * USDC, reserve: 200_400_000, treasury: 3_000_000 },
         lenders,
@@ -160,28 +160,32 @@ fn v2_state(cash: u128) -> crate::migrate::ContractV2 {
 }
 
 #[test]
-fn migrate_v2_keeps_every_balance_and_gates_mainnet_deposits() {
+fn migrate_v3_keeps_every_balance_and_sets_mainnet_time_lock() {
     set(pool_id());
-    env::state_write(&v2_state(1_001_600_000));
+    env::state_write(&v3_state(1_001_600_000, false));
     let c = Contract::migrate();
     let p = c.get_pool();
     assert_eq!((p.cash.0, p.outstanding.0, p.total_shares.0, p.reserve.0, p.treasury.0), (1_001_600_000, 0, 1_000 * USDC, 200_400_000, 3_000_000));
     assert_eq!(c.get_lender(alice()).shares.0, 1_000 * USDC, "lender shares survive (same storage prefix)");
     let v = c.get_config();
     assert_eq!((v.loan_term_ns.0, v.min_hold_ns.0, v.max_borrower_share_bps), (120_000_000_000, 60_000_000_000, 1000));
-    assert!(v.require_production_data && !v.production_data, "{} is not a .testnet account", pool_id());
+    assert!(v.require_production_data && !v.production_data, "H2 flags kept");
+    assert_eq!(v.scorer_delay_ns.0, 24 * 3600 * 1_000_000_000, "{} is not a .testnet account", pool_id());
+    assert_eq!(v.pending_scorer, None);
+    assert_eq!(c.get_pending_scorer(), None);
 }
 
 #[test]
-fn migrate_v2_on_testnet_keeps_deposits_open() {
+fn migrate_v3_on_testnet_gets_one_minute_lock() {
     testing_env!(ctx(acc("kredofi.kency.testnet")).current_account_id(acc("kredofi.kency.testnet")).build());
-    env::state_write(&v2_state(5));
+    env::state_write(&v3_state(5, true));
     let v = Contract::migrate().get_config();
-    assert!(!v.require_production_data && !v.production_data);
+    assert!(v.production_data, "flags copied, not reset");
+    assert_eq!(v.scorer_delay_ns.0, 60_000_000_000);
 }
 
 #[test]
-#[should_panic(expected = "No v2 state to migrate")]
+#[should_panic(expected = "No v3 state to migrate")]
 fn migrate_without_state_panics() {
     set(pool_id());
     Contract::migrate();

@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { AppChrome } from '@/components/AppChrome';
 import { AppFooter } from '@/components/AppFooter';
 import { GuillocheStrip } from '@/components/GuillocheStrip';
+import { pendingScorerText, type PinConfig } from '@/lib/pin';
 
 export const metadata: Metadata = { title: 'Mainnet proof, KredoFi', description: 'What kredofi.near runs right now: contract version, pinned enclave scorer, real scores, and why lender deposits are locked.' };
 export const revalidate = 60;
@@ -15,6 +16,7 @@ const CONTRACT = 'kredofi.near';
 const DEV = '715363554c6216e50dbbffd81750f2c6b3b8551c4f3466fdf02eee85cc7543b0';
 /** Contract builds this repository has tested and deployed (code SHA-256 -> name). */
 const KNOWN_CODE: Record<string, string> = {
+  '147d863d9413b1531eacec9dd5ad69a727837c9c0de10b270e3237306c5ed148': 'v4 (security review 2 fixes, 24 h time lock on scorer re-pins)',
   b7f55eaf89b2d592d1684293f5ec59d02b39e5d8e776319c65381cef94b0691c: 'v3 (3 Nov 2026: security review fixes, deposits gated)',
   '339a94ea36e49d91c60317c0e4c3dd03f14bb6eab9b19d770dc0aa231da21d86': 'v2 (1 Nov 2026)',
 };
@@ -43,7 +45,7 @@ async function view<T>(method: string, args: object = {}): Promise<T | null> {
   try { return r ? (JSON.parse(Buffer.from(r.result).toString()) as T) : null; } catch { return null; }
 }
 
-type Config = { scorer_mode: string; scorer_version: string; require_production_data?: boolean; production_data?: boolean; outlayer: string };
+type Config = PinConfig & { scorer_mode: string; scorer_version: string; require_production_data?: boolean; production_data?: boolean; outlayer: string };
 type Pool = { cash: string; outstanding: string; reserve: string; total_shares: string };
 type Borrower = { score: { band: string; score: number; scorer_version: string; issued_at: string } | null } | null;
 
@@ -72,6 +74,7 @@ export default async function Mainnet() {
               <dt>Contract version</dt><dd>{codeSha ? (KNOWN_CODE[codeSha] ?? 'unknown build') : '…'}{codeSha && <><br /><code>{codeSha}</code></>}</dd>
               <dt>Scorer mode</dt><dd>{cfg ? (cfg.scorer_mode === 'OutLayer' ? <>OutLayer, inside Intel TDX (<code>{cfg.outlayer}</code>)</> : cfg.scorer_mode) : '…'}</dd>
               <dt>Pinned scorer</dt><dd>{cfg ? <code>{cfg.scorer_version}</code> : '…'}</dd>
+              <dt>Pending scorer change</dt><dd>{pendingScorerText(cfg, Date.now())}</dd>
               <dt>Lender deposits</dt><dd>{locked === null ? '…' : locked ? <><b>Locked until real bank data</b> (<code>production_data</code> off). Scores still use Plaid&apos;s sandbox, where anyone can invent an income, so no lender money may come in yet.</> : 'Open'}</dd>
               <dt>Pool</dt><dd>{pool ? `cash ${usd(pool.cash)}, lent out ${usd(pool.outstanding)}, reserve ${usd(pool.reserve)}` : '…'}. No mainnet loans have been made.</dd>
               <dt>Latest stored score</dt><dd>{dev?.score ? <>band {dev.score.band}, {dev.score.score}, by scorer <code>{dev.score.scorer_version.slice(0, 8)}…</code> (the developer&apos;s test account, sandbox bank)</> : '…'}</dd>

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # One-time owner setup on testnet (safe to re-run: each step checks state first).
-#  1. Pin the scorer build that dev_scorer runs (demo build) with set_scorer_version.
+#  1. Pin the scorer build that dev_scorer runs (demo build). Contract v4 has a re-pin time lock
+#     (60 s on testnet): propose_scorer_version, wait, apply_scorer_version. v3 uses set_scorer_version.
 #  2. Register the owner with mock USDC, mint $300 test USDC (relayer = minter), seed the reserve.
 # kency.testnet signs with its keychain key (near CLI); the relayer with its legacy keychain key.
 # Prepaid gas is 40 Tgas: NEAR reserves ~0.001 NEAR per prepaid Tgas at signing (tests/tests/gas_budget.rs).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-NET=testnet; POOL=kredofi.kency.testnet; USDC=musdc.kency.testnet; OWNER=kency.testnet; RELAYER=relayer.kency.testnet
+NET=testnet; POOL=${POOL:-kredofi.kency.testnet}; USDC=musdc.kency.testnet; OWNER=kency.testnet; RELAYER=relayer.kency.testnet
 v() { node --input-type=module -e "import {view} from './scripts/lib/near.mjs'; console.log(JSON.stringify(await view('$1','$2',$3)))"; }
 
 # The demo scorer must be the canonical CI build (x86_64 Linux): a local macOS build has another hash.
@@ -15,9 +16,19 @@ test -f scorer/out/kredofi_scorer_demo.wasm || { echo 'scorer/out/kredofi_scorer
 HASH=$(shasum -a 256 scorer/out/kredofi_scorer_demo.wasm | cut -d' ' -f1)
 PINNED=$(v $POOL get_config '{}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["scorer_version"])')
 if [[ "$PINNED" != "$HASH" ]]; then
-  echo "Pinning scorer_version $HASH"
-  near contract call-function as-transaction $POOL set_scorer_version json-args "{\"version\":\"$HASH\"}" \
-    prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as $OWNER network-config $NET sign-with-keychain send 2>&1 | grep -E "Transaction ID|EVENT_JSON|Error" || true
+  DELAY=$(v $POOL get_config '{}' | python3 -c 'import json,sys;print(json.load(sys.stdin).get("scorer_delay_ns",""))')
+  owner_call() { near contract call-function as-transaction $POOL "$1" json-args "$2" \
+    prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as $OWNER network-config $NET sign-with-keychain send 2>&1 | grep -E "Transaction ID|EVENT_JSON|Error" || true; }
+  if [[ -z "$DELAY" ]]; then
+    echo "Pinning scorer_version $HASH (contract without time lock)"
+    owner_call set_scorer_version "{\"version\":\"$HASH\"}"
+  else
+    PENDING=$(v $POOL get_pending_scorer '{}' | python3 -c 'import json,sys;p=json.load(sys.stdin);print(p["version"] if p else "")')
+    if [[ -n "$PENDING" && "$PENDING" != "$HASH" ]]; then echo "Another change is pending ($PENDING): cancel it first"; exit 1; fi
+    if [[ -z "$PENDING" ]]; then echo "Proposing scorer_version $HASH"; owner_call propose_scorer_version "{\"version\":\"$HASH\"}"; fi
+    WAIT=$(( DELAY / 1000000000 + 5 )); echo "Time lock: waiting ${WAIT}s"; sleep $WAIT
+    owner_call apply_scorer_version '{}'
+  fi
 else echo "scorer_version already pinned: $HASH"; fi
 
 RESERVE=$(v $POOL get_pool '{}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["reserve"])')

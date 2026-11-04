@@ -447,7 +447,13 @@ fn rule2_owner_changes_scorer_version_with_event() {
     let mut c = new_contract();
     let new_v = "ab".repeat(32);
     set_yocto(owner());
-    c.set_scorer_version(new_v.clone());
+    c.propose_scorer_version(new_v.clone());
+    let ev = events_named("scorer_change_proposed");
+    assert_eq!(ev.len(), 1);
+    assert!(ev[0].contains(VERSION) && ev[0].contains(&new_v));
+    // Applied after the time lock (24 h here: the test account is not .testnet).
+    testing_env!(ctx(owner()).attached_deposit(NearToken::from_yoctonear(1)).block_timestamp(24 * 3600 * 1_000_000_000).build());
+    c.apply_scorer_version();
     assert_eq!(c.get_config().scorer_version, new_v);
     let ev = events_named("scorer_version_changed");
     assert_eq!(ev.len(), 1);
@@ -462,7 +468,7 @@ fn rule2_owner_changes_scorer_version_with_event() {
 fn rule2_non_owner_cannot_change_version() {
     let mut c = new_contract();
     set_yocto(riya());
-    c.set_scorer_version("ab".repeat(32));
+    c.propose_scorer_version("ab".repeat(32));
 }
 
 #[test]
@@ -470,7 +476,7 @@ fn rule2_non_owner_cannot_change_version() {
 fn rule2_version_must_be_a_sha256() {
     let mut c = new_contract();
     set_yocto(owner());
-    c.set_scorer_version("main".into());
+    c.propose_scorer_version("main".into());
 }
 
 #[test]

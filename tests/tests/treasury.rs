@@ -1,4 +1,4 @@
-//! Nov 1 fee change: KredoFi treasury and the v1 -> v2 migration, on a real sandbox.
+//! Nov 1 fee change: KredoFi treasury, and the v3 -> v4 migration from the deployed mainnet binary.
 //! Rule 10: the owner can withdraw only the treasury, or move it into the reserve (one-way).
 //! No owner path to pool cash, outstanding principal or the reserve.
 
@@ -122,12 +122,12 @@ async fn treasury_tops_up_the_reserve_one_way() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// The real migration: the exact v2 binary deployed on testnet and mainnet since Nov 1 (code hash
-/// 4USWKFGZ…, fetched from kredofi.near) with real state, then v3 deployed with `migrate` in the
-/// same transaction. The sandbox account is not `.testnet`, so like kredofi.near it comes out with
-/// lender deposits closed until the owner sets `production_data` (audit Nov 3, H2).
+/// The real migration: the exact v3 binary deployed on kredofi.near since Nov 3 (sha256 b7f55eaf…,
+/// fetched from mainnet) with real state, then v4 deployed with `migrate` in the same transaction.
+/// The sandbox account is not `.testnet`, so like kredofi.near it comes out with a 24 h scorer
+/// time lock and lender deposits still closed (security review 2 High; audit Nov 3 H2).
 #[tokio::test]
-async fn migrate_from_deployed_v2_keeps_everything() -> anyhow::Result<()> {
+async fn migrate_from_deployed_v3_keeps_everything() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let owner = sub(&worker, "owner").await?;
     let minter = sub(&worker, "minter").await?;
@@ -137,16 +137,20 @@ async fn migrate_from_deployed_v2_keeps_everything() -> anyhow::Result<()> {
     let usdc = deploy_token(&worker, "usdc", &minter).await?;
     let outlayer = sub(&worker, "outlayer").await?.deploy(&wasm().mock_outlayer).await?.into_result()?;
     let pool_acc = sub(&worker, "kredofi").await?;
-    let pool = pool_acc.deploy(&wasm().kredofi_v2).await?.into_result()?;
+    let pool = pool_acc.deploy(&wasm().kredofi_v3).await?.into_result()?;
     let mut cfg = config(&owner, &usdc, &scorer, &outlayer);
-    cfg.as_object_mut().unwrap().remove("require_production_data"); // not a v2 field
+    cfg.as_object_mut().unwrap().remove("scorer_delay_ns"); // not a v3 field
+    cfg["require_production_data"] = json!(true); // as on kredofi.near
     pool.call("new").args_json(json!({ "config": cfg })).transact().await?.into_result()?;
     for id in [owner.id(), alice.id(), riya.id(), pool.id()] { register(&minter, &usdc, id).await?; }
     mint(&minter, &usdc, alice.id(), 2_000 * USDC).await?;
     mint(&minter, &usdc, owner.id(), 300 * USDC).await?;
     mint(&minter, &usdc, riya.id(), 10 * USDC).await?;
+    owner.call(pool.id(), "set_production_data").args_json(json!({ "value": true }))
+        .deposit(NearToken::from_yoctonear(1)).transact().await?.into_result()?;
 
-    // v2 activity: deposit, seed, score, borrow $100, repay $104 ($2 lenders, $2 treasury).
+    // v3 activity: deposit, seed, score, borrow $100, repay $104 ($2 lenders, $2 treasury), then
+    // the owner closes deposits again as on mainnet (production_data false, required).
     transfer_call(&alice, &usdc, pool.id(), 1_000 * USDC, "deposit").await?.into_result()?;
     transfer_call(&owner, &usdc, pool.id(), 300 * USDC, "seed_reserve").await?.into_result()?;
     scorer.call(pool.id(), "dev_submit_score").args_json(json!({ "borrower": riya.id(), "output": score_output(&riya, 0x11) }))
@@ -154,18 +158,26 @@ async fn migrate_from_deployed_v2_keeps_everything() -> anyhow::Result<()> {
     riya.call(pool.id(), "borrow").args_json(json!({ "amount": (100 * USDC).to_string() }))
         .deposit(NearToken::from_yoctonear(1)).gas(Gas::from_tgas(60)).transact().await?.into_result()?;
     transfer_call(&riya, &usdc, pool.id(), 104 * USDC, "repay").await?.into_result()?;
-    let v2_pool: Value = pool.view("get_pool").await?.json()?;
-    assert_eq!(v2_pool["treasury"], "2000000");
-    let v2_borrower: Value = pool.view("get_borrower").args_json(json!({ "account_id": riya.id() })).await?.json()?;
-    let v2_lender: Value = pool.view("get_lender").args_json(json!({ "account_id": alice.id() })).await?.json()?;
-    let v2_config: Value = pool.view("get_config").await?.json()?;
-    assert!(v2_config.get("production_data").is_none());
+    owner.call(pool.id(), "set_production_data").args_json(json!({ "value": false }))
+        .deposit(NearToken::from_yoctonear(1)).transact().await?.into_result()?;
+    let v3_pool: Value = pool.view("get_pool").await?.json()?;
+    assert_eq!(v3_pool["treasury"], "2000000");
+    let v3_borrower: Value = pool.view("get_borrower").args_json(json!({ "account_id": riya.id() })).await?.json()?;
+    let v3_lender: Value = pool.view("get_lender").args_json(json!({ "account_id": alice.id() })).await?.json()?;
+    let v3_stats: Value = pool.view("get_stats").await?.json()?;
+    let v3_config: Value = pool.view("get_config").await?.json()?;
+    assert!(v3_config.get("scorer_delay_ns").is_none());
+    // v3 re-pins instantly (the High).
+    let out = owner.call(pool.id(), "set_scorer_version").args_json(json!({ "version": "cd".repeat(32) }))
+        .deposit(NearToken::from_yoctonear(1)).transact().await?;
+    assert!(out.is_success(), "v3 has the instant re-pin");
+    let v3_config: Value = pool.view("get_config").await?.json()?;
 
     // Only the contract itself can migrate.
     let out = alice.call(pool.id(), "migrate").args_json(json!({})).transact().await?;
     assert!(out.is_failure());
 
-    // Deploy v3 and migrate atomically (10 Tgas, as the CLAUDE.md deploy command uses).
+    // Deploy v4 and migrate atomically (10 Tgas, as the CLAUDE.md deploy command uses).
     pool_acc.batch(pool.id())
         .deploy(&wasm().kredofi)
         .call(Function::new("migrate").args_json(json!({})).gas(Gas::from_tgas(10)))
@@ -173,30 +185,39 @@ async fn migrate_from_deployed_v2_keeps_everything() -> anyhow::Result<()> {
 
     let p: Value = pool.view("get_pool").await?.json()?;
     for k in ["cash", "outstanding", "total_shares", "reserve", "treasury", "pool_value"] {
-        assert_eq!(p[k], v2_pool[k], "{k} survives");
+        assert_eq!(p[k], v3_pool[k], "{k} survives");
     }
-    assert_eq!(pool.view("get_borrower").args_json(json!({ "account_id": riya.id() })).await?.json::<Value>()?, v2_borrower);
-    assert_eq!(pool.view("get_lender").args_json(json!({ "account_id": alice.id() })).await?.json::<Value>()?, v2_lender);
+    assert_eq!(pool.view("get_borrower").args_json(json!({ "account_id": riya.id() })).await?.json::<Value>()?, v3_borrower);
+    assert_eq!(pool.view("get_lender").args_json(json!({ "account_id": alice.id() })).await?.json::<Value>()?, v3_lender);
+    assert_eq!(pool.view("get_stats").await?.json::<Value>()?, v3_stats);
     let c: Value = pool.view("get_config").await?.json()?;
-    for k in ["owner", "usdc", "scorer_mode", "scorer_version", "partner_pubkey", "loan_term_ns", "min_hold_ns", "grace_ns", "score_ttl_ns", "max_borrower_share_bps"] {
-        assert_eq!(c[k], v2_config[k], "{k}");
+    for (k, v) in v3_config.as_object().unwrap() {
+        assert_eq!(&c[k], v, "{k}");
     }
-    assert_eq!((c["require_production_data"].clone(), c["production_data"].clone()), (json!(true), json!(false)));
+    assert_eq!(c["scorer_delay_ns"], "86400000000000", "24 h on a non-.testnet account");
+    assert_eq!(c["pending_scorer"], Value::Null);
+    assert_eq!(pool.view("get_pending_scorer").await?.json::<Value>()?, Value::Null);
 
-    // A second migrate fails (state is already v3).
+    // A second migrate fails (state is already v4).
     let out = pool_acc.call(pool.id(), "migrate").args_json(json!({})).transact().await?;
     assert!(out.is_failure());
 
-    // H2: deposits refused (tokens refunded) until the owner sets production_data; withdrawals work.
-    transfer_call(&alice, &usdc, pool.id(), 100 * USDC, "deposit").await?;
-    assert_eq!(balance(&usdc, alice.id()).await?, 1_000 * USDC, "refunded");
-    withdraw(&alice, &pool, 10 * USDC).await?.into_result()?;
-    let out = alice.call(pool.id(), "set_production_data").args_json(json!({ "value": true }))
+    // The instant re-pin is gone; a proposal waits 24 h.
+    let out = owner.call(pool.id(), "set_scorer_version").args_json(json!({ "version": "ef".repeat(32) }))
         .deposit(NearToken::from_yoctonear(1)).transact().await?;
-    assert!(out.is_failure(), "owner only");
-    owner.call(pool.id(), "set_production_data").args_json(json!({ "value": true }))
+    assert!(out.is_failure(), "set_scorer_version no longer exists");
+    owner.call(pool.id(), "propose_scorer_version").args_json(json!({ "version": "ef".repeat(32) }))
         .deposit(NearToken::from_yoctonear(1)).transact().await?.into_result()?;
-    transfer_call(&alice, &usdc, pool.id(), 100 * USDC, "deposit").await?.into_result()?;
-    assert!(balance(&usdc, alice.id()).await? < 1_000 * USDC);
+    let out = owner.call(pool.id(), "apply_scorer_version").args_json(json!({}))
+        .deposit(NearToken::from_yoctonear(1)).transact().await?;
+    assert!(out.is_failure(), "still locked");
+    assert_eq!(pool.view("get_config").await?.json::<Value>()?["scorer_version"], "cd".repeat(32));
+
+    // H2 kept: deposits refused (tokens refunded); withdrawals work.
+    assert_eq!((c["require_production_data"].clone(), c["production_data"].clone()), (json!(true), json!(false)));
+    let before = balance(&usdc, alice.id()).await?;
+    let _ = transfer_call(&alice, &usdc, pool.id(), 100 * USDC, "deposit").await?;
+    assert_eq!(balance(&usdc, alice.id()).await?, before, "refunded");
+    withdraw(&alice, &pool, 10 * USDC).await?.into_result()?;
     Ok(())
 }

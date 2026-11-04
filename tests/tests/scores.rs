@@ -195,27 +195,51 @@ async fn rule2_request_pins_version_and_change_is_public() -> anyhow::Result<()>
     let input: Value = serde_json::from_str(req["input_data"].as_str().unwrap())?;
     assert_eq!(input, json!({ "op": "score", "public_token": "public-sandbox-123", "reply_pubkey": REPLY_KEY }));
 
-    // Non-owner cannot change the version.
+    // Non-owner cannot propose a new version.
     let new_v = "ab".repeat(32);
     let out = env.alice
-        .call(env.pool.id(), "set_scorer_version")
+        .call(env.pool.id(), "propose_scorer_version")
         .args_json(json!({ "version": new_v }))
         .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await?;
     assert!(failure_text(&out).contains("Only the owner can change the scorer version"));
 
-    // Owner can, publicly.
+    // Owner proposes publicly; requests keep the old pin during the time lock (review 2, High).
     let out = env.owner
-        .call(env.pool.id(), "set_scorer_version")
+        .call(env.pool.id(), "propose_scorer_version")
         .args_json(json!({ "version": new_v }))
         .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await?;
     let ev = events(&out);
+    assert_eq!(ev[0]["event"], "scorer_change_proposed");
+    assert_eq!(ev[0]["data"][0]["old"], SCORER_VERSION);
+    assert_eq!(ev[0]["data"][0]["new"], new_v);
+    let pending: Value = env.pool.view("get_pending_scorer").await?.json()?;
+    assert_eq!(pending["version"], new_v);
+    let apply_at: u64 = pending["apply_at"].as_str().unwrap().parse()?;
+    let proposed_at: u64 = pending["proposed_at"].as_str().unwrap().parse()?;
+    assert_eq!(apply_at - proposed_at, 3_600_000_000_000, "1 h lock in this sandbox config");
+
+    let apply = || env.owner.call(env.pool.id(), "apply_scorer_version").args_json(json!({})).deposit(NearToken::from_yoctonear(1)).transact();
+    assert!(failure_text(&apply().await?).contains("still in its time lock"));
+    request_score(&env.alice, &env).await?.into_result()?;
+    let req: Value = env.outlayer.view("get_last_request").await?.json()?;
+    assert_eq!(req["source"]["Project"]["version_key"], SCORER_VERSION, "old pin until applied");
+
+    // Wait out the lock on the sandbox clock, then apply.
+    for _ in 0..40 {
+        if env.worker.view_block().await?.timestamp() >= apply_at { break; }
+        env.worker.fast_forward(1000).await?;
+    }
+    assert!(env.worker.view_block().await?.timestamp() >= apply_at, "sandbox time did not advance");
+    let out = apply().await?;
+    let ev = events(&out);
     assert_eq!(ev[0]["event"], "scorer_version_changed");
     assert_eq!(ev[0]["data"][0]["old"], SCORER_VERSION);
     assert_eq!(ev[0]["data"][0]["new"], new_v);
+    assert_eq!(env.pool.view("get_pending_scorer").await?.json::<Value>()?, Value::Null);
 
     // The next request pins the new version.
     request_score(&env.bob, &env).await?.into_result()?;

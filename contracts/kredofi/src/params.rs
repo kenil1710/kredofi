@@ -32,6 +32,10 @@ pub(crate) fn check_params(c: &Config) {
         c.max_borrower_share_bps >= 1 && c.max_borrower_share_bps <= MAX_BORROWER_SHARE_BPS,
         "max_borrower_share_bps must be between 1 and 1000 (rule 12)"
     );
+    require!(
+        (min_scorer_delay_ns()..=MAX_SCORER_DELAY_NS).contains(&c.scorer_delay_ns),
+        "scorer_delay_ns must be between the network minimum (1 h mainnet, 60 s testnet) and 30 days"
+    );
 }
 
 #[near]
@@ -83,7 +87,7 @@ impl Contract {
 }
 
 impl Contract {
-    fn update_param<T: near_sdk::serde::Serialize>(
+    pub(crate) fn update_param<T: near_sdk::serde::Serialize>(
         &mut self,
         name: &str,
         old: T,

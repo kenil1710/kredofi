@@ -55,6 +55,10 @@ config:
   score_ttl_ns: u64                   // 30 days
   min_hold_ns: u64                    // loan_term_ns / 2; repay before this = no level up
   max_borrower_share_bps: u16         // 1000 = one borrower max 10% of pool value (upper bound)
+  require_production_data: bool       // set at init/migrate: true unless the account ends in .testnet
+  production_data: bool               // owner flag: lender deposits open only when true (if required)
+  scorer_delay_ns: u64                // re-pin time lock: 24 h mainnet (min 1 h), 60 s testnet; max 30 days; can only grow
+  pending_scorer: Option<{ version, proposed_at, apply_at }>   // proposed pin waiting for its lock
 
 pool:
   cash: u128                          // USDC held for lending
@@ -119,7 +123,18 @@ Built so far (`/lend`, "From another chain"): step 1 is a real 1Click quote (`PO
 
 ### Owner
 
-`seed_reserve` (via `ft_transfer_call` msg `"seed_reserve"`), `set_scorer_version(version)` (emits `scorer_version_changed`, public on-chain), parameter setters, and two treasury methods:
+`seed_reserve` (via `ft_transfer_call` msg `"seed_reserve"`), the scorer re-pin time lock (below), parameter setters, and two treasury methods:
+
+**Scorer re-pin time lock** (security review 2, High; contract v4). A new scorer version never applies at once, so a stolen owner key can't pin a scorer that hands out band A and borrow the pool out before anyone notices:
+
+| Method | Rules |
+|---|---|
+| `propose_scorer_version(version)` | Owner only, 1 yoctoNEAR. `version` is a 64-char lowercase hex SHA-256, differs from the current pin, and no other change is pending (cancel first). Stores `pending_scorer` with `apply_at = now + scorer_delay_ns`. Emits `scorer_change_proposed` (`old`, `new`, `apply_at`, `by`). Requests keep pinning the current version. |
+| `apply_scorer_version()` | Owner only, 1 yoctoNEAR. Only once `now >= apply_at`. Pins the pending version, clears it, emits `scorer_version_changed` (`old`, `new`, `by`). |
+| `cancel_scorer_version()` | Owner only, 1 yoctoNEAR. Drops the pending change, emits `scorer_change_cancelled` (`version`, `by`). |
+| `set_scorer_delay_ns(value)` | Owner only, 1 yoctoNEAR, `param_changed`. Can only increase the delay (so a stolen key can't shorten the lock first), within the bounds below. A pending change keeps the `apply_at` it was proposed with. |
+
+`scorer_delay_ns` default and bounds: 24 h on mainnet (any account not ending in `.testnet`), never below 1 h; 60 s on testnet (also the testnet minimum); at most 30 days. Init takes an optional `scorer_delay_ns`. The old `set_scorer_version` is removed.
 
 | Method | Rules |
 |---|---|
@@ -137,18 +152,19 @@ Parameter setters: `set_loan_term_ns`, `set_min_hold_ns`, `set_grace_ns`, `set_s
 | `grace_ns` | 60 s to 90 days |
 | `score_ttl_ns` | 60 s to 365 days |
 | `max_borrower_share_bps` | 1 to 1000 (can only lower the 10% cap, rule 12) |
+| `scorer_delay_ns` | 1 h (mainnet) or 60 s (testnet) to 30 days, increase only |
 
 To shorten the term below the current hold, lower `min_hold_ns` first. Term changes apply to new loans; `grace_ns` and `min_hold_ns` are read at default and repay time.
 
-Testnet demo timing: loan term 2 minutes, minimum hold 1 minute, grace 1 minute (Riya can level up after 1 minute; Max can be defaulted about 3 minutes after borrowing). `min_hold_ns` is set at init to `loan_term_ns / 2`. **No method lets the owner move lender funds or the reserve out**; the owner can only withdraw the treasury or move it into the reserve. No contract upgrade method in the hackathon build. `migrate()` is a one-time `#[private]` state migration (now v2 to v3, adds `require_production_data` and `production_data`; the Nov 1 v1 to v2 migration added the treasury), run in the same transaction as a code deploy; only the contract account's own key can run it, the same key that can deploy code, so it adds no power.
+Testnet demo timing: loan term 2 minutes, minimum hold 1 minute, grace 1 minute (Riya can level up after 1 minute; Max can be defaulted about 3 minutes after borrowing). `min_hold_ns` is set at init to `loan_term_ns / 2`. **No method lets the owner move lender funds or the reserve out**; the owner can only withdraw the treasury or move it into the reserve. No contract upgrade method in the hackathon build. `migrate()` is a one-time `#[private]` state migration (now v3 to v4, adds `scorer_delay_ns` (24 h on mainnet, 60 s on testnet) and `pending_scorer` (none); earlier: v2 to v3 on Nov 3 added `require_production_data` and `production_data`, v1 to v2 on Nov 1 the treasury), run in the same transaction as a code deploy; only the contract account's own key can run it, the same key that can deploy code, so it adds no power.
 
 ### Views
 
-`get_config`, `get_pool`, `get_lender(account)`, `get_borrower(account)` (never returns `sealed_identity`), `get_limit(account)`, `get_stats`, `is_release_allowed(account)`.
+`get_config` (includes `scorer_delay_ns` and `pending_scorer`), `get_pending_scorer` (`{version, proposed_at, apply_at}` or `null`), `get_pool`, `get_lender(account)`, `get_borrower(account)` (never returns `sealed_identity`), `get_limit(account)`, `get_stats`, `is_release_allowed(account)`.
 
 ### Events (NEP-297, standard `kredofi`, version `1.0.0`)
 
-`score_issued`, `score_failed`, `loan_issued`, `loan_repaid`, `loan_defaulted`, `identity_released`, `lender_deposit`, `lender_withdraw`, `reserve_seeded`, `scorer_version_changed`, `param_changed`, `treasury_withdrawn`, `treasury_to_reserve`.
+`score_issued`, `score_failed`, `loan_issued`, `loan_repaid`, `loan_defaulted`, `identity_released`, `lender_deposit`, `lender_withdraw`, `reserve_seeded`, `scorer_change_proposed`, `scorer_change_cancelled`, `scorer_version_changed` (the apply step), `param_changed`, `treasury_withdrawn`, `treasury_to_reserve`.
 
 ---
 
@@ -256,7 +272,7 @@ Unit tests must reproduce this table exactly.
 ## 7. Security rules (each needs a test)
 
 1. Scores are accepted only in `on_score` (`#[private]`), i.e. only from the contract's own OutLayer request.
-2. The request pins `scorer_version`; changing it is a public owner action with an event.
+2. The request pins `scorer_version`; changing it is a public owner action with an event, proposed first and applied only after `scorer_delay_ns` (24 h on mainnet, never below 1 h; the owner can cancel).
 3. `request_score` requires `signer == predecessor`; `on_score` requires `output.caller == borrower`.
 4. A `null` or failed OutLayer result changes nothing except clearing `pending_request`.
 5. Scores expire after `score_ttl_ns`.

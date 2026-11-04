@@ -43,6 +43,8 @@ export function describe(e: LedgerEvent): { text: string; value: string; band?: 
     case 'treasury_to_reserve': return { text: 'Treasury moved into the reserve', value: usd(d.amount) };
     case 'treasury_withdrawn': return { text: 'Treasury withdrawn by the owner', value: usd(d.amount) };
     case 'scorer_version_changed': return { text: `Scorer version pinned: ${String(d.new).slice(0, 8)}…`, value: '—' };
+    case 'scorer_change_proposed': return { text: `Scorer change proposed: ${String(d.new).slice(0, 8)}… (time lock)`, value: '—' };
+    case 'scorer_change_cancelled': return { text: `Scorer change cancelled: ${String(d.version).slice(0, 8)}…`, value: '—' };
     case 'param_changed': return { text: `Parameter changed: ${d.param}`, value: '—' };
     default: return { text: e.event.replace(/_/g, ' '), value: '—' };
   }

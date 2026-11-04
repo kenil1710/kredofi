@@ -65,11 +65,11 @@ It found 2 High, 3 Medium, 5 Low and 5 Info issues. Every finding below has a st
 
 It found 1 High (a trust/design issue), 1 Medium, 5 Low and 5 Info. Each finding came with a test that proved it. After the fixes those tests assert the fixed behaviour (`contracts/kredofi/src/review2_tests.rs`, `tests/tests/review2.rs`).
 
-**Mainnet status:** the fixes are in `main` (contract build `2e655cce…`, 294,117 bytes, same state layout as v3, so no migration). `kredofi.near` still runs v3 (`b7f55eaf…`): redeploying needs the owner's yes (below). Nothing is at risk today: the mainnet pool holds $0 and lender deposits are closed.
+**Mainnet status:** the fixes, including the time lock for the High, are in `main` as contract v4 (the time lock adds two config fields, so v4 deploys with a v3 → v4 migration, tested against the binary deployed on `kredofi.near`). `kredofi.near` still runs v3 (`b7f55eaf…`): redeploying needs the owner's yes (below). Nothing is at risk today: the mainnet pool holds $0 and lender deposits are closed.
 
 | # | Severity | Finding | Status | Tests and proof |
 |---|---|---|---|---|
-| R2-H | High (trust) | The owner account can re-pin the scorer immediately, and it also owns the OutLayer project and the secrets. With the owner key, an attacker could pin a build that gives any sybil band A, and once deposits are open, borrow the pool out and default (the reserve pays first, lenders lose the rest). They could also give that build the sealing key and open sealed names. | **Accepted for the MVP; no fix yet.** Deposits are closed (`production_data` off) and the pool holds $0, so nothing can be taken today. Before deposits open (Pilot phase, `/docs/roadmap`): a time lock on scorer re-pins, a multisig owner, and the OutLayer project and secrets on separate accounts. Building the time lock changes the state layout and SPEC, so it waits for the owner's decision. | `r2_scorer_pin_change_is_immediate` documents the current behaviour. |
+| R2-H | High (trust) | The owner account can re-pin the scorer immediately, and it also owns the OutLayer project and the secrets. With the owner key, an attacker could pin a build that gives any sybil band A, and once deposits are open, borrow the pool out and default (the reserve pays first, lenders lose the rest). They could also give that build the sealing key and open sealed names. | **Fixed in code (contract v4); on `kredofi.near` after the redeploy below.** Re-pins are time-locked (`contracts/kredofi/src/pin.rs`, SPEC 4 "Owner"): `propose_scorer_version` emits `scorer_change_proposed` with `apply_at`; `apply_scorer_version` works only after `scorer_delay_ns` (24 h on mainnet, never below 1 h; 60 s on testnet; max 30 days); the owner can cancel; the delay can only be increased. `get_pending_scorer`, `/mainnet` and the ledger Verify panel show any pending change, so lenders and borrowers get the whole delay to leave. `set_scorer_version` is removed. **Not covered:** (1) whoever holds `kredofi.near`'s own full-access key can deploy new code, which skips any time lock (see "Locking" below); (2) the secrets owner can still change the OutLayer secrets access, which could expose the sealing key and Plaid keys to another build (sealed names, not pool funds); both move to separate keys and a multisig in the Pilot phase. | Unit `pin_tests.rs` (25 tests: bounds per network, increase-only, owner-only, 1 yocto, too-early apply, cancel, one pending at a time, events, overflow) and `r2_scorer_pin_change_waits_for_time_lock` (the reviewer's proof, now failing to take effect); sandbox `rule2_request_pins_version_and_change_is_public` (requests keep the old pin during the lock; applied after the sandbox clock passes 1 h) and `migrate_from_deployed_v3_keeps_everything` (deployed v3 binary re-pins instantly; after deploy + migrate it can't, and every balance, borrower, lender, stat and config value survives). |
 | R2-M1 | Medium | The contract pays for every borrower record and score, and mainnet had about 4.5 KB free. Anyone could fill it with cheap `request_score` calls. A defaulter could then make `on_release` fail on storage: the callback reverts, `pending_request` stays set, the blocked borrower can't cancel, and a new release was refused as "already pending", so the identity release was lost for good. | **Fixed in code.** `request_score` is refused while the contract's free balance is under 0.05 NEAR (filling storage now only pauses new scores until a top-up). A pending release can be requested again, and a duplicate answer is ignored. | Sandbox `r2_starved_release_can_be_retried_after_top_up` (the reviewer's proof, now completing after the retry) and `storage_starved_callback_is_recoverable`; unit `r2_request_score_needs_storage_headroom`, `r2_pending_release_can_be_retried_and_duplicates_are_ignored`. Measured: a failed request costs the contract 115 bytes; a scored borrower costs 379. |
 | R2-L1 | Low | Request → cancel → borrow → the cancelled request's late answer lands: the score and band were replaced during an active loan, and a second fingerprint was taken. | **Fixed in code.** A score answer that lands while a loan is active or after a default is ignored. | `r2_late_on_score_during_active_loan_is_ignored` |
 | R2-L2 | Low | That late answer also cleared `pending_request` even when it belonged to an identity release in flight. | **Fixed in code** (same check; the flag is left alone). | `r2_late_on_score_keeps_pending_identity_release` |
@@ -83,7 +83,7 @@ It found 1 High (a trust/design issue), 1 Medium, 5 Low and 5 Info. Each finding
 | R2-I5 | Info | Circle can freeze USDC accounts, which would freeze funds; rollbacks keep the books consistent. | **Accepted** (property of the token). | — |
 
 **Checked and found sound by Review 2:**
-- The v2→v3 migration: field order matches the deployed v2 binary; it is `#[private]`; running it on v3 state panics instead of misreading it (`r2_migrate_on_v3_state_panics`).
+- The v2→v3 migration: field order matched the deployed v2 binary; it is `#[private]`. Its successor, v3→v4 (added with the time lock), parses the state exactly, so running it on v4 state panics instead of misreading it or wiping a pending change (`r2_migrate_on_v4_state_panics`).
 - Every owner method and its bounds (term, hold, TTL and share caps; the treasury moves one way).
 - Raw-byte callbacks and rollbacks.
 - Gas: callbacks burn 1–2 Tgas against 15–30 reserved.
@@ -91,15 +91,17 @@ It found 1 High (a trust/design issue), 1 Medium, 5 Low and 5 Info. Each finding
 - Events in SPEC 4 match the state changes.
 - `#[private]` on all six callbacks and `migrate`; signer checks; `ft_on_transfer` accepts only the configured USDC.
 
-**Tests after the Review 2 fixes:** contracts 143 unit, 38 sandbox and 3 mock (`cargo test --workspace`), including migration from the deployed v2 binary and the gas budget.
+**Tests after the Review 2 fixes and the time lock:** contracts 168 unit, 38 sandbox and 3 mock (`cargo test --workspace`), including migration from the deployed v3 binary (`tests/fixtures/kredofi_v3.wasm`, sha256 `b7f55eaf…`, fetched from `kredofi.near`) and the gas budget. Web 82.
 
-**Putting the fixes on `kredofi.near` (not done; each step waits for the owner's yes):**
+**Putting v4 on `kredofi.near` (not done; waits for the owner's yes).** Build `147d863d9413b1531eacec9dd5ad69a727837c9c0de10b270e3237306c5ed148`, 299,999 bytes (`cd contracts/kredofi && cargo near build non-reproducible-wasm --no-embed-abi`). Today `kredofi.near` holds 2.9865 NEAR with 294,110 bytes used (0.0454 NEAR free); the dev account holds 0.2321 NEAR.
 
 | # | What | Signer | Cost (NEAR) |
 |---|---|---|---|
-| 1 | Storage top-up: +1,419 bytes of code (0.0142 NEAR), the 0.05 NEAR score floor, and gas headroom for the deploy | dev `715363…` | 0.06 (stays in `kredofi.near`) |
-| 2 | Deploy build `2e655cce…` without a migration (same state layout) | `kredofi.near` | about 0.003 |
-| 3 | Check: `view_code` hash, `get_config` unchanged, `get_pool` still all zeros | — | 0 |
+| 1 | Storage top-up: +7,301 bytes of code (0.073 NEAR), the 0.05 NEAR score floor, and about 0.031 NEAR held for the deploy's prepaid gas | dev `715363…` | 0.09 (stays in `kredofi.near` as storage) |
+| 2 | Deploy v4 and run `migrate` in the same transaction (10 Tgas) | `kredofi.near` | about 0.003 (from `kredofi.near`'s own balance) |
+| 3 | Read-only checks: `view_code` hash = `147d863d…`; `get_config` unchanged plus `scorer_delay_ns` = `86400000000000` and `pending_scorer` = null; `get_pending_scorer` = null; `get_pool` all zeros; free balance ≥ 0.05 NEAR | — | 0 |
+
+After step 2, `kredofi.near` has about 0.059 NEAR free, so scores keep working. Every future mainnet re-pin then takes 24 h: publish the build and add it to OutLayer, propose, and 24 h later move the secrets lock and apply back to back.
 
 ## Locking `kredofi.near` (not done)
 
@@ -114,9 +116,9 @@ Locking means deleting the contract account's last full-access key.
 - every code deploy and migration, so no bug fixes and no adapting to OutLayer API changes;
 - withdrawing the account's own NEAR.
 
-**Not fixed by a lock:** the owner can still re-pin the scorer to any build.
+**Not fixed by a lock:** the owner can still re-pin the scorer to any build, but since contract v4 only after the public 24 h time lock.
 
 **Recommendation:** lock last, after these steps (also on `/docs/roadmap`):
 1. deploy the final audited build;
 2. move the owner role to a multisig;
-3. add a time lock on scorer re-pins.
+3. ~~add a time lock on scorer re-pins~~ built (contract v4).

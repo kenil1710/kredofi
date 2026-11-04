@@ -17,11 +17,13 @@ mod loans;
 mod math;
 mod migrate;
 mod params;
+mod pin;
 mod score;
 mod treasury;
 
 pub use loans::*;
 pub use params::*;
+pub use pin::*;
 pub use score::*;
 
 use near_sdk::json_types::{U64, U128};
@@ -84,6 +86,10 @@ pub struct ConfigInput {
     /// contract account ends in `.testnet` (testnet deposits are test money on sandbox data).
     #[serde(default)]
     pub require_production_data: Option<bool>,
+    /// Time lock on scorer re-pins (security review 2, High). Default: 24 h on mainnet, 60 s on
+    /// testnet; at least 1 h on mainnet (`pin.rs`).
+    #[serde(default)]
+    pub scorer_delay_ns: Option<U64>,
 }
 
 #[near(serializers = [borsh])]
@@ -110,6 +116,10 @@ pub struct Config {
     /// Owner flag: scores come from real (Plaid production) bank data. Until then a mainnet
     /// score proves nothing (anyone can make up a sandbox income), so no lender money comes in.
     pub production_data: bool,
+    /// A new scorer version applies only this long after it is proposed (`pin.rs`).
+    pub scorer_delay_ns: u64,
+    /// The proposed version waiting for its time lock, if any.
+    pub pending_scorer: Option<PendingScorer>,
 }
 
 #[near(serializers = [json])]
@@ -132,6 +142,8 @@ pub struct ConfigView {
     pub max_borrower_share_bps: u16,
     pub require_production_data: bool,
     pub production_data: bool,
+    pub scorer_delay_ns: U64,
+    pub pending_scorer: Option<PendingScorerView>,
 }
 
 #[near(serializers = [borsh])]
@@ -318,6 +330,8 @@ impl Contract {
             max_borrower_share_bps: c.max_borrower_share_bps,
             require_production_data: c.require_production_data,
             production_data: c.production_data,
+            scorer_delay_ns: U64(c.scorer_delay_ns),
+            pending_scorer: c.pending_scorer.as_ref().map(PendingScorerView::from),
         }
     }
 
@@ -431,6 +445,8 @@ fn validate_config(c: ConfigInput) -> Config {
         max_borrower_share_bps: c.max_borrower_share_bps,
         require_production_data: c.require_production_data.unwrap_or_else(default_require_production_data),
         production_data: false,
+        scorer_delay_ns: c.scorer_delay_ns.map(|d| d.0).unwrap_or_else(default_scorer_delay_ns),
+        pending_scorer: None,
     };
     // Same bounds as the owner setters (params.rs); min_hold = term / 2 must be >= 60 s.
     check_params(&config);
@@ -470,3 +486,5 @@ mod treasury_tests;
 
 #[cfg(test)]
 mod review2_tests;
+#[cfg(test)]
+mod pin_tests;

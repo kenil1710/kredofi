@@ -94,9 +94,9 @@ Rules (SPEC 6): income level (250 points), steady income (250), on-time payments
 Needs Rust via rustup (the repo's `rust-toolchain.toml` installs 1.93.0 and the wasm target on first use), Node 22 and Python 3. The first `cargo test` downloads the NEAR sandbox node and builds both contracts (about 5 to 10 minutes).
 
 ```bash
-cargo test --workspace                   # contracts: 143 unit + 3 mock-usdc + 38 near-workspaces sandbox tests
+cargo test --workspace                   # contracts: 168 unit + 3 mock-usdc + 38 near-workspaces sandbox tests
 (cd scorer && cargo test)                # scorer: 39 tests (reproduces the SPEC 6 table: Riya 1000/A, Sam 270/D, Max 1000/A)
-(cd web && npm install && npm test)      # web: 76 tests (incl. a check that every docs link works)
+(cd web && npm install && npm test)      # web: 82 tests (incl. a check that every docs link works)
 (cd scripts && npm install && node --test seal.test.mjs)   # JS and Rust seal compatibility (1 of 3 skips without the partner key)
 ```
 
@@ -122,7 +122,7 @@ Fonts: Bodoni Moda and Public Sans (Google Fonts). Code was written with Claude 
 This is a **hackathon MVP**: it works end to end on testnet, and the mainnet contract scores inside the enclave, but it has never lent real money. The next phases, in order and without dates (each depends on partners and approvals we don't control yet):
 
 1. **Now (MVP):** testnet demo; `kredofi.near` scores in OutLayer with lender deposits locked until real bank data ([/mainnet](https://kredofi.xyz/mainnet)).
-2. **Pilot:** Plaid production access and a licensed lending partner; multisig owner and a time lock on scorer re-pins, then locked contract keys; a capped pool.
+2. **Pilot:** Plaid production access and a licensed lending partner; multisig owner (the scorer re-pin time lock is already built), then locked contract keys; a capped pool.
 3. **India:** bank data through the RBI Account Aggregator network instead of Plaid.
 4. **Platform:** KredoFi scores used by other NEAR apps (already readable with view calls: [Use KredoFi scores in your app](https://kredofi.xyz/docs/integrate)).
 5. **Cross-chain:** lenders from other chains through NEAR Intents (today only dry-run quotes).
@@ -138,7 +138,7 @@ Details: [/docs/roadmap](https://kredofi.xyz/docs/roadmap).
 - The scorer is built reproducibly on x86_64 Linux in a pinned image: `./scorer/build-docker.sh` (or the GitHub workflow) gives the exact pinned bytes; builds on macOS or ARM give other hashes ([VERIFY.md](VERIFY.md) section 3).
 - Both contract accounts still have their full-access keys, so the owner can redeploy the code. Owner methods can't move lender funds or the reserve (rule 10, tested), but a redeploy could. See [THREAT_MODEL.md](THREAT_MODEL.md).
 - The developer generated the sealing keys and also holds the Plaid keys the enclave uses, so they could open sealed names and sealed Plaid tokens, and exchange a token first to read that bank data (the score would then fail). Since Nov 3 the token in `request_score` is sealed to the scorer with the borrower's account, so nobody else can use a copied token ([VERIFY.md](VERIFY.md) section 7, [security review](docs/SECURITY_AUDIT.md) H1; AI-assisted security review by a fresh agent with no access to the build history; not a professional audit). Production would create both keys inside the enclave.
-- Security reviews: both were AI-assisted reviews by fresh agents with no access to the build history, not professional audits ([docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)). Review 2 (Nov 4, mainnet contract) found 1 High, 1 Medium and 5 Low. The Medium and four Lows are fixed in code and tests, but `kredofi.near` still runs v3 until the owner approves a redeploy. The High is not fixed: the owner can re-pin the scorer immediately. A time lock is planned before lender deposits open.
+- Security reviews: both were AI-assisted reviews by fresh agents with no access to the build history, not professional audits ([docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)). Review 2 (Nov 4, mainnet contract) found 1 High, 1 Medium and 5 Low. All but one Low (accepted) are fixed in code and tests (contract v4). The High is fixed with a time lock: a new scorer version is proposed in public and applies only after 24 h on mainnet (`contracts/kredofi/src/pin.rs`). `kredofi.near` still runs v3 until the owner approves the redeploy. The time lock doesn't cover whoever holds `kredofi.near`'s own full-access key, which can deploy new code (see "Locking" in SECURITY_AUDIT).
 - Trust assumptions: Intel TDX, OutLayer's worker registration, Plaid, NEAR AI Cloud (summary only; the score never depends on it).
 
 Built for NEAR HACKATHON, November 2026. All code in this repository was written in the hackathon window: the first commit is 1 Nov 2026, and the only earlier work was throwaway tests on 23–25 Oct, after the 19 Oct announcement ([docs/PREP_LOG.md](docs/PREP_LOG.md)). No code from an earlier project. Specification: [docs/SPEC.md](docs/SPEC.md). Build log: [docs/LOG.md](docs/LOG.md).

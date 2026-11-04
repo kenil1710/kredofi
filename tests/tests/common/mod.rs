@@ -18,7 +18,7 @@ pub struct Wasm {
     pub kredofi: Vec<u8>,
     pub kredofi_abi: PathBuf,
     /// The v1 contract deployed on testnet and mainnet before the fee change (sha256 ca2556e1…).
-    pub kredofi_v2: Vec<u8>,
+    pub kredofi_v3: Vec<u8>,
     pub mock_usdc: Vec<u8>,
     pub mock_outlayer: Vec<u8>,
 }
@@ -47,7 +47,7 @@ pub fn wasm() -> &'static Wasm {
         let outlayer_path = build("tests/mock-outlayer/Cargo.toml");
         Wasm {
             mock_outlayer: std::fs::read(&outlayer_path).unwrap(),
-            kredofi_v2: std::fs::read(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/kredofi_v2.wasm")).expect("tests/fixtures/kredofi_v2.wasm"),
+            kredofi_v3: std::fs::read(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/kredofi_v3.wasm")).expect("tests/fixtures/kredofi_v3.wasm"),
             kredofi: std::fs::read(&kredofi_path).unwrap(),
             kredofi_abi: kredofi_path.with_file_name("kredofi_abi.json"),
             mock_usdc: std::fs::read(&usdc_path).unwrap(),
@@ -111,6 +111,8 @@ pub fn config(owner: &Account, usdc: &Contract, scorer: &Account, outlayer: &Con
         "max_borrower_share_bps": 1000,
         // Sandbox accounts don't end in .testnet, so set it: most tests need open deposits.
         "require_production_data": false,
+        // Scorer re-pin time lock: 1 h, the mainnet minimum (sandbox accounts aren't .testnet).
+        "scorer_delay_ns": "3600000000000",
     })
 }
 

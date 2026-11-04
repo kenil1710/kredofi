@@ -391,22 +391,6 @@ impl Contract {
             .unwrap_or_else(|e| env::panic_str(&e));
     }
 
-    /// Owner: pin a new scorer version (WASM SHA-256). Public on-chain with an event (rule 2).
-    #[payable]
-    pub fn set_scorer_version(&mut self, version: String) {
-        assert_one_yocto();
-        require!(
-            env::predecessor_account_id() == self.config.owner,
-            "Only the owner can change the scorer version"
-        );
-        require!(is_sha256_hex(&version), "scorer_version must be a 64-char lowercase hex SHA-256");
-        let old = std::mem::replace(&mut self.config.scorer_version, version.clone());
-        events::emit(
-            "scorer_version_changed",
-            json!({ "old": old, "new": version, "by": env::predecessor_account_id() }),
-        );
-    }
-
     // -------------------------------------------------------------- views
 
     /// What `account_id` may borrow right now, in USDC base units. Zero without a valid score.

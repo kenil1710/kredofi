@@ -216,7 +216,12 @@ async fn owner_cannot_move_lender_funds_or_reserve() -> anyhow::Result<()> {
         "dev_submit_score",
         // Clears only the caller's own pending score flag (audit M1); no tokens, no other account.
         "cancel_pending_score",
-        "set_scorer_version",
+        // Scorer re-pin time lock (review 2, High): propose, apply after the delay, cancel;
+        // the delay can only grow. Config only, no tokens.
+        "propose_scorer_version",
+        "apply_scorer_version",
+        "cancel_scorer_version",
+        "set_scorer_delay_ns",
         // borrow pays only the caller, within limit, cash and the 10% cap;
         // mark_default moves reserve INTO pool cash, never out of the contract.
         "borrow",

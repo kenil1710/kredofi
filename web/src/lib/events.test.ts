@@ -36,3 +36,9 @@ test('events from failed (rolled-back) receipts are skipped (audit L4)', () => {
   ];
   assert.equal(eventsFromReceipts(r, K, 'h', 1).length, 2);
 });
+
+test('scorer time-lock events read plainly', () => {
+  const ev = (event: string, data: Record<string, unknown>) => ({ event, data, tx: 't', ts: 0 }) as unknown as Parameters<typeof describe>[0];
+  assert.equal(describe(ev('scorer_change_proposed', { new: 'ab'.repeat(32) })).text, 'Scorer change proposed: abababab… (time lock)');
+  assert.equal(describe(ev('scorer_change_cancelled', { version: 'cd'.repeat(32) })).text, 'Scorer change cancelled: cdcdcdcd…');
+});

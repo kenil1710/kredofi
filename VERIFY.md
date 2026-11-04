@@ -13,6 +13,15 @@ curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"j
 
 Expected: `OutLayer 6888c15e1442b508202141daf8cc246dddb9ecf5e586f1f0743671de7c23e6e2 True False`: the pinned scorer, and lender deposits locked until real bank data (section 8).
 
+Is a scorer change waiting? Since contract v4 a new pin is first proposed in public and applies only after a 24 h time lock (security review 2, High):
+
+```bash
+curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"kredofi.near","method_name":"get_pending_scorer","args_base64":""}}' \
+  | python3 -c "import json,sys;r=json.load(sys.stdin)['result'];print(bytes(r['result']).decode() if 'result' in r else r.get('error'))"
+```
+
+Expected on v4: `null` (nothing pending) or `{"version":…,"proposed_at":…,"apply_at":…}`. On v3 the method doesn't exist yet (`MethodNotFound`).
+
 ## 2. Is the published WASM that exact file?
 
 The production build is published, and nothing else, at a commit-pinned URL (OutLayer downloads it from there and checks the hash):
