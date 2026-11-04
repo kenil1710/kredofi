@@ -4,6 +4,7 @@
 # Safe to run often (cron, or before a judging session); it does nothing when the reserve is healthy.
 #   ./scripts/reserve_guard.sh            # defaults: MIN_USD=200 TARGET_USD=500
 #   MIN_USD=300 TARGET_USD=800 ./scripts/reserve_guard.sh
+# After a retest with a default on the live demo: ALLOW_DEMO_CONTRACT=1 KREDOFI_CONTRACT=app.kency.testnet MIN_USD=499 ./scripts/reserve_guard.sh
 # Testnet only. kency.testnet signs with its keychain key, the relayer with its legacy keychain key.
 set -euo pipefail
 cd "$(dirname "$0")/.."

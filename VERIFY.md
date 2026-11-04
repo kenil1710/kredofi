@@ -75,7 +75,7 @@ Expected: band `A`, score `1000`, `scorer_version` `6888c15e…`. There is no `s
 
 ## 6. The testnet demo
 
-Since Nov 4 the live demo runs on `app.kency.testnet` (contract v4) in **OutLayer mode**, like mainnet: the borrower signs `request_score`, OutLayer testnet runs the pinned testnet scorer inside Intel TDX, and the contract accepts the answer only in `on_score`. Check the mode and the pin:
+Since Nov 4 the live demo runs on `app.kency.testnet` (contract v4 with one change from mainnet: OutLayer run limit 60 s instead of 30 s, build `a1ddb323…`, [deploy tx](https://testnet.nearblocks.io/txns/Cydbu24U8vmbndfGMqBtDhdJe6gVw5bueE11QvoYDZex)) in **OutLayer mode**, like mainnet: the borrower signs `request_score`, OutLayer testnet runs the pinned testnet scorer inside Intel TDX, and the contract accepts the answer only in `on_score`. Check the mode and the pin:
 
 ```bash
 curl -s https://kredofi.xyz/api/ledger | python3 -c "import json,sys;c=json.load(sys.stdin)['config'];print(c['scorer_mode'],c['scorer_version'],c['scorer_delay_ns'])"

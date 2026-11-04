@@ -3,7 +3,7 @@
 // a score_failed is retried only if RETRY=1, and still counts as a failure. Testnet only.
 //
 //   PW=~/.npm/_npx/<hash>/node_modules N=10 node scripts/devcheck_scores.mjs
-//   Options: BASE (default https://kredofi.xyz), CONCURRENCY (default 1), OUT (JSON results file)
+//   Options: BASE (default https://kredofi.xyz), CONCURRENCY (default 1), OUT (JSON results file), CHROME (browser path)
 // Then, after any retest that defaults a loan:
 //   ALLOW_DEMO_CONTRACT=1 KREDOFI_CONTRACT=app.kency.testnet MIN_USD=499 ./scripts/reserve_guard.sh
 import { writeFileSync } from 'node:fs';
@@ -66,7 +66,7 @@ async function one(browser, i) {
   } finally { await ctx.close(); }
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
 const results = [];
 let next = 0;
 await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
