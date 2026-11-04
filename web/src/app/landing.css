@@ -213,7 +213,7 @@ html.lenis,html.lenis body{height:auto}
 #oneline .foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 20px;border-top:1px solid var(--line-night);font-size:14px;color:var(--muted)}
 #oneline .pause{background:transparent;border:1px solid rgba(230,234,225,.35);color:var(--paper);min-height:44px;min-width:72px;padding:0 14px;font-size:14px;cursor:pointer;border-radius:2px}
 #oneline .pause:hover{border-color:var(--paper)}
-#oneline .receipt{background:var(--paper);color:var(--ink);padding:28px;display:flex;flex-direction:column;gap:12px;min-width:0}
+#oneline .receipt{margin-top:0;border-left:0;background:var(--paper);color:var(--ink);padding:28px;display:flex;flex-direction:column;gap:12px;min-width:0}
 #oneline .receipt h3{font-size:28px}
 #oneline .receipt>p{font-size:15px;color:var(--ink-soft)}
 #oneline .receipt pre{margin:4px 0;font-family:var(--body);font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;border-top:1px solid var(--line-paper);border-bottom:1px solid var(--line-paper);padding-block:14px}
