@@ -52,6 +52,12 @@ impl Contract {
     #[payable]
     pub fn set_grace_ns(&mut self, value: U64) {
         let old = self.config.grace_ns;
+        // Security review 2 (L3): grace is read when a default is marked, so shortening it would
+        // shorten loans already issued. Only allowed while no loan is outstanding.
+        require!(
+            value.0 >= old || self.pool.outstanding == 0,
+            "Grace can't be shortened while loans are outstanding"
+        );
         self.update_param("grace_ns", U64(old), U64(value.0), |c| c.grace_ns = value.0);
     }
 

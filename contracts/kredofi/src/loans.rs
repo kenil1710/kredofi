@@ -210,7 +210,13 @@ impl Contract {
     pub fn request_identity_release(&mut self, borrower: AccountId) -> PromiseOrValue<()> {
         let mut b = self.borrowers.get(&borrower).cloned().unwrap_or_else(|| env::panic_str("Unknown borrower"));
         require!(Self::release_allowed(&b), "Release is only allowed once, after a recorded default");
-        require!(!b.pending_request, "A release is already pending");
+        // Security review 2 (M1): a pending release may be requested again. If its callback failed
+        // without clearing the flag (e.g. the contract was out of storage), this is the only way to
+        // finish it; a duplicate in flight is harmless (the first answer stores the release, the
+        // rest are ignored) and costs the caller its own OutLayer fee.
+        if b.pending_request {
+            env::log_str(&format!("Identity release for {borrower} requested again while one is pending"));
+        }
         b.pending_request = true;
         let sealed = B64.encode(b.sealed_identity.as_ref().unwrap());
         self.borrowers.insert(borrower.clone(), b);
@@ -265,6 +271,10 @@ impl Contract {
             Ok(None) => Err("OutLayer returned null".to_string()),
             Ok(Some(v)) => unwrap_outlayer_result(v).and_then(|o| parse_release(&o)),
         };
+        if self.borrower_or_new(&borrower).released_identity.is_some() {
+            env::log_str(&format!("Identity of {borrower} already released; duplicate answer ignored"));
+            return false;
+        }
         match parsed {
             Ok(released) => {
                 self.store_release(&borrower, released);

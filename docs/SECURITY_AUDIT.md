@@ -50,7 +50,7 @@ It found 2 High, 3 Medium, 5 Low and 5 Info issues. Every finding below has a st
 - The NEP-413 ownership check.
 - The Worker's header stripping and redirects.
 
-## Tests after the fixes
+## Tests after the Review 1 fixes
 
 - Contracts (`cargo test --workspace`): 133 unit, 36 sandbox and 3 mock.
 - Scorer: 39 tests.
@@ -58,6 +58,48 @@ It found 2 High, 3 Medium, 5 Low and 5 Info issues. Every finding below has a st
 - Browser runs:
   - Dev mode (live site): main flow 24/24, scenarios 11/11, wallet loop 13/13.
   - OutLayer mode (local, throwaway contract): main flow 23/24, scenarios 11/11, wallet loop 12/13. The only misses are the fetch receipt, which enclave runs don't report.
+
+## Review 2 (Nov 4, 2026): mainnet contract only
+
+**What this is:** another AI-assisted security review by a fresh agent with no access to the build history; not a professional audit. It got a copy of `contracts/`, `tests/` and `docs/SPEC.md` with no git history, no logs and no Review 1 report (code comments still name earlier fix labels; it was told to treat them as unverified). Limits: 40 read-only mainnet RPC calls (6 used), no transactions, no keys. Checklist: storage staking and DoS, upgrade and migrate safety, owner key compromise, OutLayer callback failure paths, gas in callbacks, integer edges at 0 and max, event correctness, and anything Review 1 missed.
+
+It found 1 High (a trust/design issue), 1 Medium, 5 Low and 5 Info. Each finding came with a test that proved it. After the fixes those tests assert the fixed behaviour (`contracts/kredofi/src/review2_tests.rs`, `tests/tests/review2.rs`).
+
+**Mainnet status:** the fixes are in `main` (contract build `2e655cce…`, 294,117 bytes, same state layout as v3, so no migration). `kredofi.near` still runs v3 (`b7f55eaf…`): redeploying needs the owner's yes (below). Nothing is at risk today: the mainnet pool holds $0 and lender deposits are closed.
+
+| # | Severity | Finding | Status | Tests and proof |
+|---|---|---|---|---|
+| R2-H | High (trust) | The owner account can re-pin the scorer immediately, and it also owns the OutLayer project and the secrets. With the owner key, an attacker could pin a build that gives any sybil band A, and once deposits are open, borrow the pool out and default (the reserve pays first, lenders lose the rest). They could also give that build the sealing key and open sealed names. | **Accepted for the MVP; no fix yet.** Deposits are closed (`production_data` off) and the pool holds $0, so nothing can be taken today. Before deposits open (Pilot phase, `/docs/roadmap`): a time lock on scorer re-pins, a multisig owner, and the OutLayer project and secrets on separate accounts. Building the time lock changes the state layout and SPEC, so it waits for the owner's decision. | `r2_scorer_pin_change_is_immediate` documents the current behaviour. |
+| R2-M1 | Medium | The contract pays for every borrower record and score, and mainnet had about 4.5 KB free. Anyone could fill it with cheap `request_score` calls. A defaulter could then make `on_release` fail on storage: the callback reverts, `pending_request` stays set, the blocked borrower can't cancel, and a new release was refused as "already pending", so the identity release was lost for good. | **Fixed in code.** `request_score` is refused while the contract's free balance is under 0.05 NEAR (filling storage now only pauses new scores until a top-up). A pending release can be requested again, and a duplicate answer is ignored. | Sandbox `r2_starved_release_can_be_retried_after_top_up` (the reviewer's proof, now completing after the retry) and `storage_starved_callback_is_recoverable`; unit `r2_request_score_needs_storage_headroom`, `r2_pending_release_can_be_retried_and_duplicates_are_ignored`. Measured: a failed request costs the contract 115 bytes; a scored borrower costs 379. |
+| R2-L1 | Low | Request → cancel → borrow → the cancelled request's late answer lands: the score and band were replaced during an active loan, and a second fingerprint was taken. | **Fixed in code.** A score answer that lands while a loan is active or after a default is ignored. | `r2_late_on_score_during_active_loan_is_ignored` |
+| R2-L2 | Low | That late answer also cleared `pending_request` even when it belonged to an identity release in flight. | **Fixed in code** (same check; the flag is left alone). | `r2_late_on_score_keeps_pending_identity_release` |
+| R2-L3 | Low | The owner could shorten the grace period of loans already issued (7 days to 60 s), so late payers could be defaulted, and their identity released, a minute after the due date. | **Fixed in code.** Grace can't be shortened while any loan is outstanding; lengthening is always allowed. | `r2_grace_cannot_shrink_while_loans_are_outstanding` |
+| R2-L4 | Low | After repeated near-total losses, `shares × pool value` overflowed u128, so `get_lender` and a full withdraw panicked. | **Fixed in code.** `mul_div` uses a 256-bit intermediate. | `r2_share_math_survives_collapse`, `r2_mul_div_wide_matches_exact_math` (checked against exact values, including u128::MAX) |
+| R2-L5 | Low | After a total wipe with shares outstanding, deposits are closed for good. | **Accepted** (same as Review 1 I2: safe outcome after the reserve and every lender are wiped out). | `deposit_into_wiped_out_pool_rejected` |
+| R2-I1 | Info | Events from a receipt that later failed are still in the logs (seen in the M1 proof). | **Handled off-chain:** the ledger skips failed receipts (Review 1 L4). | `events.test.ts` |
+| R2-I2 | Info | No owner transfer method: if the owner key is lost, the treasury stays stuck. | **Accepted;** the multisig owner in the Pilot phase needs a planned upgrade anyway. | — |
+| R2-I3 | Info | Interest is rounded up per loan, so a 1-unit loan carries 1 unit of interest. | **Accepted** (rounding goes to lenders by design; loans are dollars, not units). | `r2_integer_edges_fail_cleanly` |
+| R2-I4 | Info | A fingerprint stays tied to its first account for good, even if that account's key is lost. | **Accepted** (one bank identity, one borrower: SPEC rule). | — |
+| R2-I5 | Info | Circle can freeze USDC accounts, which would freeze funds; rollbacks keep the books consistent. | **Accepted** (property of the token). | — |
+
+**Checked and found sound by Review 2:**
+- The v2→v3 migration: field order matches the deployed v2 binary; it is `#[private]`; running it on v3 state panics instead of misreading it (`r2_migrate_on_v3_state_panics`).
+- Every owner method and its bounds (term, hold, TTL and share caps; the treasury moves one way).
+- Raw-byte callbacks and rollbacks.
+- Gas: callbacks burn 1–2 Tgas against 15–30 reserved.
+- Integer edges at 0 and u128::MAX on every entry point (`r2_integer_edges_fail_cleanly`).
+- Events in SPEC 4 match the state changes.
+- `#[private]` on all six callbacks and `migrate`; signer checks; `ft_on_transfer` accepts only the configured USDC.
+
+**Tests after the Review 2 fixes:** contracts 143 unit, 38 sandbox and 3 mock (`cargo test --workspace`), including migration from the deployed v2 binary and the gas budget.
+
+**Putting the fixes on `kredofi.near` (not done; each step waits for the owner's yes):**
+
+| # | What | Signer | Cost (NEAR) |
+|---|---|---|---|
+| 1 | Storage top-up: +1,419 bytes of code (0.0142 NEAR), the 0.05 NEAR score floor, and gas headroom for the deploy | dev `715363…` | 0.06 (stays in `kredofi.near`) |
+| 2 | Deploy build `2e655cce…` without a migration (same state layout) | `kredofi.near` | about 0.003 |
+| 3 | Check: `view_code` hash, `get_config` unchanged, `get_pool` still all zeros | — | 0 |
 
 ## Locking `kredofi.near` (not done)
 

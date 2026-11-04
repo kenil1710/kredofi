@@ -366,10 +366,11 @@ async fn rule6_one_fingerprint_one_borrower_outlayer() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Audit M1 (regression of the auditor's proof): the contract runs nearly out of storage between
-/// `request_score` and `on_score`, so `on_score` fails as a whole and `pending_request` stays set.
-/// The borrower can now clear it with `cancel_pending_score` and score again once the contract is
-/// topped up. Also: a lender deposit under 1 USDC (dust that only buys contract storage) is refused.
+/// Security review M1 + review 2 M1: a contract nearly out of storage. Since review 2, `request_score`
+/// refuses while the contract's free balance is under 0.05 NEAR, so a score request can no longer be
+/// left half-done by a starved `on_score` (that path now needs many requests in flight at once; the
+/// borrower's `cancel_pending_score` still recovers it, unit test `borrower_cancels_stuck_score_request`).
+/// Once topped up, the borrower scores normally. Also: a lender deposit under 1 USDC is refused.
 #[tokio::test]
 async fn storage_starved_callback_is_recoverable() -> anyhow::Result<()> {
     let env = setup_outlayer().await?;
@@ -386,20 +387,11 @@ async fn storage_starved_callback_is_recoverable() -> anyhow::Result<()> {
     env.pool.as_account().transfer_near(env.owner.id(), NearToken::from_yoctonear(send)).await?.into_result()?;
 
     let victim = new_user(&env, "victim", 0).await?;
-    let _ = request_score(&victim, &env).await?;
-    let b = borrower(&env, victim.id()).await?;
-    assert_eq!(b["pending_request"], true, "on_score failed on storage");
-    assert!(b["score"].is_null());
+    let r = request_score(&victim, &env).await?;
+    assert!(failure_text(&r).contains("low on storage balance"), "{:?}", r.failures());
+    assert!(borrower(&env, victim.id()).await?.is_null(), "nothing stored, nothing pending");
 
     env.owner.transfer_near(env.pool.id(), NearToken::from_near(5)).await?.into_result()?;
-    let r = request_score(&victim, &env).await?;
-    assert!(failure_text(&r).contains("already pending"));
-
-    let r = victim.call(env.pool.id(), "cancel_pending_score").transact().await?;
-    assert!(r.is_success(), "{:?}", r.failures());
-    assert!(event_names(&r).contains(&"score_failed".to_string()));
-    assert_eq!(borrower(&env, victim.id()).await?["pending_request"], false);
-
     let r = request_score(&victim, &env).await?;
     assert!(r.is_success(), "{:?}", r.failures());
     let b = borrower(&env, victim.id()).await?;

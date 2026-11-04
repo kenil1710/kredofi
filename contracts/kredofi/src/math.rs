@@ -11,14 +11,43 @@ pub fn sub(a: u128, b: u128) -> u128 {
     a.checked_sub(b).unwrap_or_else(|| env::panic_str("Math underflow"))
 }
 
-/// floor(a * b / c)
+/// floor(a * b / c) with a 256-bit intermediate (security review 2, L4: share counts can grow
+/// large after heavy losses, so `a * b` may not fit in u128 even when the result does).
+/// Panics only on division by zero or when the result itself exceeds u128.
 pub fn mul_div(a: u128, b: u128, c: u128) -> u128 {
     if c == 0 {
         env::panic_str("Division by zero");
     }
-    a.checked_mul(b)
-        .unwrap_or_else(|| env::panic_str("Math overflow"))
-        / c
+    if let Some(p) = a.checked_mul(b) {
+        return p / c;
+    }
+    let (hi, lo) = mul_wide(a, b);
+    if hi >= c {
+        env::panic_str("Math overflow");
+    }
+    // Long division of the 256-bit (hi, lo) by c, one bit at a time; hi < c keeps the quotient in u128.
+    let (mut rem, mut q) = (hi, 0u128);
+    for i in (0..128).rev() {
+        let carry = rem >> 127;
+        rem = (rem << 1) | ((lo >> i) & 1);
+        q <<= 1;
+        if carry == 1 || rem >= c {
+            rem = rem.wrapping_sub(c);
+            q |= 1;
+        }
+    }
+    q
+}
+
+/// Full 256-bit product of two u128 values as (high, low).
+fn mul_wide(a: u128, b: u128) -> (u128, u128) {
+    const M: u128 = u64::MAX as u128;
+    let (a1, a0, b1, b0) = (a >> 64, a & M, b >> 64, b & M);
+    let (p00, p01, p10, p11) = (a0 * b0, a0 * b1, a1 * b0, a1 * b1);
+    let mid = (p00 >> 64) + (p01 & M) + (p10 & M);
+    let lo = (p00 & M) | (mid << 64);
+    let hi = p11 + (p01 >> 64) + (p10 >> 64) + (mid >> 64);
+    (hi, lo)
 }
 
 /// Shares minted for a deposit of `amount` into a pool worth `pool_value` with `total_shares`.

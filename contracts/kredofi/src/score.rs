@@ -27,6 +27,8 @@ pub const MAX_OUTLAYER_RESULT_BYTES: usize = 16 * 1024;
 
 /// OutLayer fee deposit (SPEC 4).
 pub const MIN_SCORE_DEPOSIT: NearToken = NearToken::from_millinear(10);
+/// Free balance the contract keeps for storage it must not run out of (security review 2, M1).
+pub const MIN_FREE_FOR_SCORE: NearToken = NearToken::from_millinear(50);
 const GAS_REQUEST_EXECUTION: Gas = Gas::from_tgas(100);
 const GAS_ON_SCORE: Gas = Gas::from_tgas(30);
 const MAX_INSTRUCTIONS: u64 = 1_000_000_000;
@@ -276,6 +278,7 @@ impl Contract {
 
         let mut b = self.borrower_or_new(&borrower);
         self.require_can_score(&b);
+        self.require_storage_headroom(deposit);
         b.pending_request = true;
         self.borrowers.insert(borrower.clone(), b);
 
@@ -339,6 +342,14 @@ impl Contract {
     /// `on_score`'s logic for an already-read result (unit tests call it directly).
     pub(crate) fn finish_score(&mut self, borrower: AccountId, result: Result<Option<Value>, String>) -> bool {
         let mut b = self.borrower_or_new(&borrower);
+        // Security review 2 (L1, L2): `borrow` refuses while a score request is pending, so an answer
+        // that lands while a loan is active or after a default belongs to a request the borrower
+        // cancelled. Ignore it completely: no re-score mid-loan, and `pending_request` (which may
+        // now belong to an identity release) is left alone.
+        if b.blocked || b.has_active_loan() {
+            env::log_str(&format!("Late score answer for {borrower} ignored: active loan or default"));
+            return false;
+        }
         b.pending_request = false;
         self.borrowers.insert(borrower.clone(), b);
 
@@ -445,6 +456,20 @@ impl Contract {
 impl Contract {
     pub(crate) fn borrower_or_new(&self, id: &AccountId) -> Borrower {
         self.borrowers.get(id).cloned().unwrap_or_default()
+    }
+
+    /// Security review 2 (M1): the contract pays for every borrower record and score, so new score
+    /// requests stop while its free balance (beyond storage, not counting the attached deposit) is
+    /// under `MIN_FREE_FOR_SCORE`. That keeps room for the calls that must not fail on storage
+    /// (identity releases, repayments) and turns a storage-filling attack into a pause of new
+    /// scores until the owner tops up (`/api/health` reports `storageLow`).
+    pub(crate) fn require_storage_headroom(&self, attached: NearToken) {
+        let used = env::storage_byte_cost().saturating_mul(env::storage_usage() as u128);
+        let free = env::account_balance().saturating_sub(attached).saturating_sub(used);
+        require!(
+            free >= MIN_FREE_FOR_SCORE,
+            "The contract is low on storage balance; new scores are paused until it is topped up"
+        );
     }
 
     fn require_can_score(&self, b: &Borrower) {

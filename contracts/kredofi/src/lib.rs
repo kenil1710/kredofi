@@ -467,3 +467,6 @@ mod loan_tests;
 mod params_tests;
 #[cfg(test)]
 mod treasury_tests;
+
+#[cfg(test)]
+mod review2_tests;
