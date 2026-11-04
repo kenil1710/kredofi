@@ -146,6 +146,9 @@ async function runLoan(step, cfg) {
   const acct = step.borrower, who = account(acct);
   let b = await validScore(acct);
   if (!b) { const out = await scoreBorrower(step.n); console.log(`  scored ${acct}: band ${out.band} ${out.score}`); await sleep(1500); b = await validScore(acct); }
+  // A wrong band on record (Nov 4: rolled sandbox dates scored borrower-17 D, valid for 30 days) would
+  // block this borrower for good, so score again once; a second miss is a real failure.
+  if (b.score.band !== step.band) { console.log(`  ${acct} holds band ${b.score.band}, plan says ${step.band}: scoring again`); const out = await scoreBorrower(step.n); console.log(`  scored ${acct}: band ${out.band} ${out.score}`); await sleep(1500); b = await validScore(acct); }
   if (b.score.band !== step.band) throw new Error(`${acct} scored band ${b.score.band}, plan says ${step.band}`);
   if (b.has_active_loan) throw new Error(`${acct} already has a loan`);
   const limit = BigInt(await view(POOL, 'get_limit', { account_id: acct }));
@@ -241,8 +244,10 @@ async function tick() {
   const due = plan().filter((x) => x.day <= day && !s.done[x.i] && (!ONLY || ONLY.has(x.n)));
   console.log(`${POOL}: day ${day === Infinity ? 'all' : day}, ${due.length} step(s) due`);
   let loans = 0;
+  const failed = new Set(); // one borrower's failure must not hold up the others; their later steps wait
   for (const step of due) {
     if (step.kind === 'loan' && loans >= MAX_LOANS) break;
+    if (failed.has(step.borrower)) continue;
     try {
       const b = await view(POOL, 'get_borrower', { account_id: step.borrower }).catch(() => null);
       const st = chainState(step, b);
@@ -251,8 +256,10 @@ async function tick() {
       if (step.kind === 'score') { const out = await scoreBorrower(step.n); console.log(`  ${step.borrower} scored band ${out.band} ${out.score} (band D: no loan, as the rules say)`); }
       else { await runLoan(step, cfg); loans++; }
       s.done[step.i] = Date.now(); save(s);
-    } catch (e) { console.error(`  step ${step.i} (${step.borrower}) failed: ${e.message}`); break; }
+    } catch (e) { console.error(`  step ${step.i} (${step.borrower}) failed: ${e.message}`); failed.add(step.borrower); }
   }
+  // Red in GitHub Actions: a tick with a failed step must not look fine. State is still saved (if: always()).
+  if (failed.size) { console.error(`${failed.size} borrower(s) failed this tick; the next tick retries them`); process.exitCode = 1; }
 }
 
 async function status() {

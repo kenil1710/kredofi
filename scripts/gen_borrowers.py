@@ -26,7 +26,7 @@ def borrower(name, start_balance, monthly):
     for i, m in enumerate(months_back(6)):
         txs += monthly(i, m)
     return {"op": "score", "profile": {
-        "seed": name, "roll_dates_forward": True,
+        "seed": name, "roll_dates_forward": False,  # same reason as web/src/lib/borrowers.ts
         "override_accounts": [{
             "type": "depository", "subtype": "checking", "starting_balance": start_balance,
             "identity": {"names": [name]},

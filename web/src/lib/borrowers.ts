@@ -41,7 +41,7 @@ export function profileFor(who: BorrowerKey, tag: string, now = new Date()) {
   const name = `${b.name} ${tag}`;
   return {
     seed: name,
-    roll_dates_forward: true,
+    roll_dates_forward: false, // dates are already relative to today; Plaid rolling moves them a month ahead once the last one is ~30 days old (Nov 4: a month of income fell out of the window)
     override_accounts: [{
       type: 'depository', subtype: 'checking', starting_balance: b.balance,
       identity: { names: [name] },
@@ -81,7 +81,7 @@ export function customProfile(c: CustomInputs, tag: string, now = new Date()) {
   });
   return {
     seed: name,
-    roll_dates_forward: true,
+    roll_dates_forward: false, // dates are already relative to today; Plaid rolling moves them a month ahead once the last one is ~30 days old (Nov 4: a month of income fell out of the window)
     override_accounts: [{ type: 'depository', subtype: 'checking', starting_balance: c.balance, identity: { names: [name] }, transactions }],
   };
 }

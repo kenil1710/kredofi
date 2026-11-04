@@ -62,3 +62,17 @@ test('custom profile shape', () => {
   assert.equal(a.transactions.filter((t) => t.description === 'MONTHLY SPENDING').length, 6);
   assert.ok(a.transactions.every((t) => Math.abs(t.amount) <= 8000));
 });
+
+test('profiles keep their own dates: no Plaid rolling, and every month of the scoring window is present', () => {
+  const now = new Date('2026-11-14T12:00:00Z');
+  const window = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'];
+  const months = (p: { override_accounts: { transactions: { date_posted: string }[] }[] }) => [...new Set(p.override_accounts[0].transactions.map((t) => t.date_posted.slice(0, 7)))];
+  const custom = customProfile({ salary: 1750, months: 6, spending: 1330, fees: 3, balance: 700 }, 'ab12', now);
+  assert.equal(custom.roll_dates_forward, false);
+  assert.deepEqual(months(custom), window);
+  for (const who of ['riya', 'sam', 'max'] as const) {
+    const p = profileFor(who, 'ab12', now);
+    assert.equal(p.roll_dates_forward, false);
+    assert.deepEqual(months(p), window);
+  }
+});
