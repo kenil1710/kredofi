@@ -41,7 +41,7 @@ pub struct Score {
     pub parts: Parts,
     pub score: u16,
     pub band: &'static str,
-    /// USDC dollars, multiple of 50, at most 1000.
+    /// USDC dollars, public: one of 0, 100, 250, 500, 1000 (`income_cap_bucket`).
     pub income_cap_usd: u64,
 }
 
@@ -79,6 +79,19 @@ pub fn features(txs: &[Tx], window: &[String; 6], balance_cents: i64) -> Feature
 }
 
 /// SPEC 6 table.
+/// SPEC 6: half of the average monthly income, rounded down to a bucket. `income_cap` is public, so finer steps
+/// would narrow a low earner's income to about $100. Buckets above 0 equal the level caps. `total_cents` is 6 months.
+pub fn income_cap_bucket(total_cents: i64) -> u64 {
+    const CENTS_PER_AVG_DOLLAR: i64 = 600; // 6 months x 100 cents
+    match total_cents / CENTS_PER_AVG_DOLLAR {
+        2000.. => 1000,
+        1000..=1999 => 500,
+        500..=999 => 250,
+        200..=499 => 100,
+        _ => 0,
+    }
+}
+
 pub fn score(f: &Features) -> Score {
     let total_income: i64 = f.monthly_income_cents.iter().sum();
     let avg_income = total_income as f64 / 6.0; // cents
@@ -157,8 +170,7 @@ pub fn score(f: &Features) -> Score {
         500..=649 => "C",
         _ => "D",
     };
-    // min(1000, floor(avg * 0.5 / 50) * 50) dollars == floor(total_cents / 60000) * 50.
-    let income_cap_usd = ((total_income.max(0) / 60_000) as u64 * 50).min(1000);
+    let income_cap_usd = income_cap_bucket(total_income);
     Score { parts, score, band, income_cap_usd }
 }
 
@@ -221,11 +233,32 @@ mod tests {
     }
 
     #[test]
+    fn income_cap_is_only_ever_a_bucket_and_never_above_half_income() {
+        // Average dollars at each edge -> bucket.
+        for (avg, want) in [(0, 0), (199, 0), (200, 100), (499, 100), (500, 250), (999, 250), (1000, 500), (1999, 500), (2000, 1000), (50_000, 1000)] {
+            assert_eq!(income_cap_bucket(avg * 600), want, "avg ${avg}");
+        }
+        // One cent under an edge stays in the lower bucket; a negative total is 0.
+        assert_eq!(income_cap_bucket(200 * 600 - 1), 0);
+        assert_eq!(income_cap_bucket(-1), 0);
+        // Every average: a known bucket, at most half of income, and never above the old $50-step cap.
+        let mut distinct = std::collections::BTreeSet::new();
+        for avg in 0..4000i64 {
+            let cap = income_cap_bucket(avg * 600);
+            assert!([0, 100, 250, 500, 1000].contains(&cap));
+            assert!(cap as i64 * 2 <= avg);
+            assert!(cap <= (avg as u64 / 100 * 50).min(1000));
+            distinct.insert(cap);
+        }
+        assert_eq!(distinct.len(), 5);
+    }
+
+    #[test]
     fn bands_and_income_cap() {
         assert_eq!(score(&f([4000; 6], 10560, 0, 6000)).income_cap_usd, 1000);
-        assert_eq!(score(&f([1500, 0, 3200, 800, 0, 2500], 0, 0, 0)).income_cap_usd, 650);
-        assert_eq!(score(&f([99; 6], 0, 0, 0)).income_cap_usd, 0);
-        assert_eq!(score(&f([100; 6], 0, 0, 0)).income_cap_usd, 50);
+        assert_eq!(score(&f([1500, 0, 3200, 800, 0, 2500], 0, 0, 0)).income_cap_usd, 500);
+        assert_eq!(score(&f([199; 6], 0, 0, 0)).income_cap_usd, 0);
+        assert_eq!(score(&f([200; 6], 0, 0, 0)).income_cap_usd, 100);
     }
 
     #[test]

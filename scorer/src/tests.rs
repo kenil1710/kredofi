@@ -128,7 +128,7 @@ fn income_caps_for_demo_borrowers() {
     let riya = score_output("x", &bank("Riya Good", 6000, riya_txs(NOV_1_2026)), &SEAL_KEY, None, NOV_1_2026).unwrap();
     assert_eq!(riya.output["income_cap"], 1_000_000_000u64, "$1,000 cap");
     let sam = score_output("x", &bank("Sam Risky", 3000, sam_txs(NOV_1_2026)), &SEAL_KEY, None, NOV_1_2026).unwrap();
-    assert_eq!(sam.output["income_cap"], 650_000_000u64);
+    assert_eq!(sam.output["income_cap"], 500_000_000u64, "$500 bucket, not the old $650");
 }
 
 // --------------------------------------------------- output privacy and size
