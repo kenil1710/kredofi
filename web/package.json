@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types --no-warnings src/lib/format.test.ts src/lib/tx.test.ts src/lib/seal.test.ts src/lib/reasons.test.ts src/lib/relayPolicy.test.ts src/lib/events.test.ts src/lib/primaryAction.test.ts src/lib/intents.test.ts src/lib/levels.test.ts src/lib/history.test.ts src/lib/aiSummary.test.ts src/lib/docs/docs.test.ts src/lib/ownership.test.ts src/lib/replyKey.test.ts src/lib/seeded.test.ts src/lib/proofFacts.test.ts src/server/clientIp.test.ts src/server/guards.test.ts src/lib/outlayer.test.ts src/lib/pin.test.ts"
+    "test": "node --test --experimental-strip-types --no-warnings src/lib/format.test.ts src/lib/tx.test.ts src/lib/seal.test.ts src/lib/reasons.test.ts src/lib/relayPolicy.test.ts src/lib/events.test.ts src/lib/primaryAction.test.ts src/lib/intents.test.ts src/lib/levels.test.ts src/lib/history.test.ts src/lib/aiSummary.test.ts src/lib/docs/docs.test.ts src/lib/ownership.test.ts src/lib/replyKey.test.ts src/lib/seeded.test.ts src/lib/proofFacts.test.ts src/server/clientIp.test.ts src/server/guards.test.ts src/lib/outlayer.test.ts src/lib/pin.test.ts src/lib/vault.test.ts"
   },
   "dependencies": {
     "@hot-labs/near-connect": "0.11.4",

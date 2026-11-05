@@ -414,3 +414,12 @@ button{font-family:inherit}
 .mainnet .doc-code code{white-space:pre-wrap;overflow-wrap:anywhere}
 @media (max-width:600px){.mn-grid{grid-template-columns:1fr;gap:2px}.mn-grid dd{margin-bottom:10px}.mainnet .doc{padding:28px 18px}}
 .left-line{margin:8px 0 0;background:#0F2A23;color:#E6EAE1;padding:10px 12px;border-radius:3px;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
+
+/* /integrate (SPEC 8e) */
+.vault .doc-table td,.vault .doc-table th{overflow-wrap:anywhere}
+.vault-you td{background:var(--paper-2)}
+.vault .vault-h{font-size:24px;margin:0 0 6px}
+.vault .vault-h3{font-size:18px;margin:18px 0 8px}
+.vault .vault-actions{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 8px}
+.vault .field{max-width:300px;margin-top:16px}
+.vault .field .hint{margin:0}

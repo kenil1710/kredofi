@@ -88,16 +88,17 @@ Rules (SPEC 6): income level (250 points), steady income (250), on-time payments
 
 - `privacy`: bank data is read only inside the TEE (mainnet); the chain gets a band and a keyed fingerprint; the name is sealed and opens only after a default.
 - `defi`: a lending pool with share accounting, a first-loss reserve and a treasury; cross-chain deposit quotes from NEAR Intents 1Click (dry run only: Intents has no testnet, [docs/INTENTS_PLAN.md](docs/INTENTS_PLAN.md)).
+  A second contract acts on the score, too: [`partner-vault.kency.testnet`](https://kredofi.xyz/integrate) reads a band and asks for 110% collateral from band A against 150% standard, with no change to KredoFi (testnet demo; real positions: [band A](https://testnet.nearblocks.io/txns/8u7XnMuxpnewZ5YL6BztMWfx7pELQXYk5TcVRH8E2Sdg), [band D](https://testnet.nearblocks.io/txns/Bmnhbgu2pEKkhEUqUb1SHF8hgMBeriSrkrpcn1DHzpL5)).
 - `realworld`: income-based USDC credit with a recovery path, without the lender seeing statements.
 
 ## Run the tests
 
-Needs Rust via rustup (the repo's `rust-toolchain.toml` installs 1.93.0 and the wasm target on first use), Node 22 and Python 3. The first `cargo test` downloads the NEAR sandbox node and builds both contracts (about 5 to 10 minutes).
+Needs Rust via rustup (the repo's `rust-toolchain.toml` installs 1.93.0 and the wasm target on first use), Node 22 and Python 3. The first `cargo test` downloads the NEAR sandbox node and builds the contracts (about 5 to 10 minutes).
 
 ```bash
-cargo test --workspace                   # contracts: 169 unit + 3 mock-usdc + 38 near-workspaces sandbox tests
+cargo test --workspace                   # contracts: 169 unit + 3 mock-usdc + 17 partner-vault + 50 near-workspaces sandbox tests
 (cd scorer && cargo test)                # scorer: 40 tests (reproduces the SPEC 6 table: Riya 1000/A, Sam 270/D, Max 1000/A)
-(cd web && npm install && npm test)      # web: 93 tests (incl. a check that every docs link works)
+(cd web && npm install && npm test)      # web: 98 tests (incl. a check that every docs link works)
 (cd scripts && npm install && node --test seal.test.mjs)   # JS and Rust seal compatibility (1 of 3 skips without the partner key)
 ```
 

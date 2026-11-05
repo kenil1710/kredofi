@@ -1,11 +1,11 @@
 // POST /api/relay {signedDelegate: base64}: relay a demo account's meta transaction (NEP-366) and pay
 // its gas, only if checkDelegate allows it (SPEC 8a: KredoFi and test USDC, borrow / ft_transfer_call
-// / storage_deposit) and the account is under 20 relays per hour.
+// / storage_deposit; SPEC 8e: test USDC to the partner vault with msg open) and the account is under 20 relays per hour.
 import { NextResponse } from 'next/server';
 import { publicError } from '@/server/guards';
 import { deserialize } from 'borsh';
 import { SCHEMA, actions } from 'near-api-js';
-import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
+import { KREDOFI_CONTRACT, PARTNER_VAULT, USDC_CONTRACT } from '@/lib/config';
 import { checkDelegate, type DecodedDelegate } from '@/lib/relayPolicy';
 import { overQuota, relayerAccount } from '@/server/near';
 import { recordSoon } from '@/server/ledger';
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Could not read the signed delegate.' }, { status: 400 });
   }
   const relayer = relayerAccount();
-  const refused = checkDelegate(decoded.delegateAction, { relayer: relayer.accountId, kredofi: KREDOFI_CONTRACT, usdc: USDC_CONTRACT });
+  const refused = checkDelegate(decoded.delegateAction, { relayer: relayer.accountId, kredofi: KREDOFI_CONTRACT, usdc: USDC_CONTRACT, vault: PARTNER_VAULT });
   if (refused) return NextResponse.json({ error: refused }, { status: 403 });
   if (overQuota(`relay:${decoded.delegateAction.senderId}`, 20, 3_600_000)) {
     return NextResponse.json({ error: 'This demo account reached 20 actions this hour. Try again later.' }, { status: 429 });

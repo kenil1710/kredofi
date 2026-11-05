@@ -2685,6 +2685,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "partner-vault"
+version = "0.1.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+]
+
+[[package]]
 name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

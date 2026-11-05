@@ -12,6 +12,7 @@ This file is the source of truth for what gets built in the hackathon (Nov 1-14,
 |---|---|---|
 | `contracts/kredofi` | Lending pool, score registry, loans, defaults, reserve, treasury | Rust, `near-sdk` 5.x, `cargo near` |
 | `contracts/mock-usdc` | 6-decimal NEP-141 token for local and testnet only | Rust |
+| `contracts/partner-vault` | Testnet demo: a second contract that reads a KredoFi band and sets collateral terms (section 8e) | Rust |
 | `scorer` | TEE program: Plaid fetch, features, score, sealed identity | Rust, `wasm32-wasip2`, OutLayer project |
 | `web` | Borrower page, lender page, public dashboard | Next.js (see `DESIGN.md`) |
 | `scripts` | Test borrower generator, deploy, demo, verify | Python / shell |
@@ -314,7 +315,7 @@ Because `ft_transfer_call` needs 1 yocto, and repay and deposit go to the USDC c
 1. The web app generates the demo key in the browser and keeps it in `localStorage` (testnet, test money only; the README says so).
 2. The relayer (a small API route in `web`, holding its own key in env) creates `demo<timestamp>.<relayer>` with a **full-access key** = that demo key, 0.005 test NEAR (covers the account's storage and 1-yocto deposits; the relayer pays all gas), and calls `mock-usdc.storage_deposit` for it. At most 5 new demo accounts per hour per IP.
 3. Every demo action is a meta transaction: the browser signs the `DelegateAction`, and the relayer relays it and pays the gas. The user never sees gas or a wallet prompt.
-4. The relayer only relays delegates whose `receiver_id` is the KredoFi contract or `mock-usdc`, with method allowlist `borrow`, `withdraw` (pays only the caller's own shares), `ft_transfer_call` (only to KredoFi, msg `repay` or `deposit`), `storage_deposit`; one FunctionCall per delegate, exact deposits, at most 100 Tgas (`web/src/lib/relayPolicy.ts`). Permissionless default steps for demo accounts (`mark_default`, `request_identity_release`) are sent by the relayer itself (on testnet, scoring runs in Dev mode through `dev_submit_score` by the `dev_scorer` backend, so demo accounts never call `request_score`), and at most 20 relays per demo account per hour. This gives the same safety as a function-call key, enforced by the relayer.
+4. The relayer only relays delegates whose `receiver_id` is the KredoFi contract or `mock-usdc`, with method allowlist `borrow`, `withdraw` (pays only the caller's own shares), `ft_transfer_call` (to KredoFi with msg `repay` or `deposit`, or to the partner vault with msg `open`, section 8e), `storage_deposit`; one FunctionCall per delegate, exact deposits, at most 100 Tgas (`web/src/lib/relayPolicy.ts`). Permissionless default steps for demo accounts (`mark_default`, `request_identity_release`) are sent by the relayer itself (on testnet, scoring runs in Dev mode through `dev_submit_score` by the `dev_scorer` backend, so demo accounts never call `request_score`), and at most 20 relays per demo account per hour. This gives the same safety as a function-call key, enforced by the relayer.
 5. "Connect wallet" stays available. Demo accounts and wallet accounts use the same contract methods; the contract does not know which is which.
 6. Mainnet never uses demo accounts.
 7. Test USDC: the `mock-usdc` owner (the only account that can `mint`) is the relayer account. When the relayer creates a demo account it also mints 10 test USDC to it (enough to repay interest). Wallet users get a "Get 500 test USDC" button served by the relayer API, once per account. No contract change needed.
@@ -360,6 +361,20 @@ So judges see how the ledger looks over time, a script (`scripts/seed_ledger.mjs
 - **Seeding watch and drift guard (owner's decision, Nov 4).** The seed tick runs hourly (idempotent; GitHub skips scheduled runs). `seed_ledger.mjs behind` fails if more than 6 steps are behind plan or any are unfinished after Nov 13 (no day adds more than 6); the 6-hourly health workflow runs it and starts a tick if none ran for 2 hours. Until Nov 26 the same workflow scores once a day in the real enclave on `devcheck-{riya,sam,max,plaid}.relayer.kency.testnet` and fails if Riya 1000/A, Sam 270/D, Max 1000/A or the Plaid `user_good` band B moves (`scripts/drift_guard.mjs`). Every successful seed tick and health watch pings an external dead-man monitor (healthchecks.io, period 1 h, grace 2 h; secret `HC_PING_URL`). The hourly tick keeps running until Nov 26: after the Nov 13 freeze it seeds nothing but still pings.
 - Our own automated tests run against a separate testnet contract (`kredofi.kency.testnet`), never the demo contract (`app.kency.testnet`) unless `ALLOW_DEMO_CONTRACT=1` is set.
 - Mainnet: no seeding, ever.
+
+## 8e. Partner vault: composability demo (owner's decision, Nov 5; testnet only)
+
+`partner-vault.kency.testnet` (`contracts/partner-vault`) shows a second contract acting on a KredoFi score. KredoFi is not changed and gives no permission; the only link is its public `get_borrower` view.
+
+- **Open:** `ft_transfer_call(vault, amount, "open")` on test USDC. `ft_on_transfer` accepts only test USDC, only the message `open`, at least $1, one position per account, then reads `get_borrower(sender)`; the private callback `on_kredofi_read` sets the terms.
+- **Terms:** band A 110%, B 125%, C 140%. Band D, no score, an expired score or a defaulted (blocked) account: 150%. `credit = collateral / ratio`, rounded down.
+- **Refunds:** if the read fails, or any check fails, the full amount returns through NEP-141's resolver. Nothing is held without a position.
+- **Credit** is only a number in the vault. No token is issued, there is no price feed and no liquidation. Terms are fixed at opening.
+- **Close:** `close_position` (1 yocto) marks the position closing, sends the collateral back, then removes it in `on_close_transfer`; if the transfer fails the position stays open.
+- **Guards:** `new` refuses any account outside `.testnet` (and sandbox `.test.near`). No owner methods. Callbacks are `#[private]`.
+- **Relayer:** of the vault's calls it pays only for `ft_transfer_call` on test USDC with `receiver_id` = vault and `msg` = `open` (`web/src/lib/relayPolicy.ts`, tested). It calls no method on the vault itself, so closing needs a wallet.
+- **Page:** `/integrate` shows the live band, standard versus unlocked terms, and opens a position. `/docs/integrate` links to it.
+- Mainnet: never.
 
 ## 9. Known limits (state them in the README)
 

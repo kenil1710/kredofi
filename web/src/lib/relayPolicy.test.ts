@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkDelegate, isDemoAccount, type DecodedDelegate } from './relayPolicy.ts';
 
-const cfg = { relayer: 'relayer.kency.testnet', kredofi: 'kredofi.kency.testnet', usdc: 'musdc.kency.testnet' };
+const cfg = { relayer: 'relayer.kency.testnet', kredofi: 'kredofi.kency.testnet', usdc: 'musdc.kency.testnet', vault: 'partner-vault.kency.testnet' };
 const SENDER = 'demo1793600000000.relayer.kency.testnet';
 const enc = (o: object) => new TextEncoder().encode(JSON.stringify(o));
 const call = (receiverId: string, methodName: string, args: object, deposit = 1n, gas = 40n * 10n ** 12n, senderId = SENDER): DecodedDelegate =>
@@ -29,7 +29,7 @@ test('refused: not a demo account, wrong contract, wrong method', () => {
 });
 
 test('refused: USDC to anyone but KredoFi, odd messages, deposits, gas, multiple or non-call actions', () => {
-  assert.match(checkDelegate(call(cfg.usdc, 'ft_transfer_call', { receiver_id: 'thief.testnet', amount: '1', msg: 'repay' }), cfg)!, /only be sent to KredoFi/);
+  assert.match(checkDelegate(call(cfg.usdc, 'ft_transfer_call', { receiver_id: 'thief.testnet', amount: '1', msg: 'repay' }), cfg)!, /only be sent to KredoFi or the partner vault/);
   assert.match(checkDelegate(call(cfg.usdc, 'ft_transfer_call', { receiver_id: cfg.kredofi, amount: '1', msg: 'seed_reserve' }), cfg)!, /repay or deposit/);
   assert.match(checkDelegate(call(cfg.kredofi, 'borrow', { amount: '1' }, 2n), cfg)!, /1 yoctoNEAR/);
   assert.match(checkDelegate(call(cfg.kredofi, 'borrow', { amount: '1' }, 1n, 300n * 10n ** 12n), cfg)!, /gas/);
@@ -39,6 +39,26 @@ test('refused: USDC to anyone but KredoFi, odd messages, deposits, gas, multiple
   assert.match(checkDelegate(two, cfg)!, /One action/);
   assert.match(checkDelegate({ senderId: SENDER, receiverId: cfg.kredofi, actions: [{ transfer: { deposit: 1n } }] }, cfg)!, /Only contract calls/);
   assert.match(checkDelegate({ senderId: SENDER, receiverId: cfg.kredofi, actions: [{ addKey: {} }] }, cfg)!, /Only contract calls/);
+});
+
+test('partner vault: only the collateral transfer is relayed', () => {
+  const open = (args: object, deposit = 1n, gas = 100n * 10n ** 12n) => call(cfg.usdc, 'ft_transfer_call', args, deposit, gas);
+  assert.equal(checkDelegate(open({ receiver_id: cfg.vault, amount: '110000000', msg: 'open' }), cfg), null);
+  // Wrong message, in either direction.
+  for (const msg of ['repay', 'deposit', 'seed_reserve', '', 'OPEN', 'open ']) {
+    assert.match(checkDelegate(open({ receiver_id: cfg.vault, amount: '1', msg }), cfg)!, /only takes collateral/, msg);
+  }
+  assert.match(checkDelegate(open({ receiver_id: cfg.kredofi, amount: '1', msg: 'open' }), cfg)!, /repay or deposit/);
+  // Same checks as any transfer: amount, deposit, gas.
+  assert.match(checkDelegate(open({ receiver_id: cfg.vault, amount: 'all', msg: 'open' }), cfg)!, /Invalid amount/);
+  assert.match(checkDelegate(open({ receiver_id: cfg.vault, amount: '1', msg: 'open' }, 2n), cfg)!, /1 yoctoNEAR/);
+  assert.match(checkDelegate(open({ receiver_id: cfg.vault, amount: '1', msg: 'open' }, 1n, 101n * 10n ** 12n), cfg)!, /gas/);
+  // Nothing on the vault itself: not close, not callbacks, not init, not any other method.
+  for (const m of ['close_position', 'on_kredofi_read', 'on_close_transfer', 'ft_on_transfer', 'new', 'get_position']) {
+    assert.match(checkDelegate(call(cfg.vault, m, {}), cfg)!, /only calls KredoFi/, m);
+  }
+  // A plain transfer to the vault would strand the money: never relayed.
+  assert.match(checkDelegate(call(cfg.usdc, 'ft_transfer', { receiver_id: cfg.vault, amount: '1' }), cfg)!, /does not call/);
 });
 
 test('demo account pattern', () => {

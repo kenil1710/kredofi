@@ -21,6 +21,7 @@ pub struct Wasm {
     pub kredofi_v3: Vec<u8>,
     pub mock_usdc: Vec<u8>,
     pub mock_outlayer: Vec<u8>,
+    pub partner_vault: Vec<u8>,
 }
 
 fn build(manifest: &str) -> PathBuf {
@@ -45,8 +46,10 @@ pub fn wasm() -> &'static Wasm {
         let usdc_path = build("contracts/mock-usdc/Cargo.toml");
         let kredofi_path = build("contracts/kredofi/Cargo.toml");
         let outlayer_path = build("tests/mock-outlayer/Cargo.toml");
+        let vault_path = build("contracts/partner-vault/Cargo.toml");
         Wasm {
             mock_outlayer: std::fs::read(&outlayer_path).unwrap(),
+            partner_vault: std::fs::read(&vault_path).unwrap(),
             kredofi_v3: std::fs::read(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/kredofi_v3.wasm")).expect("tests/fixtures/kredofi_v3.wasm"),
             kredofi: std::fs::read(&kredofi_path).unwrap(),
             kredofi_abi: kredofi_path.with_file_name("kredofi_abi.json"),

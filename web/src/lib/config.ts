@@ -16,5 +16,7 @@ export const KREDOFI_CONTRACT = process.env.NEXT_PUBLIC_KREDOFI_CONTRACT ?? 'kre
 /** The testnet contract of Nov 1–4 (Dev mode, v3): kept on-chain as the record of our own test runs. */
 export const EARLIER_TESTNET_CONTRACT = 'kredofi.kency.testnet';
 export const USDC_CONTRACT = process.env.NEXT_PUBLIC_USDC_CONTRACT ?? 'musdc.kency.testnet';
+/** Testnet demo of a second contract acting on a KredoFi band (SPEC 8e). */
+export const PARTNER_VAULT = process.env.NEXT_PUBLIC_PARTNER_VAULT ?? 'partner-vault.kency.testnet';
 export const EXPLORER = NETWORK === 'mainnet' ? 'https://nearblocks.io/txns/' : 'https://testnet.nearblocks.io/txns/';
 export const RPC = NETWORK === 'mainnet' ? 'https://rpc.mainnet.fastnear.com' : 'https://test.rpc.fastnear.com';

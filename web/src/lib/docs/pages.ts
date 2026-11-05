@@ -521,6 +521,10 @@ The demo's server routes (\`/api/score\`, \`/api/relay\`, \`/api/demo\`, \`/api/
     body: `
 A KredoFi score is public, on-chain state. Any NEAR contract or frontend can read it with the contract's existing view methods: no API key, no permission from KredoFi, no new code on our side. Use it to gate a feature, size a limit or skip a deposit for people who have proven their income.
 
+## See it working
+
+[The partner vault](/integrate) is a testnet demo of exactly this: a separate contract, \`partner-vault.kency.testnet\`, reads \`get_borrower\` and asks for 110% collateral from band A, 125% from B, 140% from C, and 150% from band D or anyone without a valid score. KredoFi wasn't changed for it. Open a position with your own demo account, or read its [real positions](/integrate).
+
 ## The two views you need
 
 | Method | Returns |

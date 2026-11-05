@@ -3,7 +3,7 @@
 
 export type DecodedAction = Record<string, unknown>;
 export type DecodedDelegate = { senderId: string; receiverId: string; actions: DecodedAction[] };
-export type RelayConfig = { relayer: string; kredofi: string; usdc: string };
+export type RelayConfig = { relayer: string; kredofi: string; usdc: string; vault: string };
 
 const MAX_GAS = 100n * 10n ** 12n;
 const ONE_YOCTO = 1n;
@@ -48,8 +48,13 @@ export function checkDelegate(d: DecodedDelegate, cfg: RelayConfig): string | nu
   // test USDC
   if (fc.methodName === 'ft_transfer_call') {
     if (deposit !== ONE_YOCTO) return 'ft_transfer_call needs exactly 1 yoctoNEAR.';
-    if (args.receiver_id !== cfg.kredofi) return 'Test USDC can only be sent to KredoFi.';
-    if (args.msg !== 'repay' && args.msg !== 'deposit') return 'Only repay or deposit.';
+    // The partner vault (SPEC 8e) gets one thing: collateral with the message that opens a position.
+    if (args.receiver_id === cfg.vault) {
+      if (args.msg !== 'open') return 'The vault only takes collateral to open a position.';
+    } else {
+      if (args.receiver_id !== cfg.kredofi) return 'Test USDC can only be sent to KredoFi or the partner vault.';
+      if (args.msg !== 'repay' && args.msg !== 'deposit') return 'Only repay or deposit.';
+    }
     if (typeof args.amount !== 'string' || !/^\d{1,20}$/.test(args.amount)) return 'Invalid amount.';
     return null;
   }
