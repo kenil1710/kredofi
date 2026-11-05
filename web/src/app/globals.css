@@ -416,7 +416,8 @@ button{font-family:inherit}
 .left-line{margin:8px 0 0;background:#0F2A23;color:#E6EAE1;padding:10px 12px;border-radius:3px;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
 
 /* /integrate (SPEC 8e) */
-.vault .doc-table td,.vault .doc-table th{overflow-wrap:anywhere}
+.vault .doc-table td:not(:first-child),.vault .doc-table th:not(:first-child){white-space:nowrap}
+@media (max-width:600px){.vault .doc-table table{font-size:14px}.vault .doc-table td,.vault .doc-table th{padding-inline:6px}.vault .doc-table td:first-child,.vault .doc-table th:first-child{padding-left:0}}
 .vault-you td{background:var(--paper-2)}
 .vault .vault-h{font-size:24px;margin:0 0 6px}
 .vault .vault-h3{font-size:18px;margin:18px 0 8px}
