@@ -3,7 +3,8 @@
 # - watch (no secrets, no transactions, until Nov 26): https://kredofi.xyz/api/health; fails if the site is down or the
 #   testnet reserve, relayer or contract storage is low. Fix: ./scripts/reserve_guard.sh (reserve), faucet top-up of
 #   relayer.kency.testnet (relayer), HF Space restart / credits (down). docs/DEPLOY_HF.md.
-#   Also fails if /, /borrow or /trust takes more than 10 s to the last byte (scripts/slow_check.mjs, 3 rounds).
+#   Also fails if /, /borrow or /trust takes more than 10 s to the last byte (scripts/slow_check.mjs, 3 rounds),
+#   or if the key text is missing from the live raw HTML (scripts/raw_html.test.mjs; each push checks its own build: raw-html.yml).
 # - seed-watch (until Nov 14): GitHub skips scheduled runs, so this starts a seed tick if none ran for 2 hours, and fails
 #   if seeding is more than 6 steps behind plan or unfinished after Nov 13.
 # - drift-guard (until Nov 26): real enclave scores once a day on devcheck accounts; fails if Riya 1000/A, Sam 270/D,
@@ -60,6 +61,13 @@ jobs:
         run: |
           if [ "$(date -u +%s)" -gt "$(date -u -d "$WATCH_UNTIL" +%s)" ]; then echo "past $WATCH_UNTIL: watch off"; exit 0; fi
           node scripts/slow_check.mjs
+      - name: key text in the live raw HTML
+        if: ${{ !cancelled() }}
+        env:
+          WATCH_UNTIL: "2026-11-26T23:59:00Z"
+        run: |
+          if [ "$(date -u +%s)" -gt "$(date -u -d "$WATCH_UNTIL" +%s)" ]; then echo "past $WATCH_UNTIL: watch off"; exit 0; fi
+          node --test scripts/raw_html.test.mjs
 
   seed-watch:
     if: vars.SEED_CONTRACT != ''

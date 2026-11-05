@@ -1,0 +1,36 @@
+# Each push: build that commit and check the key text is in its raw HTML (no JavaScript, HACKATHON.md Q-017).
+# It tests the commit's own build, not kredofi.xyz, because a push is not deployed: a sentence reworded together with
+# its test must pass here. The live site is checked every 6 hours by the health watch. No secrets: pages read public RPC only.
+# seed-state is skipped: it only holds the seeding bot's state, pushed hourly.
+name: raw html
+on:
+  push:
+    branches-ignore: [seed-state]
+permissions:
+  contents: read
+concurrency:
+  group: raw-html-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  raw-html:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SCORER_MODE: outlayer
+      NEXT_PUBLIC_KREDOFI_CONTRACT: app.kency.testnet
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: build
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npx next build
+      - name: key text in this commit's raw HTML
+        run: |
+          (cd web && npx next start -p 3000 > /tmp/next.log 2>&1 &)
+          for i in $(seq 1 30); do curl -sf -o /dev/null -m 2 http://localhost:3000/ && break; sleep 1; done
+          BASE=http://localhost:3000 node --test scripts/raw_html.test.mjs || { tail -20 /tmp/next.log; exit 1; }
