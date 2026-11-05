@@ -6,13 +6,13 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { describe, type LedgerEvent } from '@/lib/events';
 import { EARLIER_TESTNET_CONTRACT, EXPLORER, KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
-import { pendingScorerText, type PinConfig } from '@/lib/pin';
+import { pendingScorerText } from '@/lib/pin';
 import { relativeTime, usd } from '@/lib/format';
+import { utcMinuteMs, type LedgerData } from '@/lib/ledgerView';
 import { HashLink } from './HashLink';
 import { devCheckCaption, devCheckLabel, DEV_CHECK_NOTE, isDevCheckEvent, isSeededEvent, SEEDED_LABEL, SEEDED_NOTE, type Bands } from '@/lib/seeded';
 
-type Band = { scored: number; loans_issued: number; repaid: number; defaulted: number; volume: string };
-type Data = { events: LedgerEvent[]; stats: Record<'A' | 'B' | 'C' | 'D', Band>; seeded?: Bands; visitors?: Bands; devCheck?: Bands; devCheckTimes?: number[]; pool: { pool_value: string; reserve: string; treasury: string; outstanding: string }; config: PinConfig & { scorer_mode: string; scorer_version: string }; updatedAt: number };
+type Data = LedgerData;
 
 const KINDS: [string, string, (e: string) => boolean][] = [
   ['all', 'All', () => true],
@@ -24,15 +24,16 @@ const KINDS: [string, string, (e: string) => boolean][] = [
 ];
 const keyOf = (e: LedgerEvent) => `${e.txHash}:${e.idx}`;
 
-export function LedgerPage() {
-  const [data, setData] = useState<Data | null>(null);
+export function LedgerPage({ initial = null }: { initial?: Data | null }) {
+  const [data, setData] = useState<Data | null>(initial);
+  const [live, setLive] = useState(false); // false: still the server's cached read
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState('all');
   const [showDev, setShowDev] = useState(false);
   const [band, setBand] = useState('all');
   const seen = useRef<Set<string> | null>(null);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => initial?.updatedAt ?? 0); // server and first client render must agree
 
   useEffect(() => {
     let alive = true;
@@ -45,7 +46,7 @@ export function LedgerPage() {
         const keys = j.events.map(keyOf);
         if (seen.current) setFresh(new Set(keys.filter((k) => !seen.current!.has(k))));
         seen.current = new Set(keys);
-        setData(j); setError(null); setNow(Date.now());
+        setData(j); setLive(true); setError(null); setNow(Date.now());
       } catch { if (alive) setError('The ledger index did not answer. Retrying every 5 seconds.'); }
     };
     load();
@@ -87,7 +88,7 @@ export function LedgerPage() {
         <h1 style={{ fontSize: 'clamp(40px,4.6vw,66px)', lineHeight: 1.02 }}>Public ledger</h1>
         <p style={{ fontSize: 17, color: '#BFCDC6', marginTop: 18, maxWidth: 520 }}>Every score, loan, repayment and default on {KREDOFI_CONTRACT}. Bands and amounts only: no names, no bank data.</p>
         <div className="feed" style={{ marginTop: 40 }}>
-          <h2>Events <small>{data ? `updated ${relativeTime(data.updatedAt, now)}, every 5 s` : 'loading'}</small></h2>
+          <h2>Events <small>{live && data ? `updated ${relativeTime(data.updatedAt, now)}, every 5 s` : data ? `as of ${utcMinuteMs(data.updatedAt)}, refreshing in your browser` : `loading live data from ${KREDOFI_CONTRACT}`}</small></h2>
           <div className="filters" role="group" aria-label="Filter by event">
             {KINDS.map(([k, label]) => <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}>{label}</button>)}
           </div>
@@ -96,6 +97,7 @@ export function LedgerPage() {
           </div>
           {error && <p className="hint err" style={{ padding: '12px 24px' }}>{error}</p>}
           <ol aria-live="polite">
+            {!data && <li><span>Loading live data from {KREDOFI_CONTRACT}. Each row is an event read from the chain: a score band, a loan amount, a repayment or a default, with its transaction.</span></li>}
             {data && rows.length === 0 && <li><span>No events match these filters.</span></li>}
             {rows.map((e) => {
               const d = describe(e);
@@ -113,6 +115,7 @@ export function LedgerPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div className="panel">
           <h2>By band</h2>
+          {!data && <p className="hint seeded-note">Scores, loans, repayments, defaults and amounts per band, from the contract&apos;s own events. Loading live data from {KREDOFI_CONTRACT}.</p>}
 {anySeeded && <p className="hint seeded-note">{SEEDED_NOTE}</p>}
           {anyDev && <p className="hint seeded-note">{DEV_CHECK_NOTE}</p>}
           {groups.map(([title, st]) => {
@@ -123,8 +126,8 @@ export function LedgerPage() {
                 {split && <caption>{title === SEEDED_LABEL || title === devTitle ? <span className="seedtag">{title}</span> : title}</caption>}
                 <thead><tr><th>Band</th><th>Scored</th><th>Loans</th><th>Repaid</th><th>Defaulted</th><th>Lent</th></tr></thead>
                 <tbody>
-                  {bands.map(([b, x]) => <tr key={b}><td>{b}</td><td>{x?.scored ?? '…'}</td><td>{x?.loans_issued ?? '…'}</td><td>{x?.repaid ?? '…'}</td><td>{x?.defaulted ?? '…'}</td><td>{x ? usd(x.volume) : '…'}</td></tr>)}
-                  <tr className="sum"><td>All</td>{st ? <><td>{tot.scored}</td><td>{tot.loans}</td><td>{tot.repaid}</td><td>{tot.defaulted}</td><td>{usd(tot.volume)}</td></> : <><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td></>}</tr>
+                  {bands.map(([b, x]) => <tr key={b}><td>{b}</td><td>{x?.scored ?? '–'}</td><td>{x?.loans_issued ?? '–'}</td><td>{x?.repaid ?? '–'}</td><td>{x?.defaulted ?? '–'}</td><td>{x ? usd(x.volume) : '–'}</td></tr>)}
+                  <tr className="sum"><td>All</td>{st ? <><td>{tot.scored}</td><td>{tot.loans}</td><td>{tot.repaid}</td><td>{tot.defaulted}</td><td>{usd(tot.volume)}</td></> : <><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></>}</tr>
                 </tbody>
               </table>
             );
@@ -138,9 +141,9 @@ export function LedgerPage() {
             <dt>Contract</dt><dd><a href={`${EXPLORER.replace('/txns/', '/address/')}${KREDOFI_CONTRACT}`} target="_blank" rel="noreferrer">{KREDOFI_CONTRACT}</a></dd>
             <dt>Network</dt><dd>{NETWORK}</dd>
             {KREDOFI_CONTRACT !== EARLIER_TESTNET_CONTRACT && <><dt>Earlier contract</dt><dd><a href={`${EXPLORER.replace('/txns/', '/address/')}${EARLIER_TESTNET_CONTRACT}`} target="_blank" rel="noreferrer">{EARLIER_TESTNET_CONTRACT}</a> (Nov 1–4, Dev mode: our own test runs, including the default-path tests; its history stays on-chain)</dd></>}
-            <dt>Scoring</dt><dd>{data ? (data.config.scorer_mode === 'Dev' ? 'Dev mode: the pinned scorer runs on our server (testnet)' : 'OutLayer: inside Intel TDX') : '…'}</dd>
-            <dt>Pinned scorer</dt><dd>{data?.config.scorer_version ?? '…'}</dd>
-            <dt>Pending scorer change</dt><dd>{pendingScorerText(data?.config, Date.now())}</dd>
+            <dt>Scoring</dt><dd>{data ? (data.config.scorer_mode === 'Dev' ? 'Dev mode: the pinned scorer runs on our server (testnet)' : 'OutLayer: inside Intel TDX') : 'loading from the chain'}</dd>
+            <dt>Pinned scorer</dt><dd>{data?.config.scorer_version ?? 'loading from the chain'}</dd>
+            <dt>Pending scorer change</dt><dd>{data ? pendingScorerText(data.config, now) : 'loading from the chain'}</dd>
           </dl>
           <p className="hint">On mainnet, kredofi.near pins a scorer you can check yourself:</p>
           <code>curl -sL https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/6db115961a822664fdef8c8d19f02668b6f67e92/kredofi_scorer.wasm | shasum -a 256</code>

@@ -620,6 +620,14 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
           <p className="acct"><button type="button" className="btn btn-line" onClick={() => { account.resetDemo(); setScoring(null); }}>Try another scenario</button> Starts a fresh demo account.</p>
         )}
 
+        {b === undefined && (
+          <div className="sr-only">
+            <h2>Connect your bank (sandbox)</h2>
+            <p>Test bank only: this is Plaid&apos;s sandbox. Log in with user_good / pass_good. Never enter your real bank details. Testnet, no real money.</p>
+            <p>Log in to a test bank through Plaid Link. The scorer fetches up to two years of history, uses the last six full months, works out your limit, and keeps none of it.</p>
+            <p>No wallet needed: we create a demo account and pay its network fees.</p>
+          </div>
+        )}
         {acct && b === undefined && <p className="hint" style={{ marginTop: 40 }}><span className="placeholder">Reading your passbook from the chain</span></p>}
 
         <ol className="book" aria-live="polite">

@@ -9,17 +9,19 @@ import { TxButton, TxStatus } from './TxButton';
 import { view, getPool, usdcBalance, type PoolView } from '@/lib/chain';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
 import { parseUsd, usd } from '@/lib/format';
+import { lostByLenders, utcMinuteMs, type LendFirstPaint } from '@/lib/ledgerView';
 import { IntentsPanel } from './IntentsPanel';
 
 type Lender = { shares: string; value: string };
 
-export function LenderPage() {
+export function LenderPage({ initial = null }: { initial?: LendFirstPaint | null }) {
   const account = useAccount();
   const acct = account.accountId;
-  const [pool, setPool] = useState<PoolView | null>(null);
+  const [pool, setPool] = useState<PoolView | null>((initial?.pool as PoolView | undefined) ?? null);
+  const [live, setLive] = useState(false); // false: still the server's cached read
   const [me, setMe] = useState<Lender | null>(null);
   const [bal, setBal] = useState<bigint | null>(null);
-  const [lost, setLost] = useState<bigint | null>(null);
+  const [lost, setLost] = useState<bigint | null>(initial ? BigInt(initial.lost) : null);
   const [dep, setDep] = useState('100');
   const [wd, setWd] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
@@ -28,8 +30,9 @@ export function LenderPage() {
 
   const refresh = useCallback(async () => {
     setPool(await getPool());
+    setLive(true);
     fetch('/api/ledger').then((r) => r.json()).then((j) => {
-      setLost((j.events as { event: string; data: { lender_loss?: string } }[]).filter((e) => e.event === 'loan_defaulted').reduce((s, e) => s + BigInt(e.data.lender_loss ?? '0'), 0n));
+      setLost(lostByLenders(j.events));
     }).catch(() => {});
     if (acct) {
       setMe(await view<Lender>(KREDOFI_CONTRACT, 'get_lender', { account_id: acct }));
@@ -80,13 +83,16 @@ export function LenderPage() {
         <table className="ledger" style={{ marginTop: 44 }}>
           <caption>The testnet pool, read from {KREDOFI_CONTRACT}</caption>
           <tbody>
-            <tr><th scope="row">In the pool</th><td>{pool ? usd(pool.pool_value) : '…'}</td></tr>
-            <tr><th scope="row">Lent out right now</th><td>{pool ? usd(pool.outstanding) : '…'}</td></tr>
-            <tr><th scope="row">Reserve, pays losses first</th><td>{pool ? usd(pool.reserve) : '…'}</td></tr>
-            <tr className="sum"><th scope="row">Lost by lenders so far</th><td>{lost !== null ? usd(lost) : '…'}</td></tr>
+            <tr><th scope="row">In the pool</th><td>{pool ? usd(pool.pool_value) : 'loading'}</td></tr>
+            <tr><th scope="row">Lent out right now</th><td>{pool ? usd(pool.outstanding) : 'loading'}</td></tr>
+            <tr><th scope="row">Reserve, pays losses first</th><td>{pool ? usd(pool.reserve) : 'loading'}</td></tr>
+            <tr className="sum"><th scope="row">Lost by lenders so far</th><td>{lost !== null ? usd(lost) : 'loading'}</td></tr>
           </tbody>
         </table>
-        <p className="hint" style={{ marginTop: 14 }}>Share price {price.toFixed(4)} USDC (it started at 1.0000). It only moves with repaid interest and uncovered losses; nothing here is a forecast.</p>
+        <p className="hint" style={{ marginTop: 14 }}>
+          {pool ? <>Share price {price.toFixed(4)} USDC (it started at 1.0000).</> : <>Loading live data from {KREDOFI_CONTRACT}. The share price started at 1.0000.</>} It only moves with repaid interest and uncovered losses; nothing here is a forecast.
+          {!live && initial && <span className="sr-only"> These numbers were read from the chain at {utcMinuteMs(initial.at)}; an open page refreshes them every 5 seconds.</span>}
+        </p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

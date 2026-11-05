@@ -461,8 +461,8 @@ export function Landing() {
                 </div>
                 <div className="tally">
                   <h3>Riya&apos;s tally</h3>
-                  <dl id="factors">{FN.map((n) => <div className="row" key={n}><dt>{n}</dt><dd>0</dd></div>)}</dl>
-                  <div className="total"><span>Score</span><b id="score">0</b></div>
+                  <dl id="factors">{FN.map((n, i) => <div className="row" key={n}><dt>{n}</dt><dd>{FV[i]}</dd></div>)}</dl>
+                  <div className="total"><span>Score</span><b id="score">1000</b></div>
                   <div className="lstamp" id="stamp">BAND A, $100</div>
                   <p className="leaves" id="leaves">That one line is all that leaves. The scorer stores nothing, but nobody outside can verify the 30 transactions are deleted when the run ends.</p>
                 </div>
@@ -475,7 +475,7 @@ export function Landing() {
         <ProofStrip />
 
         <section id="statement" aria-label="What lenders see">
-          <div className="pin"><div className="wrap"><p>{STATEMENT.split(' ').map((w, i) => <span key={i}><span className="w">{w}</span>{' '}</span>)}</p></div></div>
+          <div className="pin"><div className="wrap"><p className="sr-only">{STATEMENT}</p><p aria-hidden="true">{STATEMENT.split(' ').map((w, i) => <span key={i}><span className="w">{w}</span>{' '}</span>)}</p></div></div>
         </section>
 
         <OneLineOut />
@@ -511,7 +511,7 @@ export function Landing() {
                 {CHEQUES.map((c) => (
                   <article className="cheque" id={`chq-${c.id}`} key={c.id}>
                     <GuillocheStrip height={12} />
-                    <div className="top"><h3>{c.name}</h3><span className="score">0</span></div>
+                    <div className="top"><h3>{c.name}</h3><span className="score">{c.final}</span></div>
                     <div className="months">
                       {c.inc.map((v, i) => (
                         <div key={i}><em>{c.fees[i] ? `${c.fees[i]} fee${c.fees[i] > 1 ? 's' : ''}` : ''}</em><i className={v ? undefined : 'none'} style={{ height: v ? 24 + (60 * v) / 4000 : 18 }} /></div>

@@ -1,0 +1,66 @@
+// What a reader without JavaScript gets: fetch each page's raw HTML, drop scripts and styles, and check the key
+// text is there. AI screening (HACKATHON.md Q-017) often fetches pages this way.
+//   node --test scripts/raw_html.test.mjs                        # kredofi.xyz
+//   BASE=http://localhost:3000 node --test scripts/raw_html.test.mjs
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+const BASE = process.env.BASE ?? 'https://kredofi.xyz';
+const decode = (s) => s.replace(/&#x27;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+const body = (h) => h.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<!--[\s\S]*?-->/g, '');
+async function page(path) {
+  const r = await fetch(BASE + path, { headers: { 'user-agent': 'kredofi-raw-html-test' }, redirect: 'follow' });
+  assert.equal(r.status, 200, path);
+  const html = body(await r.text());
+  return { html, literal: decode(html), text: decode(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ') };
+}
+const PLACEHOLDER = />\s*…\s*</;
+
+const PAGES = {
+  '/': {
+    literal: ['Every transaction in. One line out.', 'They never see your statements or your exact income.', 'Lenders never see your statements.', "Riya gets $100. Sam doesn't, and he's told why.", 'Lending is the boring part, on purpose.', 'How to check a KredoFi note', 'Numbers from a real mainnet enclave run on 3 November, not from a pitch deck.', 'Borrow against your payslip.'],
+    text: ['Prove your income on NEAR without showing your bank statements.'],
+    patterns: [/Income level 250/, /Money left over 150/, /Score 1000/, /Riya 1000/, /Sam 270/],
+  },
+  '/trust': { literal: ['Why is this safe?'] },
+  '/mainnet': {
+    literal: ['What kredofi.near runs, right now.', 'Contract version', 'Pinned scorer', 'Pending scorer change', 'Deposits locked', 'Locked until real bank data', 'TDX attestation of the newest score', 'outlayer-verify tx 3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo', 'Check it yourself'],
+    patterns: [/Contract version v\d+ .*?\b[0-9a-f]{64}\b/, /Pinned scorer [0-9a-f]{64}\b/, /Pending scorer change ([0-9a-f]{64} (applies at|can be applied now)|none \(time lock)/, /Read at \d+ \w+ \d{4}, \d\d:\d\d UTC|last read at|recorded on/],
+    noPlaceholder: true,
+  },
+  '/integrate': { literal: ["Your band, another contract's terms.", 'partner-vault.kency.testnet', 'What this demo leaves out'], patterns: [/Band A 110% \$100\.00/, /Band D, no score, expired or defaulted 150% \$73\.33/] },
+  '/lend': {
+    literal: ['Lend test USDC to the pool.', 'Lost by lenders so far', 'nothing here is a forecast'],
+    patterns: [/In the pool \$[\d,]+\.\d\d/, /Lent out right now \$[\d,]+\.\d\d/, /Reserve, pays losses first \$[\d,]+\.\d\d/, /Share price \d\.\d{4} USDC/, /read from the chain at \d+ \w+ \d{4}, \d\d:\d\d UTC/],
+    noPlaceholder: true,
+  },
+  '/ledger': {
+    literal: ['Public ledger', 'Bands and amounts only: no names, no bank data.', 'By band', 'Pinned scorer', 'Pending scorer change'],
+    patterns: [/as of \d+ \w+ \d{4}, \d\d:\d\d UTC/, /Pool \$[\d,]+\.\d\d, lent out \$[\d,]+\.\d\d, reserve \$[\d,]+\.\d\d/, /OutLayer: inside Intel TDX/, /Pinned scorer [0-9a-f]{64}\b/],
+    noPlaceholder: true,
+    check: ({ html }) => assert.ok((html.match(/<li\b[^>]*>\s*<span>/g) ?? []).length >= 10, 'ledger rows in the raw HTML'),
+  },
+  '/borrow': { literal: ['Connect your bank (sandbox)', 'Log in with user_good / pass_good.', 'keeps none of it.', 'No wallet needed'] },
+};
+
+for (const [path, want] of Object.entries(PAGES)) {
+  test(`raw HTML of ${path}`, async () => {
+    const p = await page(path);
+    for (const s of want.literal ?? []) assert.ok(p.literal.includes(s), `${path}: not literal: ${s}`);
+    for (const s of want.text ?? []) assert.ok(p.text.includes(s), `${path}: not in text: ${s}`);
+    for (const r of want.patterns ?? []) assert.match(p.text, r, path);
+    if (want.noPlaceholder) assert.doesNotMatch(p.html, PLACEHOLDER, `${path}: empty placeholder`);
+    want.check?.(p);
+  });
+}
+
+test('every docs page has its heading and real text in the raw HTML', async () => {
+  const { html } = await page('/docs/overview');
+  const slugs = [...new Set([...html.matchAll(/href="\/docs\/([a-z-]+)"/g)].map((m) => m[1]))];
+  assert.ok(slugs.length >= 14, `docs pages in the nav: ${slugs.length}`);
+  for (const s of slugs) {
+    const d = await page(`/docs/${s}`);
+    assert.match(d.html, /<h1[^>]*>[^<]+/, s);
+    assert.ok(d.text.split(' ').length > 150, `/docs/${s}: only ${d.text.split(' ').length} words`);
+  }
+});

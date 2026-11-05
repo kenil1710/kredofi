@@ -1,19 +1,19 @@
 // /mainnet: live proof of what kredofi.near runs, read with public view calls (no wallet, no keys).
-// The site stays on testnet; this page only reads mainnet. Cached for a minute.
+// The site stays on testnet; this page only reads mainnet. Rendered on the server from a read cached for a
+// minute, so the facts are in the raw HTML; LiveRefresh re-reads it every minute in an open browser.
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { createHash } from 'node:crypto';
 import { AppChrome } from '@/components/AppChrome';
 import { AppFooter } from '@/components/AppFooter';
 import { GuillocheStrip } from '@/components/GuillocheStrip';
-import { pendingScorerText, type PinConfig } from '@/lib/pin';
+import { LiveRefresh } from '@/components/LiveRefresh';
+import { pendingScorerText } from '@/lib/pin';
+import { utcMinuteMs } from '@/lib/ledgerView';
+import { mainnetFacts } from '@/server/mainnetFacts';
 
 export const metadata: Metadata = { title: 'Mainnet proof, KredoFi', description: 'What kredofi.near runs right now: contract version, pinned enclave scorer, real scores, and why lender deposits are locked.' };
 export const revalidate = 60;
 
-const RPC = 'https://rpc.mainnet.fastnear.com';
-const CONTRACT = 'kredofi.near';
-const DEV = '715363554c6216e50dbbffd81750f2c6b3b8551c4f3466fdf02eee85cc7543b0';
 /** Contract builds this repository has tested and deployed (code SHA-256 -> name). */
 const KNOWN_CODE: Record<string, string> = {
   '147d863d9413b1531eacec9dd5ad69a727837c9c0de10b270e3237306c5ed148': 'v4 (security review 2 fixes, 24 h time lock on scorer re-pins)',
@@ -34,51 +34,34 @@ const CHANGES = [
   { tx: 'EhEiZGuqK7o7UEg7EbUq2GsRVT6YMJv6mYgnGcKaJqrt', what: 'Scorer secrets locked to that build, called from kredofi.near' },
 ];
 
-async function rpc<T>(params: object): Promise<T | null> {
-  try {
-    const r = await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 'kf', method: 'query', params: { finality: 'final', ...params } }), next: { revalidate: 60 } });
-    const j = await r.json();
-    return (j.result ?? null) as T | null;
-  } catch { return null; }
-}
-async function view<T>(method: string, args: object = {}): Promise<T | null> {
-  const r = await rpc<{ result: number[] }>({ request_type: 'call_function', account_id: CONTRACT, method_name: method, args_base64: Buffer.from(JSON.stringify(args)).toString('base64') });
-  try { return r ? (JSON.parse(Buffer.from(r.result).toString()) as T) : null; } catch { return null; }
-}
-
-type Config = PinConfig & { scorer_mode: string; scorer_version: string; require_production_data?: boolean; production_data?: boolean; outlayer: string };
-type Pool = { cash: string; outstanding: string; reserve: string; total_shares: string };
-type Borrower = { score: { band: string; score: number; scorer_version: string; issued_at: string } | null } | null;
-
 export default async function Mainnet() {
-  const [cfg, pool, dev, code] = await Promise.all([
-    view<Config>('get_config'), view<Pool>('get_pool'), view<Borrower>('get_borrower', { account_id: DEV }),
-    rpc<{ code_base64: string }>({ request_type: 'view_code', account_id: CONTRACT }),
-  ]);
-  const codeSha = code ? createHash('sha256').update(Buffer.from(code.code_base64, 'base64')).digest('hex') : null;
-  const locked = cfg ? !!cfg.require_production_data && !cfg.production_data : null;
+  const { cfg, pool, dev, codeSha, source, readAt } = await mainnetFacts();
+  const locked = !!cfg.require_production_data && !cfg.production_data;
   const usd = (v?: string) => (v ? `$${(Number(v) / 1e6).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—');
-  const live = !!cfg;
+  const readNote = source === 'live' ? `Read at ${utcMinuteMs(readAt)}; an open page re-reads it every minute.`
+    : source === 'last-read' ? `The mainnet RPC did not answer just now, so these are the values last read at ${utcMinuteMs(readAt)}.`
+    : `The mainnet RPC did not answer just now, so these are the values recorded on ${utcMinuteMs(readAt)}; the links below still work.`;
   return (
     <div className="g-paper" style={{ minHeight: '100svh' }}>
       <AppChrome />
+      <LiveRefresh seconds={60} />
       <main className="wrap trust mainnet">
         <article className="doc">
           <GuillocheStrip height={12} />
           <p className="doc-kicker">Mainnet proof</p>
           <h1>What kredofi.near runs, right now.</h1>
-          <p className="doc-summary">This site is a testnet demo. This page reads the mainnet contract live, with public view calls (no wallet). {live ? 'Read within the last minute.' : 'The mainnet RPC did not answer just now; the links below still work.'}</p>
+          <p className="doc-summary">This site is a testnet demo. This page reads the mainnet contract live, with public view calls (no wallet). {readNote}</p>
 
           <section className="mn-note" aria-label="kredofi.near">
-            <div className="mn-head"><span className="mn-serial">kredofi.near</span><span className={`mn-stamp ${locked ? 'locked' : ''}`}>{locked === null ? '…' : locked ? 'Deposits locked' : 'Deposits open'}</span></div>
+            <div className="mn-head"><span className="mn-serial">kredofi.near</span><span className={`mn-stamp ${locked ? 'locked' : ''}`}>{locked ? 'Deposits locked' : 'Deposits open'}</span></div>
             <dl className="mn-grid">
-              <dt>Contract version</dt><dd>{codeSha ? (KNOWN_CODE[codeSha] ?? 'unknown build') : '…'}{codeSha && <><br /><code>{codeSha}</code></>}</dd>
-              <dt>Scorer mode</dt><dd>{cfg ? (cfg.scorer_mode === 'OutLayer' ? <>OutLayer, inside Intel TDX (<code>{cfg.outlayer}</code>)</> : cfg.scorer_mode) : '…'}</dd>
-              <dt>Pinned scorer</dt><dd>{cfg ? <code>{cfg.scorer_version}</code> : '…'}</dd>
+              <dt>Contract version</dt><dd>{KNOWN_CODE[codeSha] ?? 'unknown build'}<br /><code>{codeSha}</code></dd>
+              <dt>Scorer mode</dt><dd>{cfg.scorer_mode === 'OutLayer' ? <>OutLayer, inside Intel TDX (<code>{cfg.outlayer}</code>)</> : cfg.scorer_mode}</dd>
+              <dt>Pinned scorer</dt><dd><code>{cfg.scorer_version}</code></dd>
               <dt>Pending scorer change</dt><dd>{pendingScorerText(cfg, Date.now())}</dd>
-              <dt>Lender deposits</dt><dd>{locked === null ? '…' : locked ? <><b>Locked until real bank data</b> (<code>production_data</code> off). Scores still use Plaid&apos;s sandbox, where anyone can invent an income, so no lender money may come in yet.</> : 'Open'}</dd>
-              <dt>Pool</dt><dd>{pool ? `cash ${usd(pool.cash)}, lent out ${usd(pool.outstanding)}, reserve ${usd(pool.reserve)}` : '…'}. No mainnet loans have been made.</dd>
-              <dt>Latest stored score</dt><dd>{dev?.score ? <>band {dev.score.band}, {dev.score.score}, by scorer <code>{dev.score.scorer_version.slice(0, 8)}…</code> (the developer&apos;s test account, sandbox bank)</> : '…'}</dd>
+              <dt>Lender deposits</dt><dd>{locked ? <><b>Locked until real bank data</b> (<code>production_data</code> off). Scores still use Plaid&apos;s sandbox, where anyone can invent an income, so no lender money may come in yet.</> : 'Open'}</dd>
+              <dt>Pool</dt><dd>{`cash ${usd(pool.cash)}, lent out ${usd(pool.outstanding)}, reserve ${usd(pool.reserve)}`}. No mainnet loans have been made.</dd>
+              <dt>Latest stored score</dt><dd>{dev?.score ? <>band {dev.score.band}, {dev.score.score}, by scorer <code>{dev.score.scorer_version.slice(0, 8)}…</code> (the developer&apos;s test account, sandbox bank)</> : 'none stored'}</dd>
             </dl>
           </section>
 
