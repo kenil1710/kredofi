@@ -15,10 +15,13 @@ export const HERO_PROOF = `TDX attestation: PROVEN · ${MAINNET_RUN.seconds} s m
 /** kredofi.near scorer_delay_ns = 86400000000000. The testnet demo uses 60 s on purpose. */
 export const MAINNET_SCORER_DELAY_HOURS = 24;
 
+/** The landing section's heading. It names no number because the count below moves with the calendar. */
+export const ONE_LINE_HEADING = 'Every transaction in. One line out.';
+
 /**
- * Plaid's public sandbox login (user_good), read directly by us; the enclave doesn't report a count. The read is a
- * rolling 730-day window ending today, so the total moves with the calendar (385 on Nov 4, 386 on Nov 5): this is
- * the dated count. scripts/drift_guard.mjs compares a fresh read against it.
+ * Plaid's public sandbox login (user_good), read directly by us on the day of the receipt's run. No enclave run
+ * reports a count: its `reply` holds only rule points (`extra`, with counts, is Dev mode only). The read is a rolling
+ * 730-day window ending that day, so the total moves with the calendar (385 on Nov 4, 386 on Nov 5). Always dated.
  */
 export const SANDBOX_COUNT = { transactions: 385, accounts: 14, countedOn: '4 November' };
 

@@ -201,7 +201,6 @@ html.lenis,html.lenis body{height:auto}
 #pstrip a,#oneline .receipt>a{text-decoration:underline;text-underline-offset:3px;color:var(--mint);display:inline-block;padding-block:6px}
 #oneline{background:var(--night);padding-block:112px}
 #oneline h2{font-size:clamp(38px,5.2vw,84px);line-height:1;max-width:1000px}
-#oneline .count{margin-top:20px;font-size:16px;color:#BFCDC6;max-width:640px}
 #oneline .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:48px;margin-top:56px;align-items:start}
 #oneline .stream-box{border:1px solid var(--line-night);background:rgba(8,19,15,.5);display:flex;flex-direction:column;min-width:0}
 #oneline .slot{font-family:var(--display);font-size:26px;letter-spacing:.14em;text-align:center;padding:16px;background:var(--deep-2);border-bottom:2px solid var(--mint);color:var(--mint);position:relative;z-index:1}

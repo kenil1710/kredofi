@@ -6,8 +6,7 @@
 # - seed-watch (until Nov 14): GitHub skips scheduled runs, so this starts a seed tick if none ran for 2 hours, and fails
 #   if seeding is more than 6 steps behind plan or unfinished after Nov 13.
 # - drift-guard (until Nov 26): real enclave scores once a day on devcheck accounts; fails if Riya 1000/A, Sam 270/D,
-#   Max 1000/A or the Plaid user_good band B moves, or if user_good's transaction count stops matching the landing page
-#   (SANDBOX_COUNT; scripts/drift_guard.mjs). Testnet keys for those 4 accounts only.
+#   Max 1000/A or the Plaid user_good band B moves (scripts/drift_guard.mjs). Testnet keys for those 4 accounts only.
 # Triggers: the Cloudflare Worker kredofi-cron dispatches this every 6 hours and the seed tick hourly (GitHub's own
 # schedule skips runs, and stays as a second trigger). Runs queue, so two drift scores never collide.
 # - email-test (manual only): a deliberate failure, to prove the email arrives.

@@ -1,7 +1,8 @@
 # Seeded demo activity for the testnet ledger (SPEC 8d, docs/LEDGER_PLAN.md): runs
 # `scripts/seed_ledger.mjs tick` every hour on GitHub's runners, dispatched by the Cloudflare Worker kredofi-cron (GitHub skips scheduled runs; its own schedule stays as a second trigger, and a tick is idempotent), so seeding never depends on a laptop
 # being awake. Testnet only. Does nothing until the repository variable SEED_CONTRACT is set (that is
-# the switch, set only after the owner's yes), and stops by itself after Nov 13.
+# the switch, set only after the owner's yes). Seeding stops by itself after Nov 13; the tick keeps running through
+# Nov 26 only to ping the external monitor.
 #
 # Secrets (repository secrets, set from .env and ~/.near-credentials with `gh secret set` via stdin, never
 # printed): PLAID_CLIENT_ID, PLAID_SECRET (Plaid sandbox), SEAL_KEY_TESTNET (never the mainnet SEAL_KEY),
@@ -26,6 +27,10 @@ on:
       start:
         description: "SEED_START (ISO) if this contract has no state yet"
         required: false
+      pretend_frozen:
+        description: "act as if past the freeze: seed nothing, only ping (proves the path before Nov 13)"
+        type: boolean
+        default: false
 permissions:
   contents: write # the seed-state branch
   actions: read # the pinned scorer artifact
@@ -42,6 +47,7 @@ jobs:
       SEED_START: ${{ inputs.start || vars.SEED_START }}
       SEED_ONLY: ${{ inputs.seed_only }}
       DAY_MS_INPUT: ${{ inputs.day_ms }}
+      PRETEND_FROZEN: ${{ inputs.pretend_frozen }}
       SEED_UNTIL: "2026-11-13T23:59:00Z"
       # Canonical CI build of the testnet demo scorer (run 41438833584, artifact kept until 2027-01-31).
       SCORER_RUN: "41438833584"
@@ -56,7 +62,7 @@ jobs:
             *) echo "refusing contract '$KREDOFI_CONTRACT'"; exit 1 ;;
           esac
           if [ -n "$DAY_MS_INPUT" ] && [ "$KREDOFI_CONTRACT" = app.kency.testnet ]; then echo "day_ms is for throwaway contracts"; exit 1; fi
-          if [ "$(date -u +%s)" -gt "$(date -u -d "$SEED_UNTIL" +%s)" ]; then echo "past $SEED_UNTIL: seeding is frozen"; echo "run=no" >> "$GITHUB_OUTPUT"; else echo "run=yes" >> "$GITHUB_OUTPUT"; fi
+          if [ "$PRETEND_FROZEN" = true ] || [ "$(date -u +%s)" -gt "$(date -u -d "$SEED_UNTIL" +%s)" ]; then echo "past $SEED_UNTIL: seeding is frozen"; echo "run=no" >> "$GITHUB_OUTPUT"; else echo "run=yes" >> "$GITHUB_OUTPUT"; fi
       - if: steps.guard.outputs.run == 'yes'
         uses: actions/checkout@v4
       - if: steps.guard.outputs.run == 'yes'
@@ -129,12 +135,14 @@ jobs:
           git add "$KREDOFI_CONTRACT.json"
           git diff --cached --quiet || { git commit -qm "seed state: $KREDOFI_CONTRACT"; git push -q origin seed-state; }
       # Dead-man monitor (healthchecks.io, period 1 h, grace 2 h): no ping for 3 hours emails the owner, even if
-      # Cloudflare and GitHub both stop. Only after every step above passed, on the real contract, before the freeze.
-      - if: steps.guard.outputs.run == 'yes' && env.KREDOFI_CONTRACT == vars.SEED_CONTRACT
+      # Cloudflare and GitHub both stop. Only after every step above passed (a frozen tick skips them, so it still
+      # pings), on the real contract, through Nov 26.
+      - if: env.KREDOFI_CONTRACT == vars.SEED_CONTRACT
         name: ping the external monitor
         env:
           HC_PING_URL: ${{ secrets.HC_PING_URL }}
         run: |
+          if [ "$(date -u +%s)" -gt "$(date -u -d "2026-11-26T23:59:00Z" +%s)" ]; then echo "past Nov 26: no ping"; exit 0; fi
           if [ -z "$HC_PING_URL" ]; then echo "::warning::HC_PING_URL not set"; exit 0; fi
           # A failed ping must not fail the run: the monitor itself reports the silence.
           echo "healthchecks.io: $(curl -fsS -m 10 --retry 3 "$HC_PING_URL" 2>&1 || echo 'ping failed')"

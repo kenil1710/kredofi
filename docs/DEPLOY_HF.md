@@ -102,6 +102,6 @@ you) when the site is down or the reserve, relayer or storage is low. No secrets
 | Testnet reserve | each Max-style default can take up to $100 of it | health-watch email (below $200) | `./scripts/reserve_guard.sh` (tops up to $500) |
 | Relayer NEAR | about 0.03 per judge in OutLayer mode (from Nov 5); demo funding stops at 3 NEAR | health-watch email; `relayerLow` | faucet accounts → `relayer.kency.testnet` |
 | Cloudflare Worker | doesn't | `curl -sI https://kredofi.xyz` | `python3 scripts/cf_worker.py deploy` |
-| Seeded ledger | stops by itself after Nov 13 (`SEED_UNTIL`) | nothing to do | — |
+| Seeded ledger | stops by itself after Nov 13 (`SEED_UNTIL`); the hourly tick keeps pinging healthchecks.io through Nov 26 | nothing to do | — |
 
 Before judging starts (Nov 16): run `./scripts/reserve_guard.sh` once and open `/api/health`.

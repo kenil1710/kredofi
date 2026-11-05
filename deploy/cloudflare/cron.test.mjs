@@ -40,3 +40,17 @@ test('scheduled maps the cron to a workflow, refuses an unknown cron, and stops 
     assert.equal(called, 1);
   } finally { globalThis.fetch = real; }
 });
+
+test('the hourly tick keeps firing after the Nov 13 freeze, through Nov 26, then stops', async () => {
+  const env = { CRON_MAP: JSON.stringify({ '17 * * * *': 'seed-tick.yml' }), GH_DISPATCH_TOKEN: 't' };
+  const real = globalThis.fetch;
+  let called = 0;
+  globalThis.fetch = async () => { called++; return { status: 204 }; };
+  try {
+    await worker.scheduled({ cron: '17 * * * *', scheduledTime: Date.UTC(2026, 10, 14, 0, 17) }, env);
+    await worker.scheduled({ cron: '17 * * * *', scheduledTime: Date.UTC(2026, 10, 26, 23, 17) }, env);
+    assert.equal(called, 2);
+    await worker.scheduled({ cron: '17 * * * *', scheduledTime: Date.UTC(2026, 10, 27, 0, 17) }, env);
+    assert.equal(called, 2);
+  } finally { globalThis.fetch = real; }
+});

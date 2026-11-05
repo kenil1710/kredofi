@@ -1,10 +1,10 @@
 'use client';
-// Two landing sections: the proof strip under the hero and "N transactions in. One line out."
+// Two landing sections: the proof strip under the hero and "Every transaction in. One line out."
 // Numbers come from lib/proofFacts.ts, which is tested. The row stream is CSS only; it has a pause button
 // because it moves for longer than 5 seconds, and it stands still under reduced motion.
 import Link from 'next/link';
 import { useState } from 'react';
-import { MAINNET_RUN, MAINNET_SCORER_DELAY_HOURS, MAINNET_TX_URL, RECEIPT_RAW, RECEIPT_TX_URL, SANDBOX_COUNT, SANDBOX_ROWS } from '@/lib/proofFacts';
+import { MAINNET_RUN, MAINNET_SCORER_DELAY_HOURS, MAINNET_TX_URL, ONE_LINE_HEADING, RECEIPT_RAW, RECEIPT_TX_URL, SANDBOX_COUNT, SANDBOX_ROWS } from '@/lib/proofFacts';
 
 export function ProofStrip() {
   return (
@@ -31,8 +31,7 @@ export function OneLineOut() {
   return (
     <section id="oneline" aria-labelledby="oneline-h">
       <div className="wrap">
-        <h2 id="oneline-h">{SANDBOX_COUNT.transactions} transactions in. One line out.</h2>
-        <p className="count">We counted {SANDBOX_COUNT.transactions} transactions from {SANDBOX_COUNT.accounts} accounts by reading Plaid&apos;s public sandbox login ourselves on {SANDBOX_COUNT.countedOn}. The enclave doesn&apos;t report its own count.</p>
+        <h2 id="oneline-h">{ONE_LINE_HEADING}</h2>
         <div className="grid">
           <div className="stream-box">
             <div className="slot">SEALED</div>
@@ -44,7 +43,7 @@ export function OneLineOut() {
           </div>
           <div className="receipt">
             <h3>The receipt on NEAR</h3>
-            <p>From a testnet enclave score of that same login: the exact output, {new TextEncoder().encode(RECEIPT_RAW).length} bytes.</p>
+            <p>From a testnet enclave score of that same login: the exact output, {new TextEncoder().encode(RECEIPT_RAW).length} bytes. The enclave doesn&apos;t report a count; reading that login ourselves on {SANDBOX_COUNT.countedOn}, the day of this run, we counted {SANDBOX_COUNT.transactions} transactions from {SANDBOX_COUNT.accounts} accounts.</p>
             <pre tabIndex={0} aria-label="On-chain receipt"><code>{Object.entries(receipt).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}</code></pre>
             <a href={RECEIPT_TX_URL} target="_blank" rel="noreferrer">See the transaction</a>
           </div>

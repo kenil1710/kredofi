@@ -6,8 +6,8 @@
 // workflow is the alarm: it goes red when no seed tick has run for 3 hours (.github/workflows/health-watch.yml).
 // If GitHub and Cloudflare both stop, successful runs stop pinging HC_PING_URL and healthchecks.io emails the owner.
 export const REPO = 'kenil1710/kredofi';
-// After these dates the workflows do nothing useful, so stop spending runner minutes on them.
-export const UNTIL = { 'seed-tick.yml': '2026-11-14T00:00:00Z', 'health-watch.yml': '2026-11-27T00:00:00Z' };
+// Both run through Nov 26. After the Nov 13 freeze a seed tick seeds nothing, but its ping keeps healthchecks.io green.
+export const UNTIL = { 'seed-tick.yml': '2026-11-27T00:00:00Z', 'health-watch.yml': '2026-11-27T00:00:00Z' };
 
 export async function dispatch(workflow, token, fetchFn = fetch) {
   const url = `https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/dispatches`;

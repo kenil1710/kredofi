@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { HERO_PROOF, MAINNET_RUN, MAINNET_SCORER_DELAY_HOURS, RECEIPT_RAW, SANDBOX_COUNT } from './proofFacts.ts';
+import { HERO_PROOF, ONE_LINE_HEADING, MAINNET_RUN, MAINNET_SCORER_DELAY_HOURS, RECEIPT_RAW, SANDBOX_COUNT } from './proofFacts.ts';
 import { DOC_PAGES } from './docs/pages.ts';
 
 const repo = (p: string) => new URL(`../../../${p}`, import.meta.url);
@@ -41,4 +41,16 @@ test('the lower proof block repeats nothing the strip already shows', () => {
   assert.ok(block.length > 100);
   assert.ok(!block.includes('8.5') && !block.includes('472'));
   assert.match(block, /PROVEN/);
+});
+
+test('the headline names no count, the count appears only dated, and no script promises a fixed one', () => {
+  assert.equal(ONE_LINE_HEADING, 'Every transaction in. One line out.');
+  const proof = readFileSync(repo('web/src/components/LandingProof.tsx'), 'utf8');
+  assert.match(proof, /<h2 id="oneline-h">\{ONE_LINE_HEADING\}/);
+  assert.match(proof, /SANDBOX_COUNT\.countedOn/);
+  for (const f of ['docs/VIDEO.md', 'docs/X_POST.md']) assert.doesNotMatch(readFileSync(repo(f), 'utf8'), /\b38\d transactions/, f);
+  assert.match(readFileSync(repo('docs/VIDEO.md'), 'utf8'), /every transaction/i);
+  // Nothing in the receipt's on-chain output can state a count: only rule points fit in that reply.
+  const sealed = Buffer.from(JSON.parse(RECEIPT_RAW).reply, 'base64');
+  assert.ok(sealed.length - 32 - 16 < 100);
 });
