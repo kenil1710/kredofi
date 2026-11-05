@@ -43,7 +43,7 @@ const HERO_NOTE = NETWORK === 'mainnet'
 const RULES_SUB = !IN_ENCLAVE
   ? 'Five rules decide the band, and they\'re published as code. On mainnet the contract takes a score only from its own request to the pinned scorer. On this testnet demo our server runs the same scorer and submits the result. The developer still holds the keys that could change this; /trust lists them.'
   : 'Five rules decide the band, and they\'re published as code. The contract takes a score only from its own request to the pinned scorer, and each run has a checkable attestation. The developer still holds the keys that could change this; /trust lists them.';
-const STATEMENT = 'Lenders see a band and a limit. They never see your salary, your rent, your name, or the night you went over budget.';
+const STATEMENT = 'Lenders see a band and a limit. They never see your statements or your exact income.';
 const FEATS: [string, string][] = [
   ['The amount', '$100 is your limit. The rules set it, not a loan officer. Repay this one on time and your next note says $250.'],
   ['The letter', "Your band, from A to D. Like the colour-shifting ink on a real note, it changes as you move. It's the only score that goes on-chain."],
