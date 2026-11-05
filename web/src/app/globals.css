@@ -29,7 +29,7 @@ button{font-family:inherit}
 .g-deep{background:var(--deep);color:var(--paper);color-scheme:dark}
 .g-paper{background:var(--paper);color:var(--ink);color-scheme:light}
 .g-night a,.g-deep a{color:var(--mint)}
-.g-paper a{color:var(--violet-ink)}
+.g-paper a:where(:not(.btn)){color:var(--violet-ink)}
 .g-night :focus-visible,.g-deep :focus-visible{outline:2px solid var(--mint);outline-offset:3px;border-radius:2px}
 .g-paper :focus-visible{outline:2px solid var(--violet-ink);outline-offset:3px;border-radius:2px}
 
