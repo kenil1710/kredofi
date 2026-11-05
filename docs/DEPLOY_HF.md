@@ -64,6 +64,10 @@ tests in `worker.test.mjs`) proxies `https://kredofi.xyz` to the Space and the a
 `kredofi.xyz`. `www.kredofi.xyz` and plain HTTP redirect (301) to `https://kredofi.xyz`. Bodies stream
 both ways; cookies and redirects pass through (redirects to the Space address are rewritten).
 
+A stuck upstream can't hold a visitor: GET and HEAD time out waiting for response headers (12 s, `/api/` 30 s), retry once, then get a short 504. POST is never retried. A body already streaming is not cut. Responses carry `x-kredofi-attempts` and `server-timing: upstream;dur=<ms>`; retries and failures are in Workers Logs (paths only).
+
+Finding a hang: the Space's run logs have `[timing]` lines (`deploy/hf/timing.cjs`). `open GET /x 10000` means the Next.js server held the request. A Worker retry with no such line means the stall was between the Worker and the server, in Hugging Face's proxy or on the way to it. A slow `curl` whose time is all in `time_connect`, with nothing in the Worker, never reached us.
+
 Client IP for rate limits: the Worker sends Cloudflare's `CF-Connecting-IP` as `x-kredofi-client-ip`
 with `x-kredofi-proxy: PROXY_SECRET`; the app trusts it only when the secret matches
 (`web/src/server/clientIp.ts`). Visitor-sent `x-kredofi-*`, `cf-*` and `X-Forwarded-For` are dropped.
