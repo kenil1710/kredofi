@@ -4,7 +4,7 @@
 // because it moves for longer than 5 seconds, and it stands still under reduced motion.
 import Link from 'next/link';
 import { useState } from 'react';
-import { MAINNET_RUN, MAINNET_SCORER_DELAY_HOURS, MAINNET_TX_URL, ONE_LINE_HEADING, RECEIPT_RAW, RECEIPT_TX_URL, SANDBOX_COUNT, SANDBOX_ROWS } from '@/lib/proofFacts';
+import { MAINNET_RUN, MAINNET_SCORER_DELAY_HOURS, MAINNET_TX_URL, ONE_LINE_HEADING, RECEIPT_RAW, RECEIPT_NOTE, RECEIPT_TX_URL, SANDBOX_ROWS } from '@/lib/proofFacts';
 
 export function ProofStrip() {
   return (
@@ -43,12 +43,12 @@ export function OneLineOut() {
           </div>
           <div className="receipt">
             <h3>The receipt on NEAR</h3>
-            <p>From a testnet enclave score of that same login: the exact output, {new TextEncoder().encode(RECEIPT_RAW).length} bytes. The enclave doesn&apos;t report a count; reading that login ourselves on {SANDBOX_COUNT.countedOn}, the day of this run, we counted {SANDBOX_COUNT.transactions} transactions from {SANDBOX_COUNT.accounts} accounts.</p>
+            <p>From a testnet enclave score of Plaid&apos;s public sandbox login: the exact output, {new TextEncoder().encode(RECEIPT_RAW).length} bytes.</p>
             <pre tabIndex={0} aria-label="On-chain receipt"><code>{Object.entries(receipt).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}</code></pre>
             <a href={RECEIPT_TX_URL} target="_blank" rel="noreferrer">See the transaction</a>
           </div>
         </div>
-        <p className="honest">The scorer reads the test bank inside the enclave; only this receipt is written to NEAR.</p>
+        <p className="honest">{RECEIPT_NOTE}</p>
       </div>
     </section>
   );

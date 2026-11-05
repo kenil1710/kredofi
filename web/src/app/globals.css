@@ -378,7 +378,6 @@ button{font-family:inherit}
 .enc + .sandbox-banner,.entry .sandbox-banner{margin-top:12px}
 .connect-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-top:6px}
 .trust{max-width:860px;padding-block:40px 96px}
-.trust-receipt{margin:0 0 16px;border-left:3px solid var(--violet-ink);padding:6px 0 6px 14px;font-size:16px;color:#2C4A41;background:var(--paper)}
 
 /* Level-up countdown and next step after a repayment */
 .levelup{border:2px solid var(--violet-ink);background:rgba(74,44,140,.06);padding:14px 16px;margin:8px 0 12px;max-width:560px}

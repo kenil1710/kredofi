@@ -1,4 +1,3 @@
-import { SANDBOX_COUNT } from '@/lib/proofFacts';
 import { TRUST_ROWS, splitCode } from '@/lib/trustModel';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -35,7 +34,6 @@ export default function Trust() {
 
           <h2 id="what-leaves">What leaves</h2>
           <p>Eight fields and nothing else: <code>v</code>, <code>caller</code>, <code>band</code>, <code>score</code>, <code>income_cap</code> (the most your limit can be), <code>fingerprint</code>, <code>sealed_identity</code> (your name, sealed) and <code>reply</code> (your rule results, sealed to your browser). The chain never sees the raw data, and nobody outside can verify the enclave deletes it when the run ends. Today the developer holds the sealing key (production would make it inside the enclave).{IN_ENCLAVE ? '' : ' A real receipt from this demo:'}</p>
-          {!IN_ENCLAVE && <blockquote className="trust-receipt">For example, on {SANDBOX_COUNT.countedOn}: Plaid sent {SANDBOX_COUNT.transactions} transactions from {SANDBOX_COUNT.accounts} accounts; the scorer read the last 6 months (36 transactions from your main account), and none of it left.</blockquote>}
           <p>And everything that went on-chain for that score:</p>
           <pre className="doc-code"><code>{`{
   "band": "B",

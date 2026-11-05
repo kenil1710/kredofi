@@ -15,22 +15,17 @@ export const HERO_PROOF = `TDX attestation: PROVEN · ${MAINNET_RUN.seconds} s m
 /** kredofi.near scorer_delay_ns = 86400000000000. The testnet demo uses 60 s on purpose. */
 export const MAINNET_SCORER_DELAY_HOURS = 24;
 
-/** The landing section's heading. It names no number because the count below moves with the calendar. */
+/** The landing section's heading. It names no number: Plaid's rolling 730-day window moves the count daily. */
 export const ONE_LINE_HEADING = 'Every transaction in. One line out.';
 
-/**
- * Plaid's public sandbox login (user_good), read directly by us on the day of the receipt's run. No enclave run
- * reports a count: its `reply` holds only rule points (`extra`, with counts, is Dev mode only). The read is a rolling
- * 730-day window ending that day, so the total moves with the calendar (385 on Nov 4, 386 on Nov 5). Always dated.
- */
-export const SANDBOX_COUNT = { transactions: 385, accounts: 14, countedOn: '4 November' };
+export const RECEIPT_NOTE = 'Inside the enclave the scorer reads your test bank. Only this line is written to NEAR.';
 
-/** A real enclave score of that same login: the exact output in the transaction, byte for byte. */
+/** A real enclave score of Plaid's public sandbox login (user_good): the exact output in the transaction, byte for byte. */
 export const RECEIPT_TX = '7bHhkR47ikb1vispGHgntnKNDa9RmTRZkNB1CRjLX1fk';
 export const RECEIPT_TX_URL = `https://testnet.nearblocks.io/txns/${RECEIPT_TX}`;
 export const RECEIPT_RAW = '{"band":"B","caller":"devcheck-plaid.relayer.kency.testnet","fingerprint":"7293d33dd77a795854a7270ffba17be53c73d55871efb31ba9f74153ce11d7fa","income_cap":250000000,"reply":"ADYaJK2ish19nhSbRjYmyDMVXTI3lM1lrIblmwpCyAz/oRjHTsSZorl93cnJVeS7S5gIkarGnQPrngQVYVG8FqIBTBr3+8MfTZZXsx4+SF3p3TTes0b+RT1vw+xbqUdFt/42kETdiZykzTyB0IKw5SYCNy6u8DCqXKd7I2R+4buS","score":720,"sealed_identity":"qB760Mz7HLe7o/nTWRT722mavkW0DslvIwrkckY5dX2lIVZQotru2ChnpcZ4guEwJ42ctnc=","v":1}';
 
-/** Sample rows from that sandbox login (Plaid's made-up data). Plaid sign flipped: money in is +. */
+/** Sample rows from that login (Plaid's made-up data). Plaid sign flipped: money in is +. */
 export const SANDBOX_ROWS: [string, string, string, number?][] = [
   ['Oct 24', 'Uber 072515 SF**POOL**', '−6.33'],
   ['Oct 11', 'Uber 063015 SF**POOL**', '−5.40'],
