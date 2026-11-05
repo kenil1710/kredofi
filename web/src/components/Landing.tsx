@@ -13,6 +13,7 @@ import { IN_ENCLAVE, KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
 import { relativeTime, usd } from '@/lib/format';
 import { GuillocheStrip } from './GuillocheStrip';
 import { OneLineOut, ProofStrip } from './LandingProof';
+import { HERO_PROOF } from '@/lib/proofFacts';
 
 const FONTS = { display: display.style.fontFamily, body: body.style.fontFamily };
 const MAINNET_TX = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
@@ -322,16 +323,6 @@ export function Landing() {
       return { ...c, bars: Array.from(el.querySelectorAll<HTMLElement>('.months i')), ems: Array.from(el.querySelectorAll('.months em')), score: el.querySelector('.score')!, st: el.querySelector('.st')!, done: false };
     });
 
-    /* Count-ups on view (proof numbers) */
-    const io = new IntersectionObserver((es) => es.forEach((e) => {
-      if (!e.isIntersecting) return; io.unobserve(e.target);
-      const el = e.target as HTMLElement, to = +el.dataset.to!, dec = +(el.dataset.dec || 0), pre = el.dataset.pre || '', suf = el.dataset.suf || '';
-      if (REDUCE || !gsap) { el.textContent = fmtNum(to, dec, pre, suf); return; }
-      const o = { v: 0 }; gsap.to(o, { v: to, duration: 1.8, ease: 'power3.out', onUpdate: () => { el.textContent = fmtNum(o.v, dec, pre, suf); } });
-    }), { threshold: 0.6 });
-    libs.then(() => { if (alive) $$('#proof .cnt').forEach((el) => io.observe(el)); });
-    cleanups.push(() => io.disconnect());
-
     /* Chain dots */
     const cps = [0, 1, 2].map((i) => $<SVGPathElement>(`#cp${i}`)), cds = [0, 1, 2].map((i) => $(`#cd${i}`));
     const cpl = cps.map((p) => p.getTotalLength());
@@ -454,6 +445,7 @@ export function Landing() {
                     <a className="btn btn-ghost magnetic" href="#check">How the privacy works</a>
                   </div>
                   <p className="small">{HERO_NOTE}{!IN_ENCLAVE && <> <Link href="/trust">Who sees what</Link></>}</p>
+                  <p className="small"><Link href="/mainnet">{HERO_PROOF}</Link></p>
                 </div>
               </div>
             </div>
@@ -543,10 +535,8 @@ export function Landing() {
           <div className="wrap">
             <h2 id="proof-h">Numbers from a real mainnet enclave run on 3 November, not from a pitch deck.</h2>
             <p style={{ marginTop: 14, maxWidth: 640, opacity: 0.8 }}>Plaid sandbox data and our own test account: it proves the path, not a real borrower.</p>
-            <div className="nums">
-              <div><b className="cnt" data-to="8.5" data-dec="1" data-suf=" s">8.5 s</b><span>for the scorer run inside Intel TDX</span></div>
+            <div className="nums two">
               <div><b>~0.002</b><span>NEAR charged by OutLayer for the run</span></div>
-              <div><b className="cnt" data-to="472" data-dec="0">472</b><span>bytes of output on-chain, in the eight listed fields</span></div>
               <div><b className="word">PROVEN</b><span>by OutLayer&apos;s verifier against Intel&apos;s signature. <a href={ATTESTATION}>Attestation</a> · <a href={MAINNET_TX}>Transaction</a></span></div>
             </div>
           </div>

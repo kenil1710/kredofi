@@ -4,6 +4,7 @@
 // CRON_MAP (plain JSON binding): cron string -> workflow file. Deployed by scripts/cf_worker.py cron.
 // A failed dispatch throws, which shows only in Cloudflare's logs: nobody is emailed from here. The health
 // workflow is the alarm: it goes red when no seed tick has run for 3 hours (.github/workflows/health-watch.yml).
+// If GitHub and Cloudflare both stop, successful runs stop pinging HC_PING_URL and healthchecks.io emails the owner.
 export const REPO = 'kenil1710/kredofi';
 // After these dates the workflows do nothing useful, so stop spending runner minutes on them.
 export const UNTIL = { 'seed-tick.yml': '2026-11-14T00:00:00Z', 'health-watch.yml': '2026-11-27T00:00:00Z' };

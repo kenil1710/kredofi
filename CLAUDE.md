@@ -98,6 +98,7 @@ PW=~/.npm/_npx/<hash>/node_modules N=10 node scripts/devcheck_scores.mjs
 set -a; source .env; set +a; python3 scripts/cf_worker.py cron
 # daily enclave drift guard and seeding-behind check run in .github/workflows/health-watch.yml (SPEC 8d); locally:
 node --experimental-strip-types scripts/drift_guard.mjs check
+set -a; source .env; set +a; node --experimental-strip-types scripts/drift_guard.mjs count   # user_good vs the landing number, no transaction
 node --experimental-strip-types --test scripts/seed_ledger.test.mjs scripts/drift_guard.test.mjs
 # after any retest with a default, top the live reserve back to $500:
 ALLOW_DEMO_CONTRACT=1 KREDOFI_CONTRACT=app.kency.testnet MIN_USD=499 ./scripts/reserve_guard.sh
@@ -113,5 +114,5 @@ cd web && npm install && npm test && npx tsc --noEmit && npx next build && npx n
 
 - Never deploy to mainnet, sign mainnet transactions, push, make the repo public, post on X or submit the hackathon form without the human's explicit yes.
 - Never use the human's prize wallet (HOT) in any script. Mainnet dev work uses the separate dev account.
-- Never print, log or commit `PLAID_SECRET`, `SEAL_KEY`, `NEARAI_KEY`, `RELAYER_KEY`, private keys or Plaid access tokens.
+- Never print, log or commit `PLAID_SECRET`, `SEAL_KEY`, `NEARAI_KEY`, `RELAYER_KEY`, `HC_PING_URL`, private keys or Plaid access tokens.
 - Never add features outside SPEC without asking. Cut scope before cutting tests.

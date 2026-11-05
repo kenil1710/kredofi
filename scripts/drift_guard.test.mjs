@@ -1,7 +1,8 @@
 // node --experimental-strip-types --test scripts/drift_guard.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CHECKS, driftOf, isDue } from './drift_guard.mjs';
+import { CHECKS, countDriftOf, driftOf, isDue, readSandboxCount } from './drift_guard.mjs';
+import { SANDBOX_COUNT } from '../web/src/lib/proofFacts.ts';
 
 const check = (who) => CHECKS.find((c) => c.who === who);
 
@@ -25,4 +26,43 @@ test('scores once a day: due with no score or after the minimum age', () => {
   assert.equal(isDue({ score: null }, now, 20 * H), true);
   assert.equal(isDue(at(now - 6 * H), now, 20 * H), false);
   assert.equal(isDue(at(now - 21 * H), now, 20 * H), true);
+});
+
+test('the count compared is the one the landing page prints; any change in it is drift, naming both numbers', () => {
+  assert.deepEqual([SANDBOX_COUNT.transactions, SANDBOX_COUNT.accounts], [385, 14]);
+  assert.equal(countDriftOf(SANDBOX_COUNT, { transactions: 385, accounts: 14 }), null);
+  const moved = countDriftOf(SANDBOX_COUNT, { transactions: 386, accounts: 14 });
+  assert.match(moved, /386 transactions/);
+  assert.match(moved, /says 385/);
+  assert.match(countDriftOf(SANDBOX_COUNT, { transactions: 385, accounts: 13 }), /13 accounts/);
+});
+
+// A fake Plaid: each sync call answers from `pages`, then repeats an empty complete page.
+const fakePlaid = (pages, accounts = 14) => {
+  const calls = [];
+  let i = 0;
+  const post = async (path, body) => {
+    calls.push(path);
+    if (path.endsWith('public_token/create')) return { public_token: 'pt' };
+    if (path.endsWith('exchange')) return { access_token: 'at' };
+    if (path.endsWith('accounts/get')) return { accounts: Array(accounts).fill({}) };
+    if (path.endsWith('item/remove')) return {};
+    assert.equal(body.access_token, 'at');
+    const p = pages[Math.min(i++, pages.length - 1)];
+    return { added: (p.ids ?? []).map((id) => ({ transaction_id: id })), has_more: !!p.more, next_cursor: `c${i}`, transactions_update_status: p.status ?? 'HISTORICAL_UPDATE_COMPLETE' };
+  };
+  return { post, calls };
+};
+const noSleep = async () => {};
+
+test('a count waits out an early "complete" flag and pages, and removes its item', async () => {
+  const f = fakePlaid([{ ids: ['a'], status: 'INITIAL_UPDATE_COMPLETE' }, { ids: ['b'] }, {}, { ids: ['c', 'd'], more: true }, { ids: ['e', 'a'] }, {}]);
+  assert.deepEqual(await readSandboxCount(f.post, noSleep), { transactions: 5, accounts: 14 });
+  assert.equal(f.calls.at(-1), '/item/remove');
+});
+
+test('a read that never settles throws instead of reporting a partial count, and still removes its item', async () => {
+  const f = fakePlaid([{ ids: ['a'], status: 'NOT_READY' }]);
+  await assert.rejects(readSandboxCount(f.post, noSleep), /did not settle/);
+  assert.equal(f.calls.at(-1), '/item/remove');
 });

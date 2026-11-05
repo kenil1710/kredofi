@@ -9,10 +9,17 @@ export const MAINNET_RUN = {
 };
 export const MAINNET_TX_URL = `https://nearblocks.io/txns/${MAINNET_RUN.tx}`;
 
+/** The hero's one proof line, linking to /mainnet. */
+export const HERO_PROOF = `TDX attestation: PROVEN · ${MAINNET_RUN.seconds} s mainnet score · Verify →`;
+
 /** kredofi.near scorer_delay_ns = 86400000000000. The testnet demo uses 60 s on purpose. */
 export const MAINNET_SCORER_DELAY_HOURS = 24;
 
-/** Plaid's public sandbox login (user_good), read directly by us; the enclave doesn't report a count. */
+/**
+ * Plaid's public sandbox login (user_good), read directly by us; the enclave doesn't report a count. The read is a
+ * rolling 730-day window ending today, so the total moves with the calendar (385 on Nov 4, 386 on Nov 5): this is
+ * the dated count. scripts/drift_guard.mjs compares a fresh read against it.
+ */
 export const SANDBOX_COUNT = { transactions: 385, accounts: 14, countedOn: '4 November' };
 
 /** A real enclave score of that same login: the exact output in the transaction, byte for byte. */

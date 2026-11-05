@@ -6,7 +6,8 @@
 # - seed-watch (until Nov 14): GitHub skips scheduled runs, so this starts a seed tick if none ran for 2 hours, and fails
 #   if seeding is more than 6 steps behind plan or unfinished after Nov 13.
 # - drift-guard (until Nov 26): real enclave scores once a day on devcheck accounts; fails if Riya 1000/A, Sam 270/D,
-#   Max 1000/A or the Plaid user_good band B moves (scripts/drift_guard.mjs). Testnet keys for those 4 accounts only.
+#   Max 1000/A or the Plaid user_good band B moves, or if user_good's transaction count stops matching the landing page
+#   (SANDBOX_COUNT; scripts/drift_guard.mjs). Testnet keys for those 4 accounts only.
 # Triggers: the Cloudflare Worker kredofi-cron dispatches this every 6 hours and the seed tick hourly (GitHub's own
 # schedule skips runs, and stays as a second trigger). Runs queue, so two drift scores never collide.
 # - email-test (manual only): a deliberate failure, to prove the email arrives.
@@ -131,6 +132,21 @@ jobs:
       - if: always()
         name: remove keys
         run: rm -rf ~/.near-credentials
+
+  # Dead-man monitor (see seed-tick.yml): only when all three jobs above passed or were switched off.
+  monitor-ping:
+    needs: [watch, seed-watch, drift-guard]
+    if: ${{ !cancelled() && needs.watch.result == 'success' && needs.drift-guard.result == 'success' && needs.seed-watch.result != 'failure' && !inputs.email_test }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: ping the external monitor
+        env:
+          HC_PING_URL: ${{ secrets.HC_PING_URL }}
+        run: |
+          if [ -z "$HC_PING_URL" ]; then echo "::warning::HC_PING_URL not set"; exit 0; fi
+          # A failed ping must not fail the run: the monitor itself reports the silence.
+          echo "healthchecks.io: $(curl -fsS -m 10 --retry 3 "$HC_PING_URL" 2>&1 || echo 'ping failed')"
 
   email-test:
     if: github.event_name == 'workflow_dispatch' && inputs.email_test

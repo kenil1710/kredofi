@@ -128,6 +128,16 @@ jobs:
           cp /tmp/state.json "$KREDOFI_CONTRACT.json"
           git add "$KREDOFI_CONTRACT.json"
           git diff --cached --quiet || { git commit -qm "seed state: $KREDOFI_CONTRACT"; git push -q origin seed-state; }
+      # Dead-man monitor (healthchecks.io, period 1 h, grace 2 h): no ping for 3 hours emails the owner, even if
+      # Cloudflare and GitHub both stop. Only after every step above passed, on the real contract, before the freeze.
+      - if: steps.guard.outputs.run == 'yes' && env.KREDOFI_CONTRACT == vars.SEED_CONTRACT
+        name: ping the external monitor
+        env:
+          HC_PING_URL: ${{ secrets.HC_PING_URL }}
+        run: |
+          if [ -z "$HC_PING_URL" ]; then echo "::warning::HC_PING_URL not set"; exit 0; fi
+          # A failed ping must not fail the run: the monitor itself reports the silence.
+          echo "healthchecks.io: $(curl -fsS -m 10 --retry 3 "$HC_PING_URL" 2>&1 || echo 'ping failed')"
       - if: always()
         name: remove keys
         run: rm -rf ~/.near-credentials
