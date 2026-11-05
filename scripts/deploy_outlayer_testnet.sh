@@ -20,9 +20,9 @@ NET=testnet
 OWNER=kency.testnet
 USDC=musdc.kency.testnet
 RELAYER=relayer.kency.testnet
-# Testnet OutLayer scorer build (scorer/build.sh testnet-outlayer, CI run 41623343936), published at
-# kenil1710/kredofi-scorer-wasm@fa82707 and added to kency.testnet/kredofi-scorer on outlayer.testnet.
-SCORER_VERSION=0515ebcad56ec6569a13a9fdc76e523025c6fd3daed399d4560604c8262e03b9
+# Testnet OutLayer scorer build (scorer/build.sh testnet-outlayer, CI run 42006645803), published at
+# kenil1710/kredofi-scorer-wasm@9fdaaea and added to kency.testnet/kredofi-scorer on outlayer.testnet.
+SCORER_VERSION=96666cdf840746c062738e6e74af5ab46eacd8bc40c60ccb43d9d638ac17bcfc
 TERM_NS=120000000000      # demo timing (SPEC 4): 2 min term, 1 min grace, 30 day score TTL
 GRACE_NS=60000000000
 TTL_NS=2592000000000000

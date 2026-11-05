@@ -7,6 +7,8 @@ import { GuillocheStrip } from '@/components/GuillocheStrip';
 import { SandboxBanner } from '@/components/SandboxBanner';
 import { IN_ENCLAVE, NETWORK } from '@/lib/config';
 
+const CAVEAT = 'Two honest limits: the developer holds the sealing key, and nobody outside can verify the data is deleted when the run ends.';
+
 export const metadata: Metadata = { title: 'Why is this safe?, KredoFi', description: 'What KredoFi reads, where it is scored, what leaves, who holds the money, and what is test only.' };
 
 const TX_SCORE = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
@@ -20,7 +22,7 @@ export default function Trust() {
           <GuillocheStrip height={12} />
           <p className="doc-kicker">Why is this safe?</p>
           <h1>{NETWORK === 'testnet' && !IN_ENCLAVE ? 'Who sees your bank data.' : 'Your bank data stays sealed.'}</h1>
-          <p className="doc-summary">A two-minute read. Every point links to the full details in the <Link href="/docs">docs</Link>.</p>
+          <p className="doc-summary">{CAVEAT} A two-minute read. Every point links to the full details in the <Link href="/docs">docs</Link>.</p>
           <SandboxBanner link={false} />
 
           <h2 id="what-we-read">What we read</h2>
@@ -33,7 +35,7 @@ export default function Trust() {
             : <p><b>On this testnet demo, honestly:</b> the same pinned scorer runs on our server, outside an enclave, so that server sees the test bank data while it scores. It keeps only the public result. <Link href="/docs/testnet-vs-mainnet">Testnet vs mainnet</Link></p>}
 
           <h2 id="what-leaves">What leaves</h2>
-          <p>Eight fields and nothing else: <code>v</code>, <code>caller</code>, <code>band</code>, <code>score</code>, <code>income_cap</code> (the most your limit can be), <code>fingerprint</code>, <code>sealed_identity</code> (your name, sealed) and <code>reply</code> (your rule results, sealed to your browser). The chain never sees the raw data, and nobody outside can verify the enclave deletes it when the run ends. Today the developer holds the sealing key (production would make it inside the enclave).{IN_ENCLAVE ? '' : ' A real receipt from this demo:'}</p>
+          <p>Eight fields and nothing else: <code>v</code>, <code>caller</code>, <code>band</code>, <code>score</code>, <code>income_cap</code> (the most your limit can be: one of five buckets, which puts your income in a wide public range), <code>fingerprint</code>, <code>sealed_identity</code> (your name, sealed) and <code>reply</code> (your rule results, sealed to your browser). The chain never sees the raw data, and nobody outside can verify the enclave deletes it when the run ends. Today the developer holds the sealing key (production would make it inside the enclave).{IN_ENCLAVE ? '' : ' A real receipt from this demo:'}</p>
           <p>And everything that went on-chain for that score:</p>
           <pre className="doc-code"><code>{`{
   "band": "B",
@@ -88,7 +90,7 @@ export default function Trust() {
           <h3>Can KredoFi see my bank password?</h3>
           <p>No. You log in inside Plaid&apos;s window; we only get a one-time token.</p>
           <h3>Is my bank data stored?</h3>
-          <p>No. The scorer reads it, keeps only the result, and removes the bank connection after scoring.</p>
+          <p>No. The scorer reads it, keeps only the result, and removes the bank connection after scoring. {CAVEAT}</p>
           <h3>Is this real money?</h3>
           <p>Not on this testnet demo: test USDC and a test bank.</p>
           <p className="doc-pager"><Link href="/docs">Read the full docs →</Link><Link href="/borrow">Check my limit →</Link></p>

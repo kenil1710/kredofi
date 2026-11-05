@@ -14,9 +14,9 @@ const ENC = IN_ENCLAVE;
 const CREDIT_MODEL = `
 ## How 4–8% compares
 
-Interest is flat per loan of up to 30 days: **A 4%, B 6%, C 8%**. That is about 49%, 73% and 97% a year if you borrowed all year, so this is expensive credit, and repaying early doesn't reduce it.
+Interest is flat per loan: **A 4%, B 6%, C 8%**. The loan term is 30 days on mainnet and 2 minutes on the testnet demo. Over the 30-day mainnet term, that is about 49%, 73% and 97% a year if you borrowed all year, so this is expensive credit, and repaying early doesn't reduce it.
 
-| Credit | Cost per about 30 days | APR |
+| Credit | Cost per about 30 days (the mainnet term) | APR |
 |---|---|---|
 | KredoFi, bands A to C | 4% to 8% | about 49% to 97% |
 | US credit card | about 1.7% | [21.19% (Federal Reserve, August 2026)](https://www.federalreserve.gov/releases/g19/current/) |
@@ -50,7 +50,7 @@ Planned, not built: a licensed lending partner makes the loans, the pool is capp
 `;
 const T_CONTRACT = NETWORK === 'testnet' ? KREDOFI_CONTRACT : 'kredofi.kency.testnet';
 const MAINNET_SCORER = '6888c15e1442b508202141daf8cc246dddb9ecf5e586f1f0743671de7c23e6e2';
-const TESTNET_SCORER = ENC ? '0515ebcad56ec6569a13a9fdc76e523025c6fd3daed399d4560604c8262e03b9' : 'ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9';
+const TESTNET_SCORER = ENC ? '96666cdf840746c062738e6e74af5ab46eacd8bc40c60ccb43d9d638ac17bcfc' : 'ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9';
 const TESTNET_WASM = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fa82707fd3a3d8a27513b8ab397d6ccb43aafe5f/kredofi_scorer_testnet.wasm';
 const TESTNET_PIN_NOTE = ENC
   ? 'The contract pins it in every OutLayer request, like mainnet. The file is public: `curl -sL ' + TESTNET_WASM + ' | shasum -a 256` prints the same hash.'
@@ -151,7 +151,7 @@ ${ENC ? 'The same steps run in the same enclave service (OutLayer testnet) with 
 Your limit is the smaller of two numbers:
 
 - your **level cap** times your **band share**: level caps are $100, $250, $500 and $1,000 (levels 1 to 4); band shares are A 100%, B 75%, C 50%, D 0%;
-- your **income cap**: half your average monthly income, rounded down to a multiple of $50, at most $1,000.
+- your **income cap**: half your average monthly income, rounded down to one of five buckets: $0, $100, $250, $500 or $1,000.
 
 Example: band B at level 1 with a $250 income cap can borrow min($100 x 75%, $250) = $75.
 
@@ -192,7 +192,7 @@ While a loan is open, the passbook shows a countdown box ("Level up in 0:42"), t
 
 ## Your score
 
-A score is valid for 30 days. After that, check your limit again. While a score request is pending you can't borrow.
+A score is valid for 30 days, on mainnet and on the testnet demo. After that, check your limit again. While a score request is pending you can't borrow.
 
 ## If you don't repay
 
@@ -289,7 +289,7 @@ Half your average monthly money in, rounded down to a multiple of $50, at most $
 - **One bank identity, one borrower.** A keyed fingerprint of the bank identity is stored with the score; a second account with the same fingerprint is refused.
 - **Levels grow slowly.** A repayment raises the level only after the minimum hold (half the term), on a loan of at least half the limit, at most once per loan term.
 - **Limits start small** ($100 at most) and the pool lends one borrower at most 10% of its value.
-- **Scores expire** after 30 days.
+- **Scores expire** after 30 days, on mainnet and on the testnet demo.
 - **A default blocks the account for good**, and its fingerprint stays taken.
 
 ## Testnet differences
@@ -313,7 +313,7 @@ Exactly one short line (under 900 bytes), checked field by field by the contract
 | Field | What it is |
 |---|---|
 | \`band\`, \`score\` | A to D, 0 to 1,000 |
-| \`income_cap\` | the cap on your limit, in USDC |
+| \`income_cap\` | the cap on your limit, in USDC: always 0, 100, 250, 500 or 1,000 (base units on-chain) |
 | \`fingerprint\` | a keyed hash of your bank identity (institution, owner name, account mask). Without the scorer's key it can't be reversed or linked to a bank |
 | \`sealed_identity\` | your name, encrypted to the scorer's sealing key. Today the developer generated that key and can open it (see [Security](/docs/security)); production would make it inside the enclave |
 | \`caller\` | your NEAR account (from the request, never from input) |
@@ -581,7 +581,7 @@ pub fn on_kredofi(&mut self, user: AccountId,
 
 - **Mode.** Trust a score as enclave-made only if \`get_config\` says \`scorer_mode: "OutLayer"\`. ${ENC ? 'Both the mainnet and the testnet demo contract do; a testnet score is still sandbox data.' : 'On the testnet contract (`Dev`), scores are submitted by our server.'}
 - **Version.** \`score.scorer_version\` is the SHA-256 of the scorer that made it. Compare it with the pinned version you have checked yourself ([Verify it yourself](/docs/verify)).
-- **Freshness.** Scores last 30 days (\`expires_at\`, nanoseconds). An expired score reads \`expired: true\` and a limit of 0.
+- **Freshness.** Scores last 30 days on mainnet and on the testnet demo (\`expires_at\`, nanoseconds). An expired score reads \`expired: true\` and a limit of 0.
 - **Who controls the account.** A score proves that someone's bank data was scored for this NEAR account. It doesn't prove who holds the account's keys today.
 
 ## What it never reveals
@@ -590,7 +590,9 @@ No transactions, balances, account numbers, bank names or the borrower's name: n
 
 What it does reveal, publicly, to everyone:
 - the band, the score and the KredoFi loan history (level, loans, repayments, defaults);
-- \`income_cap\`, which is half of the average monthly income rounded down to $50 and capped at $1,000. Below $2,000 a month it narrows income to a $100 range; above that it says only "at least $2,000".
+- \`income_cap\`, one of five buckets, which puts your average monthly income in a range: $0 means below $200 a month, $100 means $200 to $499, $250 means $500 to $999, $500 means $1,000 to $1,999, and $1,000 means $2,000 or more. It never gives a figure, but anyone can read which range you are in.
+- the \`score\` can narrow that further, because the income rule adds 40, 100, 180 or 250 points at $1,000, $2,000 and $3,000 a month. A score of 1,000 can only mean at least $3,000 a month, more than the $1,000 bucket alone says.
+- Buckets apply to scores from the testnet build \`96666cdf…\` onward. Scores already on-chain keep the $50-step value they were issued with. On mainnet, \`kredofi.near\` still pins the older \`6888c15e…\` with $50 steps until the bucket build passes its 24-hour time lock; its deposits are locked and only our own test account has scored there.
 - a keyed \`fingerprint\` of the bank identity, which can't be reversed but is the same for every score of that bank identity.
 `,
   },
@@ -603,7 +605,7 @@ What it does reveal, publicly, to everyone:
 
 - **Your bank data** is read only by the pinned scorer, inside the enclave on mainnet. Only eight fields come out: \`v\`, \`caller\`, \`band\`, \`score\`, \`income_cap\`, \`fingerprint\`, \`sealed_identity\` and \`reply\`. Nobody outside can verify the enclave deletes the data when the run ends.
 - **Your name** stays sealed unless you default.
-${ENC ? "- **Scores can't be faked.** The contract accepts a score only from its own pinned OutLayer request, on mainnet and on the testnet demo." : "- **Scores can't be faked on mainnet.** The contract accepts a score only from its own pinned OutLayer request. On the testnet demo (Dev mode) it accepts scores from one scorer account that our server holds, so there you trust our server."}
+${ENC ? "- **A score's origin can't be forged.** The contract accepts a score only from its own pinned OutLayer request, on mainnet and on the testnet demo. Its input can be: with Plaid sandbox data anyone can use a test login, so today a score proves where it was computed, not that the income is real." : "- **A score's origin can't be forged on mainnet.** The contract accepts a score only from its own pinned OutLayer request. Its input can be: with Plaid sandbox data anyone can use a test login, so today a score proves where it was computed, not that the income is real. On the testnet demo (Dev mode) it accepts scores from one scorer account that our server holds, so there you trust our server."}
 - **Only you can ask for your score.** ${ENC ? 'The contract requires your account to sign the request, and the bank token inside it is sealed to the enclave together with your account, so a copied token is refused.' : "On mainnet the contract requires your account's signature."} ${ENC ? '(Until the testnet demo moved into the enclave on 4 November, it asked for a one-time challenge signed with a full-access key of your account, a NEAR NEP-413 signed message, instead.)' : "On the testnet demo, every score request carries a one-time challenge signed with a full-access key of your account (a NEAR NEP-413 signed message), so nobody can re-score someone else's account."}
 - **Lender money.** Checked math, state written before every transfer with rollback on failure, a 10% per-borrower limit, the reserve pays first up to its balance, and no owner method can move lender cash, loans or the reserve.
 
@@ -757,7 +759,7 @@ Lenders deposit USDC from other chains through NEAR Intents (1Click) and earn on
 
 The contract account \`kredofi.near\` still has a full-access key. Whoever holds it could deploy new code, and new code could move any funds; owner methods can't (tested). Deleting that key now would also block every fix, so the lock comes last:
 
-1. Deploy the **final audited build**, with the fixes from both security reviews (AI-assisted, not professional audits; \`docs/SECURITY_AUDIT.md\` in the repository).
+1. Deploy the **final reviewed build**, with the fixes from both security reviews (AI-assisted, not professional audits; \`docs/SECURITY_AUDIT.md\` in the repository).
 2. Move the **owner role to a multisig**, so several keys must sign every owner call.
 3. **Time lock on scorer re-pins** (built, contract v4): a proposed scorer applies only after 24 hours, so lenders and borrowers can leave before a new scorer build applies.
 4. **Lock**: delete the contract account's full-access key, so the code can never change again.

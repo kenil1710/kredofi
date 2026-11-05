@@ -30,7 +30,7 @@ It found 2 High, 3 Medium, 5 Low and 5 Info issues. Every finding below has a st
 | L3 | Low | Anyone could flood score challenges for another account and push out the nonce its wallet was signing. | **Fixed, live.** A requester evicts only its own nonces (5 per account), with at most 50 per account; expired entries are swept. | `224ab9b` | `guards.test.ts`; wallet loop 13/13. |
 | L4 | Low | The ledger showed events from receipts that failed and were rolled back. | **Fixed, live.** Failed receipts are skipped, and the cache was rebuilt. | `224ab9b` | `events.test.ts`. |
 | L5 | Low | A failed withdraw transfer restores shares at the old price. | **Accepted.** The other lenders' dilution is at most the interest earned between the withdraw call and its callback (one block), and it needs a failed USDC transfer. | — | — |
-| I1 | Info | `kredofi.near` still has a full-access key, so a code deploy could move any funds. | **Accepted until the final audited build.** Locking now would block the H2 and M1 fixes. The lock path (final audited build, multisig owner, time lock on scorer re-pins, then lock) is on `/docs/roadmap`. | `ff7b829` (roadmap) | — |
+| I1 | Info | `kredofi.near` still has a full-access key, so a code deploy could move any funds. | **Accepted until the final reviewed build.** Locking now would block the H2 and M1 fixes. The lock path (final reviewed build, multisig owner, time lock on scorer re-pins, then lock) is on `/docs/roadmap`. | `ff7b829` (roadmap) | — |
 | I2 | Info | After a total loss with shares outstanding, the pool refuses new deposits. | **Accepted.** It needs the reserve and every lender to be wiped out, and refusing deposits then is the safe outcome. | — | `deposit_into_wiped_out_pool_rejected`. |
 | I3 | Info | The check for direct Space hits trusted Hugging Face to reject odd Host headers. | **Fixed, live.** With `PROXY_SECRET` set, any request without the Worker's secret goes to one shared bucket, whatever its Host. | `224ab9b` | `clientIp.test.ts`. |
 | I4 | Info | Routes returned raw RPC error text. | **Fixed, live.** Internal errors go to the server log only. | `224ab9b` | `publicError` tests. |
@@ -125,6 +125,12 @@ Locking means deleting the contract account's last full-access key.
 **Not fixed by a lock:** the owner can still re-pin the scorer to any build, but since contract v4 only after the public 24 h time lock.
 
 **Recommendation:** lock last, after these steps (also on `/docs/roadmap`):
-1. deploy the final audited build;
+1. deploy the final reviewed build;
 2. move the owner role to a multisig;
 3. ~~add a time lock on scorer re-pins~~ built (contract v4).
+
+## Judge review, Nov 5
+
+| Finding | Severity | Status |
+|---|---|---|
+| `income_cap` is public and at $50 steps narrowed a low earner's income to about $100, against the claim that lenders never see a salary. | High (privacy) | Fixed on testnet (scorer `96666cdf…`, Nov 5): five buckets (0, 100, 250, 500, 1,000), rounded down, so no limit rises. Mainnet build `5175182a…` waits for the owner's yes and its 24-hour lock. Still public: the range itself, and the score can narrow it. |

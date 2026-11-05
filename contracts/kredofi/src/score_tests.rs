@@ -287,7 +287,7 @@ fn rule5_score_expires_after_ttl() {
 fn limit_table() {
     let mut c = new_contract();
     // (level, band, score, income_cap $) -> limit $ (SPEC 4)
-    let cases: [(u8, &str, u64, u128, u128); 9] = [
+    let cases: [(u8, &str, u64, u128, u128); 15] = [
         (1, "A", 1000, 1000, 100_000_000),
         (1, "B", 700, 1000, 75_000_000),
         (1, "C", 550, 1000, 50_000_000),
@@ -297,6 +297,13 @@ fn limit_table() {
         (3, "C", 600, 1000, 250_000_000),
         (4, "A", 1000, 600, 600_000_000), // income cap binds
         (4, "A", 1000, 1000, 1_000_000_000),
+        // The scorer's public buckets (SPEC 6): each one still gives the right limit.
+        (1, "A", 1000, 0, 0),
+        (1, "A", 1000, 100, 100_000_000),
+        (2, "A", 900, 100, 100_000_000),
+        (3, "B", 700, 250, 250_000_000),
+        (4, "A", 1000, 500, 500_000_000),
+        (4, "C", 550, 500, 500_000_000),
     ];
     for (i, (level, band, score, cap, want)) in cases.into_iter().enumerate() {
         let who = acc(&format!("b{i}.near"));

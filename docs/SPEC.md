@@ -236,7 +236,7 @@ Production-data gate (security review Nov 3, H2; contract v3): `require_producti
  "fingerprint": "<hex32>", "sealed_identity": "<base64>", "reply": "<base64, optional>"}
 ```
 
-`income_cap` is in USDC base units (6 decimals) and capped at 1,000 USDC, so it never reveals income above $2,000 a month. Raw transactions, balances, the access token and the name never appear in the output.
+`income_cap` is in USDC base units (6 decimals) and is always one of five buckets (section 6), because it is public: $0 means below $200 a month, $100 means $200 to $499, $250 means $500 to $999, $500 means $1,000 to $1,999, and $1,000 means $2,000 or more. Raw transactions, balances, the access token and the name never appear in the output.
 
 ### Release step
 
@@ -255,7 +255,7 @@ Decrypt `sealed` with `SEAL_KEY`, re-encrypt to `partner_pubkey` (x25519 + ChaCh
 | Savings buffer | 100 | `balance / avg monthly spending` >= 3: 100; >= 1: 60; >= 0.3: 30; else 0 |
 
 Bands: **A** >= 800, **B** 650-799, **C** 500-649, **D** < 500 (no loan).
-`income_cap = min(1000, floor(avg_monthly_income * 0.5 / 50) * 50)` USDC.
+`income_cap` = half of the average monthly income, rounded down to a bucket (owner's decision, Nov 5; finer steps narrowed a low earner's income to about $100): avg < $200: 0; $200-499: 100; $500-999: 250; $1,000-1,999: 500; >= $2,000: 1,000 USDC. Buckets above 0 equal the level caps. The contract needs no change: it takes `min(level cap x band share, income_cap)`.
 
 Verified on the demo borrowers (`scripts/gen_borrowers.py`, `score_check.py`):
 

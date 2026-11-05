@@ -98,9 +98,13 @@ Since Nov 4 the live demo runs on `app.kency.testnet` (contract v4 with one chan
 curl -s https://kredofi.xyz/api/ledger | python3 -c "import json,sys;c=json.load(sys.stdin)['config'];print(c['scorer_mode'],c['scorer_version'],c['scorer_delay_ns'])"
 ```
 
-Expected: `OutLayer 0515ebcad56ec6569a13a9fdc76e523025c6fd3daed399d4560604c8262e03b9 60000000000` (a 1-minute re-pin time lock on testnet). That build is published at `https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fa82707fd3a3d8a27513b8ab397d6ccb43aafe5f/kredofi_scorer_testnet.wasm` (OutLayer logs this URL in every request). The Nov 1–4 testnet contract `kredofi.kency.testnet` (Dev mode: our server ran demo build `ac8e2a9c…` and submitted its output) now holds only our own test runs; its history stays on-chain.
+Expected: `OutLayer 96666cdf840746c062738e6e74af5ab46eacd8bc40c60ccb43d9d638ac17bcfc 60000000000` (a 1-minute re-pin time lock on testnet). That build is published at `https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/9fdaaea69a4cc017048496a0c5e2b05903c6b02d/kredofi_scorer_testnet.wasm` (OutLayer logs this URL in every request). The Nov 1–4 testnet contract `kredofi.kency.testnet` (Dev mode: our server ran demo build `ac8e2a9c…` and submitted its output) now holds only our own test runs; its history stays on-chain.
 
 Every event on [the public ledger](https://kredofi.xyz/ledger) links to its transaction on `testnet.nearblocks.io`; the ledger trusts only logs from receipts executed by the KredoFi contract itself (`web/src/lib/events.ts`, tested).
+
+### What `income_cap` reveals (buckets since Nov 5)
+
+The testnet build pinned on Nov 5 (propose [ELfMfp2A…](https://testnet.nearblocks.io/txns/ELfMfp2AWceFxnGtSoNUuWap6WPab5PbBvDRUNAFffBi), apply [6fmiNm8k…](https://testnet.nearblocks.io/txns/6fmiNm8k95egXGSp73cKh6QnPZEfxwsFimjskFHwES4i), scorer source at commit `89694f4`) only ever outputs 0, 100, 250, 500 or 1,000 USDC: `income_cap_bucket` in `scorer/src/rules.rs`. Mainnet still pins `6888c15e…`, with $50 steps, until the bucket build passes its 24-hour lock. The contract is unchanged: it enforces only the $1,000 ceiling, so the buckets rest on the pinned scorer.
 
 ## 7. Is a copied Plaid token useless?
 

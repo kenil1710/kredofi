@@ -22,7 +22,15 @@ No wallet and no sign-up: the app creates a throwaway testnet account and a rela
 6. Open **Public ledger** (top nav): every score, loan and repayment is listed with a link to its transaction, and the **Verify** panel shows the contract and the pinned scorer hash.
 7. Optional, footer link **Demo scenarios**: Riya (band A, $100), Sam (refused, with the reasons and what would change them), Max (borrows and never repays; after 3 minutes anyone can mark the default, the reserve pays the pool first, up to its balance, and his name is released to the recovery partner).
 
-Testnet terms are shortened so the whole loop fits a demo: loan term 2 minutes, grace 1 minute, minimum hold 1 minute (mainnet: 30 days).
+Testnet terms are shortened so the whole loop fits a demo:
+
+| | Testnet demo | Mainnet |
+|---|---|---|
+| Loan term | 2 minutes | 30 days |
+| Grace after the due date | 1 minute | 7 days |
+| Minimum hold for a level-up | 1 minute | 15 days |
+| Score valid for | 30 days | 30 days |
+| Scorer re-pin time lock | 1 minute | 24 hours |
 
 ## The problem
 
@@ -34,19 +42,11 @@ You can't borrow on-chain without locking up more collateral than you borrow, an
 |---|---|---|
 | Contract | [`app.kency.testnet`](https://testnet.nearblocks.io/address/app.kency.testnet) (since Nov 4, contract v4; the Nov 1–4 Dev-mode contract [`kredofi.kency.testnet`](https://testnet.nearblocks.io/address/kredofi.kency.testnet) now holds only our own test runs, history kept) | [`kredofi.near`](https://nearblocks.io/address/kredofi.near) |
 | Where the scorer runs | **OutLayer testnet** (Intel TDX): your account signs `request_score` itself (a relayer funds the fee), the contract calls OutLayer and accepts the score only in its own callback (`on_score`). Your browser seals the Plaid token to the enclave first | **OutLayer** (Intel TDX): the contract calls OutLayer itself and accepts the score only in its own callback (`on_score`) |
-| Pinned scorer (SHA-256) | testnet build `0515ebca…` (production logic and sealed tokens, plus the shared sandbox login tied to your account; no fetch receipt) | production build `6888c15e…` (sealed Plaid tokens), [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm); both built reproducibly on x86_64 Linux ([VERIFY.md](VERIFY.md)) |
+| Pinned scorer (SHA-256) | testnet build `96666cdf…` (production logic and sealed tokens, plus the shared sandbox login tied to your account; no fetch receipt) | production build `6888c15e…` (sealed Plaid tokens), [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm); both built reproducibly on x86_64 Linux ([VERIFY.md](VERIFY.md)) |
 | Bank data | Plaid sandbox (public test logins) | Plaid sandbox (no production access yet) |
 | Money | mock USDC (`musdc.kency.testnet`), test NEAR | real USDC contract configured; lender deposits locked until real bank data; no loans made |
 | AI summary | NEAR AI Cloud, asked for by your browser after the score (band + rule results only, `web/src/app/api/summary/route.ts`) | not in the production build |
 | Web app | live at https://kredofi.xyz (Cloudflare Worker in front of a Hugging Face Space) | no mainnet app; [/mainnet](https://kredofi.xyz/mainnet) is a read-only view of `kredofi.near` |
-
-Mainnet proof, all on `kredofi.near` (Nov 1–4, 2026):
-- Deployed in OutLayer mode: [tx Ags89jDR…](https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp); upgraded with a state migration: [tx 5fqzZSKC…](https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34).
-- A real score computed inside OutLayer and stored by `on_score` (band A, 1000, scorer `87ceab66…`), unused fee refunded to the borrower: [tx 4dgHrA97…](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu).
-- Nov 2: re-pinned to the reproducible build `7048cc92…` (OutLayer version [tx 3MKpCgQs…](https://nearblocks.io/txns/3MKpCgQsJeXYF8zMK5yVnWfdckFBW3YToGirX4ZznCqs), secrets lock [tx CCE14Fyq…](https://nearblocks.io/txns/CCE14Fyq76Xhhh6yPzRCv8zhF4gQfXLi9n431f31dNLi), contract pin [tx AtYo7XWz…](https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn)) and scored again inside OutLayer with it (band A, 1000, 7.6 s): [tx CNsoyGSj…](https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7).
-- Nov 3 (security review fixes, [docs/MAINNET_PLAN.md](docs/MAINNET_PLAN.md)): storage top-up [tx C5AU6hFS…](https://nearblocks.io/txns/C5AU6hFSqahwtgREamTx3KUSi4hwHehsgrgwjz39e9dK); contract v3 deploy + migration [tx 2zyjvpPa…](https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu); OutLayer version `6888c15e…` [tx 8YT7Kme2…](https://nearblocks.io/txns/8YT7Kme2ZK6TtLLwaEbe5Q1e5EVaM9PemAA6yVzxSj8Z); secrets lock [tx EhEiZGuq…](https://nearblocks.io/txns/EhEiZGuqK7o7UEg7EbUq2GsRVT6YMJv6mYgnGcKaJqrt); contract pin [tx 2acP4tWJ…](https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG); a real score with a sealed Plaid token, band A 1000 in 8.5 s inside OutLayer: [tx 3nbdkFd3…](https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo). Total 0.061 NEAR.
-- Nov 4 (security review 2 fixes and the 24 h scorer re-pin time lock): storage top-up [tx Ews7ubev…](https://nearblocks.io/txns/Ews7ubevwWF5ZdCnGqjM5mkJSKDBo5C7H1tqyJDDeMcs); contract v4 deploy + migration [tx Gj3X9axs…](https://nearblocks.io/txns/Gj3X9axsGU2ctvrsPLo3Uhn93YzbL9XYRtC15fHPEp5c).
-- Two earlier attempts refused by OutLayer's secrets access rule before it was fixed (no score stored): [tx BCdtpGjj…](https://nearblocks.io/txns/BCdtpGjjqPeBFqjnPf7FvbgShyagerNWMM8KCFSY8qEP), [tx 2AjMgECA…](https://nearblocks.io/txns/2AjMgECA6PFJaMTQkbP5vZ3dpKATAoapWAqCocidDP4F).
 
 How to check all of this yourself: [VERIFY.md](VERIFY.md). What is protected and what isn't: [THREAT_MODEL.md](THREAT_MODEL.md). The short version for visitors: [/trust](https://kredofi.xyz/trust).
 
@@ -87,21 +87,50 @@ Rules (SPEC 6): income level (250 points), steady income (250), on-time payments
 ## Tracks
 
 - `privacy`: bank data is read only inside the TEE (mainnet); the chain gets a band and a keyed fingerprint; the name is sealed and opens only after a default.
-- `realworld`: income-based USDC credit with a recovery path, as a consumer lender would run it, without the lender seeing statements.
 - `defi`: a lending pool with share accounting, a first-loss reserve and a treasury; cross-chain deposit quotes from NEAR Intents 1Click (dry run only: Intents has no testnet, [docs/INTENTS_PLAN.md](docs/INTENTS_PLAN.md)).
+- `realworld`: income-based USDC credit with a recovery path, without the lender seeing statements.
 
 ## Run the tests
 
 Needs Rust via rustup (the repo's `rust-toolchain.toml` installs 1.93.0 and the wasm target on first use), Node 22 and Python 3. The first `cargo test` downloads the NEAR sandbox node and builds both contracts (about 5 to 10 minutes).
 
 ```bash
-cargo test --workspace                   # contracts: 168 unit + 3 mock-usdc + 38 near-workspaces sandbox tests
-(cd scorer && cargo test)                # scorer: 39 tests (reproduces the SPEC 6 table: Riya 1000/A, Sam 270/D, Max 1000/A)
-(cd web && npm install && npm test)      # web: 82 tests (incl. a check that every docs link works)
+cargo test --workspace                   # contracts: 169 unit + 3 mock-usdc + 38 near-workspaces sandbox tests
+(cd scorer && cargo test)                # scorer: 40 tests (reproduces the SPEC 6 table: Riya 1000/A, Sam 270/D, Max 1000/A)
+(cd web && npm install && npm test)      # web: 93 tests (incl. a check that every docs link works)
 (cd scripts && npm install && node --test seal.test.mjs)   # JS and Rust seal compatibility (1 of 3 skips without the partner key)
 ```
 
-Every security rule in [SPEC section 7](docs/SPEC.md) has a test. Building the scorer WASM needs the `wasm32-wasip2` target and, for the pinned bytes, Docker on x86_64 ([VERIFY.md](VERIFY.md) section 3). Build and run commands: `CLAUDE.md` (Commands); hosting: [docs/DEPLOY_HF.md](docs/DEPLOY_HF.md).
+Every security rule in [SPEC section 7](docs/SPEC.md) has a test. Building the scorer WASM needs the `wasm32-wasip2` target and, for the pinned bytes, Docker on x86_64 ([VERIFY.md](VERIFY.md) section 3). Hosting: [docs/DEPLOY_HF.md](docs/DEPLOY_HF.md).
+
+## Verify it yourself
+
+No keys needed. The full walk-through, with what each result means, is in [VERIFY.md](VERIFY.md).
+
+```bash
+# Which scorer does the mainnet contract trust? Are lender deposits locked?
+curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"kredofi.near","method_name":"get_config","args_base64":""}}' \
+  | python3 -c "import json,sys;c=json.loads(bytes(json.load(sys.stdin)['result']['result']));print(c['scorer_mode'],c['scorer_version'],c['require_production_data'],c['production_data'])"
+
+# Is the published WASM that exact file? (6888c15e…)
+curl -sL https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/6db115961a822664fdef8c8d19f02668b6f67e92/kredofi_scorer.wasm | shasum -a 256
+
+# Did the Nov 3 mainnet score run inside Intel TDX? Expect PROVEN.
+cargo install --git https://github.com/out-layer/outlayer-verify outlayer-verify
+outlayer-verify tx 3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo --api https://api.outlayer.ai
+outlayer-verify bundle docs/proofs/mainnet-score-2026-11-03.attestation.json --offline   # same check, from the saved evidence
+
+# Rebuild the scorer: x86_64 with Docker, or the GitHub workflow "scorer reproducible build" in a fork
+./scorer/build-docker.sh                    # production
+./scorer/build-docker.sh testnet-outlayer   # testnet enclave build
+```
+
+## Build and run
+
+```bash
+(cd contracts/kredofi && cargo near build non-reproducible-wasm)
+(cd web && npm install && npx next build && npx next start)   # server secrets: web/.env.local, names in .env.example
+```
 
 ## Built with
 
@@ -144,9 +173,20 @@ Checking the code doesn't cover the people holding keys. Today most of them are 
 | OutLayer secrets owner | The developer’s account, which also owns the scorer project. | Replace the secrets, or change which build and caller may read them, so another build could read the sealing and Plaid keys. Publish new scorer versions (the contract runs only the pinned one). | Same multisig as the owner. No secret left that a person ever knew. |
 | OutLayer and Intel (not us) | OutLayer controls the approved enclave builds on `worker.outlayer.near`. Intel signs the hardware proof. | A build OutLayer approves could leak what it runs, and a TDX flaw could too. Attestation proves which approved build ran, not that the build behaves well. OutLayer can also refuse to run. | Not removed. We would review its governance and rely on more than one operator if available. |
 
+## Mainnet transaction log
+
+All on `kredofi.near`, Nov 1–4, 2026:
+- Deployed in OutLayer mode: [tx Ags89jDR…](https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp); upgraded with a state migration: [tx 5fqzZSKC…](https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34).
+- A real score computed inside OutLayer and stored by `on_score` (band A, 1000, scorer `87ceab66…`), unused fee refunded to the borrower: [tx 4dgHrA97…](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu).
+- Nov 2: re-pinned to the reproducible build `7048cc92…` (OutLayer version [tx 3MKpCgQs…](https://nearblocks.io/txns/3MKpCgQsJeXYF8zMK5yVnWfdckFBW3YToGirX4ZznCqs), secrets lock [tx CCE14Fyq…](https://nearblocks.io/txns/CCE14Fyq76Xhhh6yPzRCv8zhF4gQfXLi9n431f31dNLi), contract pin [tx AtYo7XWz…](https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn)) and scored again inside OutLayer with it (band A, 1000, 7.6 s): [tx CNsoyGSj…](https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7).
+- Nov 3 (security review fixes, [docs/MAINNET_PLAN.md](docs/MAINNET_PLAN.md)): storage top-up [tx C5AU6hFS…](https://nearblocks.io/txns/C5AU6hFSqahwtgREamTx3KUSi4hwHehsgrgwjz39e9dK); contract v3 deploy + migration [tx 2zyjvpPa…](https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu); OutLayer version `6888c15e…` [tx 8YT7Kme2…](https://nearblocks.io/txns/8YT7Kme2ZK6TtLLwaEbe5Q1e5EVaM9PemAA6yVzxSj8Z); secrets lock [tx EhEiZGuq…](https://nearblocks.io/txns/EhEiZGuqK7o7UEg7EbUq2GsRVT6YMJv6mYgnGcKaJqrt); contract pin [tx 2acP4tWJ…](https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG); a real score with a sealed Plaid token, band A 1000 in 8.5 s inside OutLayer: [tx 3nbdkFd3…](https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo). Total 0.061 NEAR.
+- Nov 4 (security review 2 fixes and the 24 h scorer re-pin time lock): storage top-up [tx Ews7ubev…](https://nearblocks.io/txns/Ews7ubevwWF5ZdCnGqjM5mkJSKDBo5C7H1tqyJDDeMcs); contract v4 deploy + migration [tx Gj3X9axs…](https://nearblocks.io/txns/Gj3X9axsGU2ctvrsPLo3Uhn93YzbL9XYRtC15fHPEp5c).
+- Two earlier attempts refused by OutLayer's secrets access rule before it was fixed (no score stored): [tx BCdtpGjj…](https://nearblocks.io/txns/BCdtpGjjqPeBFqjnPf7FvbgShyagerNWMM8KCFSY8qEP), [tx 2AjMgECA…](https://nearblocks.io/txns/2AjMgECA6PFJaMTQkbP5vZ3dpKATAoapWAqCocidDP4F).
+
 ## Known limits
 
 - Bank data is Plaid sandbox only. Real banks need Plaid production access and a licensed lending partner. On mainnet this means a score proves nothing yet: anyone can log in to the Plaid sandbox as a custom user with made-up income and get band A. So `kredofi.near` (contract v4 since Nov 4) refuses lender deposits until the owner sets `production_data`, which waits for Plaid production access ([VERIFY.md](VERIFY.md) section 8). The mainnet pool holds $0 today.
+- `income_cap` is public. It is one of five buckets, so it reveals a range and never a figure: $0 means below $200 a month, $100 means $200 to $499, $250 means $500 to $999, $500 means $1,000 to $1,999, $1,000 means $2,000 or more. The public `score` can narrow it further, since the income rule adds points at $1,000, $2,000 and $3,000. Testnet since Nov 5; mainnet still pins the older $50 steps until the bucket build passes its 24-hour lock.
 - The live demo is testnet: test money and Plaid sandbox data, though scores run in OutLayer's testnet enclave since Nov 4. No mainnet loan has been made. Plaid sandbox is sometimes slow (15–19 s per history on Nov 4), and a score past OutLayer's run limit fails cleanly (`score_failed`, nothing else changes) and can be retried. The limit is 60 s on testnet since Nov 4, after 2 of 5 scores hit the earlier 30 s; `kredofi.near` still runs 30 s.
 - The public ledger shows visitors' rows with seeded demo rows from `borrower-NN.kredofi-seed.testnet`, each tagged "Seeded demo": made by our script with Plaid sandbox data to show how the ledger looks over time (Nov 4–13). They are not real users ([docs/LEDGER_PLAN.md](docs/LEDGER_PLAN.md)). Our own live tests carry the tag "Developer check (date)" and are counted apart from visitors too.
 - Testnet scoring requires a one-time challenge signed by the account's own key (NEP-413), so nobody can re-score another account (`web/src/lib/ownership.ts`).

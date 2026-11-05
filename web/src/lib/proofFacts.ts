@@ -10,7 +10,7 @@ export const MAINNET_RUN = {
 export const MAINNET_TX_URL = `https://nearblocks.io/txns/${MAINNET_RUN.tx}`;
 
 /** The hero's one proof line, linking to /mainnet. */
-export const HERO_PROOF = `TDX attestation: PROVEN · ${MAINNET_RUN.seconds} s mainnet score · Verify →`;
+export const HERO_PROOF = `TDX attestation: PROVEN · mainnet run · sandbox data · ${MAINNET_RUN.seconds} s · Verify →`;
 
 /** kredofi.near scorer_delay_ns = 86400000000000. The testnet demo uses 60 s on purpose. */
 export const MAINNET_SCORER_DELAY_HOURS = 24;
@@ -21,9 +21,9 @@ export const ONE_LINE_HEADING = 'Every transaction in. One line out.';
 export const RECEIPT_NOTE = 'Inside the enclave the scorer reads your test bank. Only this line is written to NEAR.';
 
 /** A real enclave score of Plaid's public sandbox login (user_good): the exact output in the transaction, byte for byte. */
-export const RECEIPT_TX = '7bHhkR47ikb1vispGHgntnKNDa9RmTRZkNB1CRjLX1fk';
+export const RECEIPT_TX = 'HoLog3yaJvbEKfXyqHDP4cRAmcqpxTApkBNbEMdapwjC';
 export const RECEIPT_TX_URL = `https://testnet.nearblocks.io/txns/${RECEIPT_TX}`;
-export const RECEIPT_RAW = '{"band":"B","caller":"devcheck-plaid.relayer.kency.testnet","fingerprint":"7293d33dd77a795854a7270ffba17be53c73d55871efb31ba9f74153ce11d7fa","income_cap":250000000,"reply":"ADYaJK2ish19nhSbRjYmyDMVXTI3lM1lrIblmwpCyAz/oRjHTsSZorl93cnJVeS7S5gIkarGnQPrngQVYVG8FqIBTBr3+8MfTZZXsx4+SF3p3TTes0b+RT1vw+xbqUdFt/42kETdiZykzTyB0IKw5SYCNy6u8DCqXKd7I2R+4buS","score":720,"sealed_identity":"qB760Mz7HLe7o/nTWRT722mavkW0DslvIwrkckY5dX2lIVZQotru2ChnpcZ4guEwJ42ctnc=","v":1}';
+export const RECEIPT_RAW = '{"band":"B","caller":"devcheck-plaid.relayer.kency.testnet","fingerprint":"7293d33dd77a795854a7270ffba17be53c73d55871efb31ba9f74153ce11d7fa","income_cap":250000000,"reply":"rfv/7OUa8gNEs5lv3NagKNPo/LJlBN6Y5fdobYolcC6hyul1qEhR0n7ju3J6a0qN05OJy+JqAZFZ3E7EOjIoTsilIyJzLMG0MLO4SU4LsJjt7Rgp/bR2ihFx7/rIA7Erd0KGqPYR4mVWMRZkhSWLlFV5TcMuB65u8avAE7v3uJrm","score":720,"sealed_identity":"Poom+6zYt886MnDJ9lnYShUfhUhqeci+N4Fjmybe49HRnUupiRm9KzJYILZE0a9gfex5D/E=","v":1}';
 
 /** Sample rows from that login (Plaid's made-up data). Plaid sign flipped: money in is +. */
 export const SANDBOX_ROWS: [string, string, string, number?][] = [
