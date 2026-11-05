@@ -28,4 +28,5 @@ ENV HOME=/home/node NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=7860 HOST
     SCORER_OUT_DIR=/home/node/data/submitted \
     LEDGER_CACHE=/home/node/data/ledger.json
 EXPOSE 7860
-CMD ["node", "server.js"]
+# timing.cjs: response times in the Space logs (method, path, status, ms; never queries, IPs or bodies).
+CMD ["node", "-r", "./timing.cjs", "server.js"]

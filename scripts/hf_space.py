@@ -92,6 +92,7 @@ def stage():
     # absolute build paths (they name the build machine's user): the container runs from /app
     for f in (app / "server.js", app / ".next" / "required-server-files.json"):
         f.write_text(f.read_text().replace(str(web), "/app"))
+    shutil.copy2(ROOT / "deploy" / "hf" / "timing.cjs", app / "timing.cjs")
     shutil.copy2(ROOT / "deploy" / "hf" / "Dockerfile", STAGE / "Dockerfile")
     shutil.copy2(ROOT / "deploy" / "hf" / "README.md", STAGE / "README.md")
     if not WASM.exists():

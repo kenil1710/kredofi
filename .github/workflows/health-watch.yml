@@ -3,6 +3,7 @@
 # - watch (no secrets, no transactions, until Nov 26): https://kredofi.xyz/api/health; fails if the site is down or the
 #   testnet reserve, relayer or contract storage is low. Fix: ./scripts/reserve_guard.sh (reserve), faucet top-up of
 #   relayer.kency.testnet (relayer), HF Space restart / credits (down). docs/DEPLOY_HF.md.
+#   Also fails if /, /borrow or /trust takes more than 10 s to the last byte (scripts/slow_check.mjs, 3 rounds).
 # - seed-watch (until Nov 14): GitHub skips scheduled runs, so this starts a seed tick if none ran for 2 hours, and fails
 #   if seeding is more than 6 steps behind plan or unfinished after Nov 13.
 # - drift-guard (until Nov 26): real enclave scores once a day on devcheck accounts; fails if Riya 1000/A, Sam 270/D,
@@ -20,6 +21,10 @@ on:
         description: "fail on purpose, to check the failure email arrives"
         type: boolean
         default: false
+      slow_limit_s:
+        description: "page time limit in seconds (a tiny value proves the slow-page failure email)"
+        type: string
+        default: "10"
 permissions: {}
 concurrency:
   group: health-watch
@@ -27,7 +32,9 @@ concurrency:
 jobs:
   watch:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 8
+    permissions:
+      contents: read
     steps:
       - name: check /api/health
         env:
@@ -43,6 +50,16 @@ jobs:
           if not h.get("ok"): bad.append("not ok")
           if bad: print("::error::" + ", ".join(bad)); sys.exit(1)
           print("healthy")'
+      - uses: actions/checkout@v4
+        if: ${{ !cancelled() }}
+      - name: pages answer within the limit
+        if: ${{ !cancelled() }}
+        env:
+          WATCH_UNTIL: "2026-11-26T23:59:00Z"
+          SLOW_LIMIT_S: ${{ inputs.slow_limit_s || '10' }}
+        run: |
+          if [ "$(date -u +%s)" -gt "$(date -u -d "$WATCH_UNTIL" +%s)" ]; then echo "past $WATCH_UNTIL: watch off"; exit 0; fi
+          node scripts/slow_check.mjs
 
   seed-watch:
     if: vars.SEED_CONTRACT != ''

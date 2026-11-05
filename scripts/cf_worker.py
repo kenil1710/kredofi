@@ -45,6 +45,7 @@ def upload():
     secret = os.environ.get("PROXY_SECRET", "")
     if len(secret) < 32: sys.exit("PROXY_SECRET missing or shorter than 32 characters")
     meta = {"main_module": "worker.js", "compatibility_date": "2026-10-01",
+            "observability": {"enabled": True},  # keeps the slow/failed upstream lines (paths only) in Workers Logs
             "bindings": [{"type": "secret_text", "name": "PROXY_SECRET", "text": secret}]}
     b = uuid.uuid4().hex
     parts = [
