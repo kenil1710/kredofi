@@ -399,14 +399,31 @@ button{font-family:inherit}
 .pbsteps code{font-size:18px;background:rgba(74,44,140,.08);padding:1px 6px}
 .pbsteps-note{margin:12px 0 0;font-size:14.5px;line-height:1.45;color:#2C4A41;border-top:1px solid var(--line-paper);padding-top:10px}
 .pbsteps-inline{margin:4px 0 14px;max-width:520px}
-/* Over Plaid: left of its centred window on wide screens; over Plaid's own "Sandbox mode" strip on phones. */
-.pbsteps-overlay{position:fixed;z-index:2147483647;left:24px;top:110px;width:min(330px,calc(50vw - 220px));box-shadow:0 12px 30px rgba(0,0,0,.35)}
+/* Over Plaid Link. Link's window is ~608 px tall and centred; its own "Sandbox mode" bar (~144 px, with the
+   sandbox login and its own copy icons) sits at the bottom. Wide screens: bottom-left, above that bar and clear of
+   the page title. Phones and tablets: a compact box that covers only the bar's title row, so Plaid's login line
+   below stays visible. Very short screens have no free space: the box takes the bottom. */
+.pbsteps-overlay{position:fixed;z-index:2147483647;left:24px;bottom:164px;width:min(340px,calc(50vw - 210px));box-shadow:0 12px 30px rgba(0,0,0,.35)}
 .pbsteps-overlay:empty{display:none}
-@media (max-width:1099px){.pbsteps-overlay{left:8px;right:8px;top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0px));width:auto}
-  .pbsteps-overlay .pbsteps-box{padding:10px 12px}.pbsteps-overlay .pbsteps-title{display:none}
-  .pbsteps-overlay .pbsteps{flex-direction:row;flex-wrap:wrap;gap:6px 14px}.pbsteps-overlay .pbsteps li{font-size:14px;gap:6px}
-  .pbsteps-overlay .pbsteps li b{width:22px;height:22px;font-size:13px}.pbsteps-overlay .pbsteps code{font-size:13px}
-  .pbsteps-overlay .pbsteps-note{font-size:13px;margin-top:6px;padding-top:6px}}
+/* Clicks pass through to Plaid everywhere except the Copy buttons, so the box can never block a Plaid control. */
+.pbsteps-overlay{pointer-events:none}.pbsteps-overlay button{pointer-events:auto}
+.pbsteps-overlay .pbsteps li span{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.pbsteps-where{font-style:normal;font-weight:400;font-size:14px;color:#2C4A41}
+.copy-small{min-height:30px;min-width:56px;font-size:13px;padding:0 8px;background:var(--paper)}
+@media (max-width:999px){
+  .pbsteps-overlay{left:6px;right:6px;bottom:100px;width:auto}
+  .pbsteps-overlay .pbsteps-box{padding:4px 8px;border-width:2px}
+  .pbsteps-overlay .pbsteps-title{display:none}
+  .pbsteps-overlay .pbsteps{flex-direction:row;flex-wrap:wrap;gap:2px 10px}
+  .pbsteps-overlay .pbsteps li{font-size:12px;gap:4px;line-height:1.2}
+  .pbsteps-overlay .pbsteps li:last-child{flex-basis:100%}
+  .pbsteps-overlay .pbsteps li b{width:18px;height:18px;font-size:11px}
+  .pbsteps-overlay .pbsteps code{font-size:12px}
+  .pbsteps-overlay .copy-small{min-height:24px;min-width:44px;font-size:12px;padding:0 6px}
+  .pbsteps-where{font-size:11.5px;flex-basis:100%}
+  .pbsteps-overlay .pbsteps-note{font-size:12px;margin-top:4px;padding-top:4px}
+}
+@media (max-width:999px) and (max-height:720px){.pbsteps-overlay{bottom:calc(4px + env(safe-area-inset-bottom,0px))}}
 
 /* Skip link (components/SkipLink.tsx): hidden until focused */
 .skip{position:fixed;left:12px;top:-60px;z-index:200;background:var(--paper);color:var(--ink);padding:10px 16px;border:2px solid var(--violet-ink);font-weight:600;text-decoration:none}

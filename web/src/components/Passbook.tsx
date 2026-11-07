@@ -572,7 +572,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 <dt>Password</dt><dd><code>pass_good</code><CopyButton text="pass_good" label="password" /></dd>
               </dl>
               <p className="expect">This is Plaid&apos;s public sandbox login: a test bank with test money, the same for everyone. Plaid lists real banks first; use these steps:</p>
-              <PlatypusSteps />
+              <PlatypusSteps hidden={!!plaidHint} />
               <p className="connect-row">
                 <button type="button" className="btn btn-violet btn-big" disabled={!!starting} onClick={connectBank}>Connect your bank (sandbox)</button>
                 <Link href="/trust" className="linkbtn">How we keep your data private</Link>

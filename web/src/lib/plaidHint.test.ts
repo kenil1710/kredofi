@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OTHER_BANK_NOTE, PLATYPUS_ID, PLATYPUS_STEPS, plaidHintAfter } from './plaidHint.ts';
+import { OTHER_BANK_NOTE, PLATYPUS_ID, PLATYPUS_STEPS, STEP3_COPY_NOTE, plaidHintAfter } from './plaidHint.ts';
+
+test('step 3 says where to copy the login from', () => {
+  assert.equal(`Log in: user_good / pass_good ${STEP3_COPY_NOTE}`, 'Log in: user_good / pass_good — copy here, or from the bar at the bottom of the screen.');
+});
 
 test('three steps a judge can follow', () => {
   assert.deepEqual([...PLATYPUS_STEPS], ['Type Platypus', 'Pick First Platypus Bank (not OAuth)', 'user_good / pass_good']);

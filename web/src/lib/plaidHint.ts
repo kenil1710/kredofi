@@ -6,6 +6,7 @@
 
 export const PLATYPUS_ID = 'ins_109508';
 export const PLATYPUS_STEPS = ['Type Platypus', 'Pick First Platypus Bank (not OAuth)', 'user_good / pass_good'] as const;
+export const STEP3_COPY_NOTE = '— copy here, or from the bar at the bottom of the screen.';
 export const OTHER_BANK_NOTE = 'also works in this test sandbox, but adds a few test screens: sign in with user_good / pass_good and use code 1234. Quicker: go back and pick First Platypus Bank.';
 
 type Hint = { other: string | null } | null;

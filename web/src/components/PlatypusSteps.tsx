@@ -1,25 +1,30 @@
 'use client';
-// The three test-bank steps (lib/plaidHint.ts): a large box before "Connect your bank", and the same box above
-// Plaid Link while it is open. Plaid adds its window to the end of <body> at the top stacking level, so the overlay
-// lives in a container that is moved to the very end of <body> each time it shows, which puts it above Link.
+// The three test-bank steps (lib/plaidHint.ts): a large box before "Connect your bank", and, while Plaid Link is
+// open, ONLY a floating copy above Link with working Copy buttons (the page's own Copy buttons are behind Link then).
+// Plaid adds its window to the end of <body> at the top stacking level, so the floating box lives in a container
+// appended to the end of <body> when it shows, which puts it above Link and makes it clickable.
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { OTHER_BANK_NOTE, PLATYPUS_STEPS } from '@/lib/plaidHint';
+import { CopyButton } from './CopyButton';
+import { OTHER_BANK_NOTE, PLATYPUS_STEPS, STEP3_COPY_NOTE } from '@/lib/plaidHint';
 
-function Steps({ other }: { other?: string | null }) {
+function Steps({ other, floating }: { other?: string | null; floating?: boolean }) {
   return (
     <div className="pbsteps-box">
       <p className="pbsteps-title">Test bank in 3 steps</p>
       <ol className="pbsteps">
-        {PLATYPUS_STEPS.map((s, i) => <li key={s}><b>{i + 1}</b><span>{i === 2 ? <>Log in: <code>user_good</code> / <code>pass_good</code></> : s}</span></li>)}
+        <li><b>1</b><span>{PLATYPUS_STEPS[0]}</span></li>
+        <li><b>2</b><span>{PLATYPUS_STEPS[1]}</span></li>
+        <li><b>3</b><span>Log in: <code>user_good</code>{floating && <CopyButton text="user_good" label="username" small />} / <code>pass_good</code>{floating && <CopyButton text="pass_good" label="password" small />}{floating && <em className="pbsteps-where"> {STEP3_COPY_NOTE}</em>}</span></li>
       </ol>
       {other && <p className="pbsteps-note">{other} {OTHER_BANK_NOTE}</p>}
     </div>
   );
 }
 
-export function PlatypusSteps() {
-  return <div className="pbsteps-inline"><Steps /></div>;
+/** The in-page box; hidden while Plaid Link is open (the floating box takes over). */
+export function PlatypusSteps({ hidden }: { hidden?: boolean }) {
+  return hidden ? null : <div className="pbsteps-inline"><Steps /></div>;
 }
 
 export function PlatypusStepsOverlay({ other }: { other: string | null }) {
@@ -28,9 +33,9 @@ export function PlatypusStepsOverlay({ other }: { other: string | null }) {
     const el = document.createElement('div');
     el.className = 'pbsteps-overlay';
     el.setAttribute('role', 'status');
-    document.body.appendChild(el); // after Plaid's iframe: drawn above it
+    document.body.appendChild(el); // after Plaid's iframe: drawn above it, and clickable
     setHost(el);
     return () => { el.remove(); };
   }, []);
-  return host ? createPortal(<Steps other={other} />, host) : null;
+  return host ? createPortal(<Steps other={other} floating />, host) : null;
 }
