@@ -23,6 +23,12 @@ export function usdShort(base: string | bigint | number): string {
   return usd(base).replace(/\.00$/, '');
 }
 
+/** Base units -> an input value, cents rounded DOWN ("6.99" for 6.999999), so it never exceeds what you hold. */
+export function usdInput(base: bigint): string {
+  const cents = base / 10_000n;
+  return `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`;
+}
+
 /** "12.5" or "12" (dollars, as typed) -> base units, or null if not a valid amount. */
 export function parseUsd(input: string): bigint | null {
   const s = input.trim().replace(/^\$/, '').replace(/,/g, '');

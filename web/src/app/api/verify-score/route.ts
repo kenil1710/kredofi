@@ -9,12 +9,14 @@ import { runVerifier } from '@/server/verifyScore';
 
 export const runtime = 'nodejs';
 const TX = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
+const inFlight = new Set<string>(); // one check at a time per network (audit Nov 7)
 
 export async function POST(req: Request) {
   const { accountId, txHash } = (await req.json().catch(() => ({}))) as { accountId?: unknown; txHash?: unknown };
   if (!isTestnetAccount(accountId) || typeof txHash !== 'string' || !TX.test(txHash)) return NextResponse.json({ error: 'Invalid account or transaction.' }, { status: 400 });
   if (!IN_ENCLAVE) return NextResponse.json({ status: 'unavailable', reason: 'This demo scores outside the enclave, so there is no attestation to check.' });
-  if (overQuota(`verify:${clientIp(req)}`, 30, 3_600_000)) return NextResponse.json({ error: 'Thirty checks per hour from one network. Try again later, or run the steps yourself.' }, { status: 429 });
+  const ip = clientIp(req);
+  if (overQuota(`verify:${ip}`, 30, 3_600_000)) return NextResponse.json({ error: 'Thirty checks per hour from one network. Try again later, or run the steps yourself.' }, { status: 429 });
   let score: OnchainScore | null | undefined, pinned: string;
   try {
     const [b, cfg] = await Promise.all([
@@ -26,6 +28,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: 'unavailable', reason: 'The chain could not be read right now, so nothing was checked. Try again in a minute.' });
   }
   if (!score) return NextResponse.json({ status: 'failed', reason: 'This account has no score on-chain.' });
-  const run = await runVerifier(txHash, NETWORK);
-  return NextResponse.json(interpretRun(run, { tx: txHash, account: accountId, network: NETWORK, pinned, score }));
+  if (inFlight.has(ip)) return NextResponse.json({ status: 'unavailable', reason: 'A check from your network is still running. Try again in a few seconds.' });
+  inFlight.add(ip);
+  try {
+    const run = await runVerifier(txHash, NETWORK);
+    return NextResponse.json(interpretRun(run, { tx: txHash, account: accountId, network: NETWORK, pinned, score }));
+  } finally { inFlight.delete(ip); }
 }

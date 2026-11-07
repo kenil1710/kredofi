@@ -6,9 +6,10 @@ Draft only. The human posts it (HACKATHON.md: it must say the project was built 
 
 Built at NEAR HACKATHON: KredoFi. Prove your income on NEAR without showing your bank statements.
 
-A scorer in a TEE reads your bank history; no raw data goes on-chain. First use: no-collateral USDC loans.
+A TEE scorer reads your bank history; no raw data on-chain. Borrow USDC, no collateral.
 
 Try it: https://kredofi.xyz
+Code: https://github.com/kenil1710/kredofi
 @NEARProtocol #NEARHackathon
 
 [video attached]
@@ -16,6 +17,6 @@ Try it: https://kredofi.xyz
 ---
 
 Checks before posting:
-- 267 characters as X counts them (links count as 23): under the 280 limit.
-- "A scorer in a TEE" is true for the testnet demo only after the Nov 5 switch to OutLayer mode (docs/ENCLAVE_PLAN.md). Post only after that switch is live; before it, write "On mainnet, a scorer in a TEE…".
+- 278 characters as X counts them (links count as 23): under the 280 limit. The Code link 404s until the repo is public: post only after that.
+- "A scorer in a TEE" is true on mainnet and on the testnet demo (OutLayer mode since Nov 4).
 - The official rules (re-read Nov 3) require tagging @NEARProtocol and #NEARHackathon (@NearLegion, @NearBuilders optional).

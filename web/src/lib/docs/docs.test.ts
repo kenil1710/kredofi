@@ -65,3 +65,7 @@ test('verify page: testnet wasm URL is the pinned build and the saved bundle is 
   assert.ok(src.includes('9fdaaea69a4cc017048496a0c5e2b05903c6b02d') && !src.includes('fa82707f'));
   assert.ok(v.includes('mainnet-score-2026-11-07.attestation.json') && !v.includes('bundle docs/proofs/mainnet-score-2026-11-03'));
 });
+
+test('borrowers: the level-up table is one table (audit Nov 7: a paragraph had split off its last row)', () => {
+  assert.match(docBySlug('borrowers')!.body, /\| Your limit can rise at most once per \|[^\n]*\n\| Highest level \| 4 \| 4 \|\n\nRepay before the grace period ends/);
+});

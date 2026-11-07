@@ -48,6 +48,7 @@ jobs:
           import json, sys
           h = json.load(sys.stdin)
           bad = [k for k in ("reserveLow", "relayerLow", "storageLow") if h.get(k)]
+          bad += [k + " unknown (chain not readable)" for k in ("reserveLow", "relayerLow", "storageLow") if h.get(k) is None]
           if not h.get("ok"): bad.append("not ok")
           if bad: print("::error::" + ", ".join(bad)); sys.exit(1)
           print("healthy")'

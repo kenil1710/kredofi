@@ -1,5 +1,6 @@
 {
   "name": "kredofi-scripts",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "KredoFi testnet scripts: dev_scorer and the SPEC 8 demo",

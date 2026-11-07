@@ -8,6 +8,7 @@ exclude = ["scorer"]
 edition = "2024"
 rust-version = "1.93"
 repository = "https://github.com/kenil1710/kredofi"
+license = "MIT"
 
 [workspace.dependencies]
 near-sdk = "=5.29.1"

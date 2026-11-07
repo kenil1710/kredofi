@@ -46,6 +46,14 @@ export function panicMessage(raw: string): string {
 }
 
 /** Classify an error thrown by a wallet / relayer / RPC call (DESIGN 7.7 messages). */
+/** Rejects with `message` if `p` hasn't settled within `ms` (audit Nov 7: offline left "Confirming on NEAR…" forever). */
+export function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([p, new Promise<never>((_, reject) => { t = setTimeout(() => reject(new Error(message)), ms); })]).finally(() => clearTimeout(t));
+}
+export const OFFLINE_NOT_SENT = 'No connection to NEAR. Nothing was sent; check your connection and try again.';
+export const RELAY_NO_ANSWER = 'No answer from the relayer in 45 seconds. It may still go through: reload the page before trying again.';
+
 export function classifyError(err: unknown): { kind: TxErrorKind; message: string } {
   const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err ?? '');
   const t = raw.toLowerCase();

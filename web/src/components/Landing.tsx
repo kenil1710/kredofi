@@ -166,12 +166,20 @@ export function Landing() {
     /* WebGL enclave (three on demand) */
     type GL = { render(p: number, dt: number, clock: number): void; dispose(): void };
     let gl: GL | null = null;
-    import('three').then((THREE) => {
+    // Mobile performance (Nov 7): the scene loads after the page has painted and the browser is idle, and phones
+    // (or weak CPUs) get a lighter scene: lower pixel ratio, no antialias, fewer particles, half-size note texture.
+    // It already renders only while the hero section is on screen (main loop).
+    const PHONE = window.matchMedia('(max-width: 700px)').matches || (navigator.hardwareConcurrency ?? 8) <= 4;
+    const whenIdle = (go: () => void) => {
+      const idle = () => { if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(go, { timeout: 2500 }); else setTimeout(go, 600); };
+      if (document.readyState === 'complete') idle(); else window.addEventListener('load', idle, { once: true });
+    };
+    whenIdle(() => { if (alive) import('three').then((THREE) => {
       if (!alive) return;
       const canvas = $<HTMLCanvasElement>('#gl');
       let renderer: InstanceType<typeof THREE.WebGLRenderer>;
-      try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' }); } catch { return; }
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !PHONE, alpha: true, powerPreference: PHONE ? 'default' : 'high-performance' }); } catch { return; }
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PHONE ? 1.25 : 2));
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 100);
       const g = new THREE.Group(); scene.add(g);
@@ -196,28 +204,30 @@ export function Landing() {
       const glowMat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gcv), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
       const glow = new THREE.Sprite(glowMat); glow.scale.set(2.6, 2.6, 1); g.add(glow);
       const R0 = rng(3);
-      const rings = [0, 1, 2].map((i) => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.5 + i * 0.08, 0.0035, 6, 220), new THREE.MeshBasicMaterial({ color: i === 1 ? '#8E6CF0' : '#9FD9BF', transparent: true, opacity: 0.6 })); t.rotation.set(R0() * 3, R0() * 3, 0); g.add(t); return t; });
+      const rings = [0, 1, 2].map((i) => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.5 + i * 0.08, 0.0035, 6, PHONE ? 110 : 220), new THREE.MeshBasicMaterial({ color: i === 1 ? '#8E6CF0' : '#9FD9BF', transparent: true, opacity: 0.6 })); t.rotation.set(R0() * 3, R0() * 3, 0); g.add(t); return t; });
       const rosPts = [];
-      for (let k = 0; k <= 1600; k++) { const a = (k / 1600) * Math.PI * 2, rr = 2.6 + 0.12 * Math.sin(a * 36) + 0.05 * Math.sin(a * 91); rosPts.push(new THREE.Vector3(Math.cos(a) * rr, Math.sin(a) * rr, 0)); }
+      const RP = PHONE ? 800 : 1600;
+      for (let k = 0; k <= RP; k++) { const a = (k / RP) * Math.PI * 2, rr = 2.6 + 0.12 * Math.sin(a * 36) + 0.05 * Math.sin(a * 91); rosPts.push(new THREE.Vector3(Math.cos(a) * rr, Math.sin(a) * rr, 0)); }
       const rosGeo = new THREE.BufferGeometry().setFromPoints(rosPts);
       const rosette = new THREE.Group(); const rosMats: InstanceType<typeof THREE.LineBasicMaterial>[] = [];
       for (let m = 0; m < 6; m++) { const mat = new THREE.LineBasicMaterial({ color: '#9FD9BF', transparent: true, opacity: 0.12 }); rosMats.push(mat); const ln = new THREE.LineLoop(rosGeo, mat); ln.rotation.z = m * 0.09; ln.scale.setScalar(1 + m * 0.035); rosette.add(ln); }
       rosette.position.z = -1.6; g.add(rosette);
-      const N = window.innerWidth < 700 ? 700 : 1500;
+      const N = PHONE ? 350 : window.innerWidth < 700 ? 700 : 1500;
       const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), R2 = rng(7);
       const P = Array.from({ length: N }, (_, p) => { const q = { a: R2() * Math.PI * 2, r: 1.4 + R2() * 5, y: (R2() - 0.5) * 3.2, s: 0.25 + R2() * 0.6 }; const c = R2() < 0.75 ? mint : violet; col[p * 3] = c.r; col[p * 3 + 1] = c.g; col[p * 3 + 2] = c.b; return q; });
       const pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); pGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
       const pMat = new THREE.PointsMaterial({ size: 0.028, vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
       g.add(new THREE.Points(pGeo, pMat));
       // the note
-      const nc = document.createElement('canvas'); nc.width = 2048; nc.height = 1006;
-      const nctx = nc.getContext('2d')!; drawNote(nctx, 2048, 1006, { x: 0.5, y: 0.4 }, {}, FONTS);
-      const ntex = new THREE.CanvasTexture(nc); ntex.anisotropy = 8; ntex.colorSpace = THREE.SRGBColorSpace;
+      const NW = PHONE ? 1024 : 2048, NH = PHONE ? 503 : 1006;
+      const nc = document.createElement('canvas'); nc.width = NW; nc.height = NH;
+      const nctx = nc.getContext('2d')!; drawNote(nctx, NW, NH, { x: 0.5, y: 0.4 }, {}, FONTS);
+      const ntex = new THREE.CanvasTexture(nc); ntex.anisotropy = PHONE ? 2 : 8; ntex.colorSpace = THREE.SRGBColorSpace;
       const nGeo = new THREE.PlaneGeometry(2.6, (2.6 * 540) / 1100, 40, 20);
       const nBase = (nGeo.attributes.position.array as Float32Array).slice();
       const nMat = new THREE.MeshBasicMaterial({ map: ntex, side: THREE.DoubleSide, transparent: true });
       const note = new THREE.Mesh(nGeo, nMat); g.add(note);
-      document.fonts?.ready.then(() => { if (!alive) return; nctx.clearRect(0, 0, 2048, 1006); drawNote(nctx, 2048, 1006, { x: 0.5, y: 0.4 }, {}, FONTS); ntex.needsUpdate = true; });
+      document.fonts?.ready.then(() => { if (!alive) return; nctx.clearRect(0, 0, NW, NH); drawNote(nctx, NW, NH, { x: 0.5, y: 0.4 }, {}, FONTS); ntex.needsUpdate = true; });
 
       let narrow = false, mx = 0, my = 0, tmx = 0, tmy = 0, shiftW = 0, fitScale = 1;
       // Keep the cube clear of the title at any width: measure the title's right edge and move the
@@ -280,7 +290,7 @@ export function Landing() {
           ntex.dispose(); renderer.dispose();
         },
       };
-    }).catch(() => {});
+    }).catch(() => {}); });
     cleanups.push(() => gl?.dispose());
 
     /* Note in "check" + loupe */
@@ -465,7 +475,7 @@ export function Landing() {
                   <dl id="factors">{FN.map((n, i) => <div className="row" key={n}><dt>{n}</dt><dd>{FV[i]}</dd></div>)}</dl>
                   <div className="total"><span>Score</span><b id="score">1000</b></div>
                   <div className="lstamp" id="stamp">BAND A, $100</div>
-                  <p className="leaves" id="leaves">That one line is all that leaves. The scorer stores nothing, but nobody outside can verify the 30 transactions are deleted when the run ends.</p>
+                  <p className="leaves" id="leaves">That one line is all that leaves. The scorer stores nothing, but nobody outside can verify the transactions are deleted when the run ends.</p>
                 </div>
               </div>
             </div>

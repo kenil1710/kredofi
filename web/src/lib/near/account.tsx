@@ -5,6 +5,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { functionCall, useWallet } from './wallet';
 import { RPC } from '../config';
+import { OFFLINE_NOT_SENT, RELAY_NO_ANSWER, withTimeout } from '../tx';
 import { b64, fromB64, scoreMessage, signatureBytes } from '../ownership';
 import { replyKeyFromSignature, unlockMessage, UNLOCK_NONCE } from '../replyKey';
 import { KREDOFI_CONTRACT } from '../config';
@@ -100,16 +101,17 @@ export function AccountProvider({ children, slot = null }: { children: React.Rea
   }, [slot, wallet]);
 
   const relay = useCallback(async (d: Demo, receiverId: string, acts: Action[]) => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error(OFFLINE_NOT_SENT);
     const { Account, JsonRpcProvider, actions, encodeSignedDelegate } = await import('near-api-js');
     const account = new Account(d.accountId, new JsonRpcProvider({ url: RPC }), d.secretKey as `ed25519:${string}`);
-    const { signedDelegate } = await account.createSignedMetaTransaction({
+    const { signedDelegate } = await withTimeout(account.createSignedMetaTransaction({
       receiverId,
       actions: acts.map((a) => actions.functionCall(a.params.methodName, a.params.args, BigInt(a.params.gas), BigInt(a.params.deposit))),
-    });
+    }), 20_000, OFFLINE_NOT_SENT); // signing reads the nonce from NEAR; nothing is sent yet
     const bytes = encodeSignedDelegate(signedDelegate);
     let bin = '';
     bytes.forEach((b) => (bin += String.fromCharCode(b)));
-    const r = await fetch('/api/relay', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ signedDelegate: btoa(bin) }) });
+    const r = await withTimeout(fetch('/api/relay', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ signedDelegate: btoa(bin) }) }), 45_000, RELAY_NO_ANSWER);
     const j = await r.json();
     if (!r.ok) throw new Error(j.error ?? 'The relayer refused this action.');
     return j;

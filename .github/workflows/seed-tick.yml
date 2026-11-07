@@ -65,11 +65,15 @@ jobs:
           if [ "$PRETEND_FROZEN" = true ] || [ "$(date -u +%s)" -gt "$(date -u -d "$SEED_UNTIL" +%s)" ]; then echo "past $SEED_UNTIL: seeding is frozen"; echo "run=no" >> "$GITHUB_OUTPUT"; else echo "run=yes" >> "$GITHUB_OUTPUT"; fi
       - if: steps.guard.outputs.run == 'yes'
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false # the scripts below run with secrets; only the two git steps get a token
       - if: steps.guard.outputs.run == 'yes'
         name: state from the seed-state branch
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p scripts/.seed
-          if git fetch -q origin seed-state; then
+          if git fetch -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" seed-state:refs/remotes/origin/seed-state; then
             git show "origin/seed-state:$KREDOFI_CONTRACT.json" > "scripts/.seed/$KREDOFI_CONTRACT.json" 2>/dev/null || rm -f "scripts/.seed/$KREDOFI_CONTRACT.json"
           fi
           ls scripts/.seed
@@ -126,6 +130,8 @@ jobs:
         run: node --experimental-strip-types scripts/seed_ledger.mjs behind
       - if: always() && steps.guard.outputs.run == 'yes'
         name: save state to the seed-state branch
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           f="scripts/.seed/$KREDOFI_CONTRACT.json"; [ -f "$f" ] || exit 0
           cp "$f" /tmp/state.json
@@ -133,7 +139,7 @@ jobs:
           if git rev-parse -q --verify origin/seed-state >/dev/null; then git checkout -q -B seed-state origin/seed-state; else git checkout -q --orphan seed-state; git rm -rqf . ; fi
           cp /tmp/state.json "$KREDOFI_CONTRACT.json"
           git add "$KREDOFI_CONTRACT.json"
-          git diff --cached --quiet || { git commit -qm "seed state: $KREDOFI_CONTRACT"; git push -q origin seed-state; }
+          git diff --cached --quiet || { git commit -qm "seed state: $KREDOFI_CONTRACT"; git push -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" seed-state; }
       # Dead-man monitor (healthchecks.io, period 1 h, grace 2 h): no ping for 3 hours emails the owner, even if
       # Cloudflare and GitHub both stop. Only after every step above passed (a frozen tick skips them, so it still
       # pings), on the real contract, through Nov 26.

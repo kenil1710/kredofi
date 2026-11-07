@@ -7,9 +7,9 @@
 // At most 20 an hour and 30 a day per network, 60 a day in total, none while the relayer is under 3 NEAR.
 import { NextResponse } from 'next/server';
 import { actions, PublicKey } from 'near-api-js';
-import { clientIp, relayerAccount, relayerBalance, RELAYER_FLOOR } from '@/server/near';
+import { clientIp, relayerAccount, relayerBalance } from '@/server/near';
 import { IN_ENCLAVE, USDC_CONTRACT } from '@/lib/config';
-import { DemoAccountBudget, Quota } from '@/server/guards';
+import { DemoAccountBudget, Quota, relayerBelowFloor } from '@/server/guards';
 
 export const runtime = 'nodejs';
 const DEMO_NEAR = IN_ENCLAVE ? 200_000_000_000_000_000_000_000n : 5_000_000_000_000_000_000_000n; // 0.2 / 0.005 NEAR
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   if (refused) return NextResponse.json({ error: refused }, { status: 429 });
   if (IN_ENCLAVE) {
     const bal = await relayerBalance();
-    if (bal !== null && bal < RELAYER_FLOOR) return NextResponse.json({ error: 'The demo relayer is low on test NEAR. Connect a testnet wallet, or try again later.' }, { status: 503 });
+    if (relayerBelowFloor(bal)) return NextResponse.json({ error: 'The demo relayer is low on test NEAR. Connect a testnet wallet, or try again later.' }, { status: 503 });
     if (!daily.take('all')) return NextResponse.json({ error: 'Today\'s demo accounts are used up. Connect a testnet wallet, or try again tomorrow.' }, { status: 429 });
   }
   try {

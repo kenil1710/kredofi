@@ -782,9 +782,10 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                     {isLatest && isCurrent && (
                       <>
                         <div className="level" aria-label="Limit levels">
-                          {ladder.map((v, k) => (
-                            <div key={k} className={b && b.level > k ? 'on' : ''}><i style={{ height: [24, 44, 70, 100][k] }} />{usd(v, { cents: v % 1_000_000n !== 0n })}</div>
-                          ))}
+                          {/* Levels the income cap holds at the same amount show as one bar (audit Nov 7: $250 twice). */}
+                          {ladder.map((v, k) => (k > 0 && ladder[k - 1] === v ? null : (
+                            <div key={k} className={b && b.level > k ? 'on' : ''}><i style={{ height: [24, 44, 70, 100][k] }} />{usdShort(v)}</div>
+                          )))}
                         </div>
                         <p>Level {b?.level}. Your next note can be up to <b className="roll" key={b?.limit}>{usd(limit)}</b>. {cfg ? levelRuleText(NETWORK, cfg) : ''}{sc && BigInt(sc.income_cap) < limitAt(4, sc.band, 10n ** 15n) ? ` Band ${sc.band} levels, capped by your income at ${usd(sc.income_cap, { cents: false })}.` : sc ? ` Band ${sc.band} levels.` : ''}</p>
                       </>
@@ -798,7 +799,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                   <div ref={loanBox} style={{ position: 'relative' }}>
                     <ul className="chain">
                       <li><span>Loan marked as defaulted</span><span>{usd(loan.principal)}</span></li>
-                      <li><span>Reserve paid the pool back first</span><span>up to {usd(loan.principal)}, if the reserve has it</span></li>
+                      <li><span>Reserve paid the pool back first</span><span>{r.coveredByReserve !== undefined ? `${usd(r.coveredByReserve)}${r.lenderLoss ? `; lenders lost ${usd(r.lenderLoss)}` : ''}` : `up to ${usd(loan.principal)}, if the reserve has it`}</span></li>
                       <li><span>Name released to the recovery partner</span><span>{b.released_identity ? 'sealed, then opened' : 'pending'}</span></li>
                       <li><span>Can borrow again</span><span>Never</span></li>
                     </ul>

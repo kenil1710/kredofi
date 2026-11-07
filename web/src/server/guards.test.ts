@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ChallengeStore, DemoAccountBudget, FaucetBudget, pastDue, PublicError, publicError, Quota } from './guards.ts';
+import { ChallengeStore, DemoAccountBudget, FaucetBudget, RELAYER_FLOOR, relayerBelowFloor, pastDue, PublicError, publicError, Quota } from './guards.ts';
 
 test('challenge flood from another requester cannot evict the victim nonce (audit L3)', () => {
   const s = new ChallengeStore();
@@ -35,6 +35,16 @@ test('demo accounts: 20 per hour and 30 per day from one network, other networks
   for (let i = 0; i < 10; i++) assert.equal(b.take('a', hour), null);
   assert.match(b.take('a', hour)!, /Thirty/);
   assert.equal(b.take('a', 86_400_001 + hour), null);
+});
+
+test('the relayer stops new demo accounts and top-ups below 3 NEAR', () => {
+  const NEAR = 10n ** 24n;
+  assert.equal(RELAYER_FLOOR, 3n * NEAR);
+  assert.equal(relayerBelowFloor(25n * NEAR), false);
+  assert.equal(relayerBelowFloor(3n * NEAR), false);
+  assert.equal(relayerBelowFloor(3n * NEAR - 1n), true);
+  assert.equal(relayerBelowFloor(0n), true);
+  assert.equal(relayerBelowFloor(null), false, 'unknown balance: the health watch reports it');
 });
 
 test('faucet budget: per IP, lender grants, daily total (audit M2)', () => {

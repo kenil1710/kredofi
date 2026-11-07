@@ -2,6 +2,7 @@
 // Lender page (DESIGN 3 "Lender", 7.2): pool ledger with a double rule, your share, cash available to
 // withdraw now, deposit and withdraw. No yield forecast: only the share price, read from the chain.
 import { useCallback, useEffect, useState } from 'react';
+import { usdInput } from '@/lib/format';
 import { useAccount } from '@/lib/near/account';
 import { functionCall } from '@/lib/near/wallet';
 import { useTx } from '@/lib/useTx';
@@ -57,6 +58,9 @@ export function LenderPage({ initial = null }: { initial?: LendFirstPaint | null
   const myValue = BigInt(me?.value ?? '0'), myShares = BigInt(me?.shares ?? '0');
   const availNow = myValue < cash ? myValue : cash;
   const price = shares > 0n ? Number(value * 1_000_000n / shares) / 1e6 : 1;
+  // Under $100 held, the deposit starts at what you hold (audit Nov 7), until you type your own amount.
+  const [depTouched, setDepTouched] = useState(false);
+  useEffect(() => { if (!depTouched && bal !== null && bal > 0n && bal < 100_000_000n) setDep(usdInput(bal)); }, [bal, depTouched]);
   const depAmt = parseUsd(dep);
   const depErr = depAmt === null || depAmt <= 0n ? 'Enter an amount' : depAmt < 1_000_000n ? 'Deposit at least $1.00' : bal !== null && depAmt > bal ? `You have ${usd(bal)} test USDC` : null;
   const wdAmt = wd === '' ? availNow : parseUsd(wd);
@@ -96,10 +100,10 @@ export function LenderPage({ initial = null }: { initial?: LendFirstPaint | null
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {!acct || bal === 0n ? (
+        {!acct || (bal !== null && bal < 100_000_000n) ? (
           <div className="panel">
             <h2>{acct ? 'Get test USDC' : 'Start lending'}</h2>
-            <p style={{ color: '#BFCDC6' }}>{acct ? `${acct} has no test USDC yet.` : 'No wallet needed: we create a demo account, pay its network fees and send it 500 test USDC.'}</p>
+            <p style={{ color: '#BFCDC6' }}>{acct ? (bal ? `${acct} holds ${usd(bal)} test USDC.` : `${acct} has no test USDC yet.`) : 'No wallet needed: we create a demo account, pay its network fees and send it 500 test USDC.'}</p>
             <p style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <button type="button" className="btn btn-light" disabled={busy} onClick={start}>{busy ? 'Setting up…' : 'Get 500 test USDC'}</button>
               {!acct && <button type="button" className="btn btn-ghost" onClick={account.connectWallet}>Connect a wallet instead</button>}
@@ -128,7 +132,7 @@ export function LenderPage({ initial = null }: { initial?: LendFirstPaint | null
             <div className="form">
               <div className="field">
                 <label htmlFor="dep">Amount</label>
-                <div className="money"><input id="dep" inputMode="decimal" value={dep} onChange={(e) => setDep(e.target.value)} /><span>USDC</span></div>
+                <div className="money"><input id="dep" inputMode="decimal" value={dep} onChange={(e) => { setDepTouched(true); setDep(e.target.value); }} /><span>USDC</span></div>
                 <span className={`hint${depErr ? ' err' : ''}`}>{depErr ?? 'Shares are minted at the current share price.'}</span>
               </div>
               <TxButton tx={depTx.state} label={`Deposit ${depAmt !== null ? usd(depAmt) : ''}`} onClick={deposit} variant="light" disabled={!!depErr} />

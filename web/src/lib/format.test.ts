@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shortHash, usd, usdShort, parseUsd, absoluteDate, relativeTime, amountInWords } from './format.ts';
+import { shortHash, usd, usdShort, usdInput, parseUsd, absoluteDate, relativeTime, amountInWords } from './format.ts';
 
 test('shortHash keeps 6 + 3', () => {
   assert.equal(shortHash('8u8RsNzgxKSdhSbzSwi5qb7CGeWrk9RJWhHzVvWfZfbW'), '8u8RsN…fbW');
@@ -41,4 +41,11 @@ test('amount in words matches the note', () => {
   assert.equal(amountInWords(187.5), 'One hundred and eighty-seven US dollars and 50 cents, in USDC');
   assert.equal(usdShort('187500000'), '$187.50');
   assert.equal(usdShort('75000000'), '$75');
+});
+
+test('usdInput rounds cents down, so a default deposit never exceeds the balance (retest Nov 7: $6.99 showed 7.00)', () => {
+  assert.equal(usdInput(6_999_999n), '6.99');
+  assert.equal(usdInput(7_000_000n), '7.00');
+  assert.equal(usdInput(10_050_000n), '10.05');
+  assert.ok(parseUsd(usdInput(6_999_999n))! <= 6_999_999n);
 });

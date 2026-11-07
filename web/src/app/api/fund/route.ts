@@ -7,7 +7,8 @@
 import { NextResponse } from 'next/server';
 import { actions } from 'near-api-js';
 import { IN_ENCLAVE } from '@/lib/config';
-import { clientIp, isTestnetAccount, relayerAccount, relayerBalance, RELAYER_FLOOR, rpc } from '@/server/near';
+import { clientIp, isTestnetAccount, relayerAccount, relayerBalance, rpc } from '@/server/near';
+import { relayerBelowFloor } from '@/server/guards';
 import { provesOwnership } from '@/server/ownership';
 import { publicError, Quota } from '@/server/guards';
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
   const have = acct ? BigInt(acct.amount) - BigInt(acct.storage_usage) * 10n ** 19n : 0n;
   if (have >= NEED) return NextResponse.json({ ok: true, funded: false });
   const bal = await relayerBalance();
-  if (bal !== null && bal < RELAYER_FLOOR) return NextResponse.json({ error: 'The demo relayer is low on test NEAR. Get test NEAR from the testnet faucet.' }, { status: 503 });
+  if (relayerBelowFloor(bal)) return NextResponse.json({ error: 'The demo relayer is low on test NEAR. Get test NEAR from the testnet faucet.' }, { status: 503 });
   if (!perAccount.take(accountId)) return NextResponse.json({ error: 'Three top-ups per account per day. Get test NEAR from the testnet faucet.' }, { status: 429 });
   if (!perIp.take(clientIp(req))) return NextResponse.json({ error: 'Five top-ups per network per day. Get test NEAR from the testnet faucet.' }, { status: 429 });
   if (!daily.take('all')) return NextResponse.json({ error: 'Today\'s top-ups are used up. Get test NEAR from the testnet faucet.' }, { status: 429 });

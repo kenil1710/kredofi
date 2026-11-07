@@ -184,9 +184,9 @@ When you repay, your level goes up by one if all of these hold. The values come 
 | Hold the loan at least | 15 days (half the term) | 1 minute |
 | Borrow at least | half your limit at the time | half your limit at the time |
 | Your limit can rise at most once per | 30 days (one term) | 2 minutes (one term) |
+| Highest level | 4 | 4 |
 
 Repay before the grace period ends: after it, anyone can mark the loan as defaulted. The contract doesn't check the due date for a level-up, so a repayment during the grace period still counts, and so does one after it if nobody has marked the default yet. Don't count on that.
-| Highest level | 4 | 4 |
 
 What the app says, built from those settings:
 

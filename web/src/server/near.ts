@@ -60,8 +60,7 @@ export async function call(signer: Account, receiverId: string, method: string, 
   return { ok: true, hash };
 }
 
-/** Below this the relayer stops funding demo accounts and fee top-ups (OutLayer mode, ENCLAVE_PLAN). */
-export const RELAYER_FLOOR = 3n * 10n ** 24n;
+export { RELAYER_FLOOR } from './guards';
 let relayerCache = { at: 0, balance: null as bigint | null };
 /** The relayer's spendable NEAR (cached 60 s), or null if it can't be read. */
 export async function relayerBalance(): Promise<bigint | null> {

@@ -4,6 +4,7 @@ description = "KredoFi TEE scorer (OutLayer, wasm32-wasip2): Plaid fetch, open s
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.93"
+license = "MIT"
 publish = false
 
 [lib]

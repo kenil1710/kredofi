@@ -31,3 +31,14 @@ test('a default closes the open loan', () => {
   const h = loanHistory([issued(1, '5'), ev('loan_defaulted', 9, { principal: '100000000', lender_loss: '0' })], 'riya.t', null);
   assert.equal(h[0].state, 'Defaulted');
 });
+
+test('a defaulted loan keeps what the reserve covered and what lenders lost (audit Nov 7)', () => {
+  const ev = (event: string, data: Record<string, unknown>, ts: number) => ({ event, data: { borrower: 'max.testnet', ...data }, txHash: `h${ts}`, ts, idx: 0 }) as unknown as LedgerEvent;
+  const h = loanHistory([
+    ev('loan_issued', { due_at: '5', principal: '100000000', interest: '4000000', band: 'A', level: 1 }, 1),
+    ev('loan_defaulted', { principal: '100000000', covered_by_reserve: '100000000', lender_loss: '0' }, 2),
+  ], 'max.testnet', null);
+  assert.equal(h[0].state, 'Defaulted');
+  assert.equal(h[0].coveredByReserve, 100_000_000n);
+  assert.equal(h[0].lenderLoss, 0n);
+});

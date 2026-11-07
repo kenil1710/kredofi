@@ -11,6 +11,7 @@ export type LoanRecord = {
   state: 'Active' | 'Repaid' | 'Defaulted';
   closedMs?: number; closedHash?: string;
   leveledUp?: boolean; levelAfter?: number; toPool?: bigint; toTreasury?: bigint;
+  coveredByReserve?: bigint; lenderLoss?: bigint; // loan_defaulted
   limitAtBorrow: bigint | null;
 };
 
@@ -32,6 +33,8 @@ export function loanHistory(events: LedgerEvent[], borrower: string, current: Lo
       if (e.event === 'loan_repaid') {
         open.leveledUp = Boolean(d.leveled_up); open.levelAfter = Number(d.level);
         open.toPool = big(d.to_pool); open.toTreasury = big(d.to_treasury);
+      } else {
+        open.coveredByReserve = big(d.covered_by_reserve); open.lenderLoss = big(d.lender_loss);
       }
     }
   }

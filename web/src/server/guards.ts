@@ -29,6 +29,12 @@ export class DemoAccountBudget {
   }
 }
 
+/** Below this the relayer stops funding demo accounts and fee top-ups (OutLayer mode, ENCLAVE_PLAN). */
+export const RELAYER_FLOOR = 3n * 10n ** 24n;
+/** True when new demo accounts and top-ups must stop. An unreadable balance (null) doesn't stop them; the health
+ * watch reports it instead. */
+export const relayerBelowFloor = (balance: bigint | null) => balance !== null && balance < RELAYER_FLOOR;
+
 /**
  * One-time score challenges, per account, valid 5 minutes, consumed on use. Each requester (client IP
  * key) holds at most 5 open nonces per account and evicts only its own, so nobody can flood another

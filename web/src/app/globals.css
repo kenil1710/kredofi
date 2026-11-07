@@ -119,6 +119,7 @@ button{font-family:inherit}
 .banner nav a[aria-current]{color:var(--paper);text-decoration:underline;text-underline-offset:6px}
 .chip{border:1px solid rgba(230,234,225,.3);padding:6px 12px;border-radius:2px;font-weight:600;background:transparent;color:var(--paper);font-size:14px;min-height:44px;cursor:pointer}
 .testnet{background:var(--paper-2);border-bottom:1px solid var(--line-paper);font-size:14px;text-align:center;padding:8px 16px;color:var(--ink-soft);margin:0}
+.testnet a{color:var(--violet-ink)} /* was mint on paper, 1.39:1 (audit Nov 7) */
 @media (max-width:600px){.banner nav{order:3;flex-basis:100%}}
 
 /* Tx line + hash */
@@ -185,7 +186,16 @@ button{font-family:inherit}
 .terms dt{color:var(--ink-soft)}
 .terms dd{margin:0;font-weight:600}
 .terms dd.plain{font-weight:400}
-.level{display:flex;gap:10px;align-items:flex-end;margin-top:4px}
+.level{display:flex;gap:10px;align-items:flex-end;margin-top:4px;max-width:100%}
+.level div{min-width:0}
+.rail dd,.rail p,.entry .body p,.entry .body dd,.chain span,.panel p,.panel dd,.panel td{overflow-wrap:anywhere}
+.entry .body pre,.left-line{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
+@media (max-width:600px){
+  .entry .body{padding-right:2px}
+  .level{gap:6px}
+  .stamp{font-size:22px;padding:6px 12px;white-space:normal;max-width:100%}
+  .tally .r{flex-wrap:wrap}
+}
 .level div{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft)}
 .level i{display:block;width:100%;background:rgba(16,48,42,.12);transition:background-color .6s}
 .level div.on i{background:var(--violet-ink)}
@@ -268,9 +278,10 @@ button{font-family:inherit}
 
 /* Intents stepper (DESIGN 3 Lender: "From another chain") */
 .steps{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column}
-.steps li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:14px;padding:12px 0;border-top:1px solid var(--line-night);opacity:.55}
-.steps li.now,.steps li.done{opacity:1}
-.steps li.skip{opacity:.7}
+.steps li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:14px;padding:12px 0;border-top:1px solid var(--line-night)}
+/* Steps not reached yet: dim the dot and the heading only, so their text keeps its contrast (audit Nov 7: 2.85:1). */
+.steps li:not(.now):not(.done) > b{opacity:.55}
+.steps li:not(.now):not(.done) h3{color:var(--muted)}
 .steps li > b{width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(230,234,225,.4);margin-top:5px}
 .steps li.now > b{border-color:var(--mint);box-shadow:inset 0 0 0 3px var(--deep);background:var(--mint)}
 .steps li.done > b{background:var(--mint);border-color:var(--mint)}
@@ -378,6 +389,10 @@ button{font-family:inherit}
 .enc + .sandbox-banner,.entry .sandbox-banner{margin-top:12px}
 .connect-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-top:6px}
 .trust{max-width:860px;padding-block:40px 96px}
+
+/* Skip link (components/SkipLink.tsx): hidden until focused */
+.skip{position:fixed;left:12px;top:-60px;z-index:200;background:var(--paper);color:var(--ink);padding:10px 16px;border:2px solid var(--violet-ink);font-weight:600;text-decoration:none}
+.skip:focus{top:12px}
 
 /* Verify my score (components/VerifyScore.tsx) */
 .verify-score{margin:14px 0 4px;max-width:560px}

@@ -63,3 +63,10 @@ test('a relayed transaction whose inner call failed is a failure', () => {
   assert.equal(outcomeFailure(meta), 'Above the per-borrower share of the pool');
   assert.equal(outcomeFailure({ status: { SuccessValue: '' }, receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }] }), null);
 });
+
+test('withTimeout: a stalled step fails with its message instead of spinning forever (audit Nov 7)', async () => {
+  const { withTimeout, OFFLINE_NOT_SENT } = await import('./tx.ts');
+  await assert.rejects(withTimeout(new Promise(() => {}), 20, OFFLINE_NOT_SENT), { message: OFFLINE_NOT_SENT });
+  assert.equal(await withTimeout(Promise.resolve(7), 1000, 'x'), 7);
+  assert.equal(classifyError(new Error(OFFLINE_NOT_SENT)).message, OFFLINE_NOT_SENT);
+});

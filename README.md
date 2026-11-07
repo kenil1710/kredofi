@@ -178,7 +178,7 @@ Checking the code doesn't cover the people holding keys. Today most of them are 
 
 ## Mainnet transaction log
 
-All on `kredofi.near`, Nov 1–4, 2026:
+All on `kredofi.near`, Nov 1–7, 2026:
 - Deployed in OutLayer mode: [tx Ags89jDR…](https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp); upgraded with a state migration: [tx 5fqzZSKC…](https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34).
 - A real score computed inside OutLayer and stored by `on_score` (band A, 1000, scorer `87ceab66…`), unused fee refunded to the borrower: [tx 4dgHrA97…](https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu).
 - Nov 2: re-pinned to the reproducible build `7048cc92…` (OutLayer version [tx 3MKpCgQs…](https://nearblocks.io/txns/3MKpCgQsJeXYF8zMK5yVnWfdckFBW3YToGirX4ZznCqs), secrets lock [tx CCE14Fyq…](https://nearblocks.io/txns/CCE14Fyq76Xhhh6yPzRCv8zhF4gQfXLi9n431f31dNLi), contract pin [tx AtYo7XWz…](https://nearblocks.io/txns/AtYo7XWz4Y4h655hm7N8YPSmMX4kxo8exzCM47GjJRZn)) and scored again inside OutLayer with it (band A, 1000, 7.6 s): [tx CNsoyGSj…](https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7).
