@@ -4,10 +4,15 @@
 // page misleads, so a summary with any digit or number word is not shown. Pure, unit-tested.
 const NUMBERS = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|once|twice|half|dozen|hundred|thousand)\b/i;
 
-export function usableSummary(text: unknown): string | null {
+// Audit Nov 7: models praised band D borrowers ("a solid income and payment history"). For bands C and D a
+// summary with praise words is not shown; the tally above it already says what scored well.
+const PRAISE = /\b(solid|strong|excellent|great|healthy|impressive|responsible|well done|good job|doing well|everything right)\b/i;
+
+export function usableSummary(text: unknown, band?: string): string | null {
   if (typeof text !== 'string') return null;
   const t = text.trim();
   if (!t || t.length > 400 || NUMBERS.test(t)) return null;
+  if ((band === 'C' || band === 'D') && PRAISE.test(t)) return null;
   return t;
 }
 
@@ -43,7 +48,7 @@ export function summaryRequest(band: string, parts: RuleParts, model = SUMMARY_M
   return {
     model,
     messages: [
-      { role: 'system', content: '/no_think You explain a credit result to the borrower in exactly two short, plain, kind sentences: why this band, and the one change that would help most. Do not write any numbers or number words; only the band letter. No advice beyond the rules given.' },
+      { role: 'system', content: '/no_think You explain a credit result to the borrower in exactly two short, plain, kind sentences: why this band, and the one change that would help most. Never praise a rule that got some points or no points. For band C or D, start with the main reason the band is low and do not call anything solid, strong or good. Do not write any numbers or number words; only the band letter. No advice beyond the rules given.' },
       { role: 'user', content: facts },
     ],
     max_tokens: 120,
@@ -53,11 +58,11 @@ export function summaryRequest(band: string, parts: RuleParts, model = SUMMARY_M
 }
 
 /** The model's text, cleaned (no reasoning tags, one line), then the same filter as the page. */
-export function parseSummary(v: unknown): string | null {
+export function parseSummary(v: unknown, band?: string): string | null {
   const raw = (v as { choices?: { message?: { content?: unknown } }[] })?.choices?.[0]?.message?.content;
   if (typeof raw !== 'string') return null;
   const i = raw.lastIndexOf('</think>');
   const text = (i >= 0 ? raw.slice(i + 8) : raw).split(/\s+/).filter(Boolean).join(' ');
   if (text.includes('<think>')) return null;
-  return usableSummary(text);
+  return usableSummary(text, band);
 }

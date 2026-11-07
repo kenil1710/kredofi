@@ -336,7 +336,8 @@ export function Landing() {
       navTick();
       const jp = REDUCE ? 1 : progressOf(journey); jpS = lerp(jpS, jp, 0.12);
       const p = jpS;
-      const heroOut = ease3(clamp((p - 0.02) / 0.16));
+      // Reduced motion: every section is laid out in the flow, so the hero stays shown (audit Nov 7: it was faded out).
+      const heroOut = REDUCE ? 0 : ease3(clamp((p - 0.02) / 0.16));
       heroCopy.style.opacity = (1 - heroOut).toFixed(3);
       heroCopy.style.transform = `translateY(${(-heroOut * 60).toFixed(1)}px)`;
       heroCopy.style.visibility = heroOut > 0.99 ? 'hidden' : 'visible';

@@ -51,7 +51,7 @@ Planned, not built: a licensed lending partner makes the loans, the pool is capp
 const T_CONTRACT = NETWORK === 'testnet' ? KREDOFI_CONTRACT : 'kredofi.kency.testnet';
 const MAINNET_SCORER = '5175182a13e3f3a8b737a8730524ca6f4a98575765784a0a4977fdf4151fa7ce';
 const TESTNET_SCORER = ENC ? '96666cdf840746c062738e6e74af5ab46eacd8bc40c60ccb43d9d638ac17bcfc' : 'ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9';
-const TESTNET_WASM = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fa82707fd3a3d8a27513b8ab397d6ccb43aafe5f/kredofi_scorer_testnet.wasm';
+const TESTNET_WASM = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/9fdaaea69a4cc017048496a0c5e2b05903c6b02d/kredofi_scorer_testnet.wasm';
 const TESTNET_PIN_NOTE = ENC
   ? 'The contract pins it in every OutLayer request, like mainnet. The file is public: `curl -sL ' + TESTNET_WASM + ' | shasum -a 256` prints the same hash.'
   : "The server refuses to score if its WASM's hash differs from the pinned one.";
@@ -383,7 +383,7 @@ cargo install --git https://github.com/out-layer/outlayer-verify outlayer-verify
 outlayer-verify tx 9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm --api https://api.outlayer.ai
 \`\`\`
 
-Expected: \`PROVEN\`, exit code 0, \`wasm sha256 5175182a…\`. (The \`--api\` flag is needed for now: the tool's default address is retired. For a testnet score add \`--network testnet --api https://testnet-api.outlayer.ai\`.) It checks that the quote chains to Intel, that all five measurements are on the approved list of \`worker.outlayer.near\`, that the quote commits to the scorer hash, input and output, and that those match the bytes in the transaction. A saved copy is in the repository: \`outlayer-verify bundle docs/proofs/mainnet-score-2026-11-03.attestation.json --offline\`.
+Expected: \`PROVEN\`, exit code 0, \`wasm sha256 5175182a…\`. (The \`--api\` flag is needed for now: the tool's default address is retired. For a testnet score add \`--network testnet --api https://testnet-api.outlayer.ai\`.) It checks that the quote chains to Intel, that all five measurements are on the approved list of \`worker.outlayer.near\`, that the quote commits to the scorer hash, input and output, and that those match the bytes in the transaction. A saved copy is in the repository: \`outlayer-verify bundle docs/proofs/mainnet-score-2026-11-07.attestation.json --offline\`.
 
 **What it doesn't prove:** that the enclave deletes the data after the run, or that the approved enclave image is good. OutLayer controls that approved list, and the image isn't linked to published source by this check. The attestation record comes from OutLayer's API, although the quote inside it is Intel-signed.
 

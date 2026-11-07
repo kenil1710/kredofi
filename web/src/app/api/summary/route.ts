@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         signal: AbortSignal.timeout(ms),
       });
       if (!r.ok) continue;
-      const summary = parseSummary(await r.json());
+      const summary = parseSummary(await r.json(), ok.band);
       if (summary) return NextResponse.json({ summary, by: model });
     } catch { /* timeout or network: next model */ }
   }

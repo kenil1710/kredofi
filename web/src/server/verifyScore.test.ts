@@ -63,3 +63,16 @@ test('the child gets the arguments without a shell and none of the server secret
   assert.ok(text.includes('--network\ntestnet\n--api\nhttps://testnet-api.outlayer.ai'));
   assert.throws(() => readFileSync(join(dir, 'pwned')));
 });
+
+test('a failure before the run starts never leaks a slot (audit Nov 7, F3)', async () => {
+  const saved = process.env.TMPDIR;
+  process.env.TMPDIR = join(dir, 'no-such-folder', 'x');
+  try {
+    for (let i = 0; i < 3; i++) {
+      const r = await runVerifier(`tmp-fail-${i}`, 'testnet', { bin: fake('never', 'exit 0') });
+      assert.equal(r.exitCode, null);
+      assert.notEqual(r.busy, true, 'slots leaked');
+    }
+  } finally { process.env.TMPDIR = saved; }
+  assert.equal((await runVerifier('tmp-ok', 'testnet', { bin: fake('ok3', `echo '${BUNDLE}' > "$last"`) })).exitCode, 0);
+});

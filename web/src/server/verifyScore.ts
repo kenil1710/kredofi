@@ -28,8 +28,9 @@ export async function runVerifier(tx: string, network: 'testnet' | 'mainnet', op
   if (hit && now - hit.at < CACHE_MS) return hit.run;
   if (running >= MAX_RUNNING) return { exitCode: null, busy: true };
   running++;
-  const dir = await mkdtemp(/* turbopackIgnore: true */ join(tmpdir(), 'kf-verify-'));
+  let dir = '';
   try {
+    dir = await mkdtemp(/* turbopackIgnore: true */ join(tmpdir(), 'kf-verify-'));
     const file = join(/* turbopackIgnore: true */ dir, 'bundle.json');
     const args = ['tx', tx, '--network', network, '--api', API[network], '--json', '--no-color', '--bundle', file];
     const bin = opts.bin ?? process.env.OUTLAYER_VERIFY ?? 'outlayer-verify';
@@ -47,8 +48,10 @@ export async function runVerifier(tx: string, network: 'testnet' | 'mainnet', op
       passed.set(tx, { at: now, run }); // the on-chain comparison still runs on every request
     }
     return run;
+  } catch {
+    return { exitCode: null }; // e.g. no temp folder: "can't verify right now"
   } finally {
-    running--;
-    await rm(/* turbopackIgnore: true */ dir, { recursive: true, force: true }).catch(() => {});
+    running--; // always released, also when the temp folder could not be made
+    if (dir) await rm(/* turbopackIgnore: true */ dir, { recursive: true, force: true }).catch(() => {});
   }
 }

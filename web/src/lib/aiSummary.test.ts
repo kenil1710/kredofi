@@ -34,3 +34,17 @@ test('the summary request carries only the band and rule results in words', asyn
   assert.equal(parseSummary({ choices: [{ message: { content: 'Paid in 4 months.' } }] }), null);
   assert.equal(parseSummary({}), null);
 });
+
+test('no praise for bands C and D, or after a default (audit Nov 7)', async () => {
+  const { summaryRequest, parseSummary } = await import('./aiSummary.ts');
+  const praise = ['Your score reflects a solid income and payment history.', 'It reflects strong savings and steady income.', 'You are already doing everything right.'];
+  for (const p of praise) {
+    assert.equal(usableSummary(p, 'D'), null, p);
+    assert.equal(usableSummary(p, 'C'), null, p);
+    assert.equal(usableSummary(p, 'A'), p);
+  }
+  const plain = 'Band D, because income was missing in some months and fees were charged. Avoiding overdraft fees would help most.';
+  assert.equal(usableSummary(plain, 'D'), plain);
+  assert.equal(parseSummary({ choices: [{ message: { content: praise[0] } }] }, 'D'), null);
+  assert.match(summaryRequest('D', { income: 40, stability: 0, payment: 10, cash_flow: 0, buffer: 0 }).messages[0].content, /Never praise a rule that got some points or no points/);
+});

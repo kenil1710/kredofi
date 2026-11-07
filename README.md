@@ -96,9 +96,11 @@ Rules (SPEC 6): income level (250 points), steady income (250), on-time payments
 Needs Rust via rustup (the repo's `rust-toolchain.toml` installs 1.93.0 and the wasm target on first use), Node 22 and Python 3. The first `cargo test` downloads the NEAR sandbox node and builds the contracts (about 5 to 10 minutes).
 
 ```bash
+./scripts/test_all.sh                    # everything below plus the offline script tests, in one command (about 25 min the first time)
+
 cargo test --workspace                   # contracts: 169 unit + 3 mock-usdc + 17 partner-vault + 50 near-workspaces sandbox tests
 (cd scorer && cargo test)                # scorer: 40 tests (reproduces the SPEC 6 table: Riya 1000/A, Sam 270/D, Max 1000/A)
-(cd web && npm install && npm test)      # web: 98 tests (incl. a check that every docs link works)
+(cd web && npm install && npm test)      # web: 123 tests (incl. a check that every docs link works)
 (cd scripts && npm install && node --test seal.test.mjs)   # JS and Rust seal compatibility (1 of 3 skips without the partner key)
 ```
 

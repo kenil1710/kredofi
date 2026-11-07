@@ -23,7 +23,7 @@ const PAGES = {
     absent: ['Lenders see a band', 'the only score that goes on-chain', 'on time and your next note'],
     patterns: [/Income level 250/, /Money left over 150/, /Score 1000/, /Riya 1000/, /Sam 270/],
   },
-  '/trust': { literal: ['Why is this safe?', 'The 7 November mainnet run', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm'] },
+  '/trust': { literal: ['Why is this safe?', 'The 7 November mainnet run', 'Everything that went on-chain for one real testnet enclave score', 'HoLog3yaJvbEKfXyqHDP4cRAmcqpxTApkBNbEMdapwjC', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm'] },
   '/mainnet': {
     literal: ['What kredofi.near runs, right now.', 'Contract version', 'Pinned scorer', 'Pending scorer change', 'Deposits locked', 'Locked until real bank data', 'TDX attestation of the newest score', 'outlayer-verify tx 9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', 'Check it yourself'],
     patterns: [/Contract version v\d+ .*?\b[0-9a-f]{64}\b/, /Pinned scorer [0-9a-f]{64}\b/, /Pending scorer change ([0-9a-f]{64} (applies at|can be applied now)|none \(time lock)/, /Read at \d+ \w+ \d{4}, \d\d:\d\d UTC|last read at|recorded on/],

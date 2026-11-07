@@ -374,7 +374,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       for (let attempt = 0; attempt < 2 && alive && !text; attempt++) {
         try {
           const r = await fetch('/api/summary', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acct, band, parts }), signal: AbortSignal.timeout(30_000) });
-          if (r.status === 200) { const jj = await r.json(); text = usableSummary(jj.summary); by = typeof jj.by === 'string' ? jj.by : undefined; }
+          if (r.status === 200) { const jj = await r.json(); text = usableSummary(jj.summary, sc?.band); by = typeof jj.by === 'string' ? jj.by : undefined; }
           else if (r.status === 204 || r.status === 400) break;
         } catch { /* timeout or network: one retry */ }
       }
@@ -385,7 +385,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acct, fp, band, parts]);
-  const summaryText = usableSummary(extra?.summary) ?? (summary?.fp === fp ? summary?.text ?? null : null);
+  const summaryText = usableSummary(extra?.summary, sc?.band) ?? (summary?.fp === fp ? usableSummary(summary?.text, sc?.band) : null);
   const summaryLoading = !summaryText && summary?.fp === fp && !!summary?.loading;
   const unlockWithWallet = async () => {
     if (!acct) return;
@@ -692,7 +692,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                   )
                 )}
               </div>
-              {summaryText ? (
+              {summaryText && !(b?.blocked) ? (
                 <div className="change ai-summary">
                   <h3>In plain words</h3>
                   <p>{summaryText}</p>
@@ -714,7 +714,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
               ) : (
                 <p>Band {sc.band}, level {b?.level}. You can borrow up to {usd(limit)} today. Only the line in &ldquo;{LEFT_TITLE}&rdquo; is on-chain.</p>
               )}
-              {IN_ENCLAVE && scoreHash && acct && !scoring && <VerifyScore key={scoreHash} accountId={acct} txHash={scoreHash} />}
+              {IN_ENCLAVE && scoreHash && acct && (!scoring || scoring.step === 'sealed') && <VerifyScore key={scoreHash} accountId={acct} txHash={scoreHash} />}
             </Entry>
           )}
 

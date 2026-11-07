@@ -58,3 +58,12 @@ test('the headline, receipt note, /trust and scripts name no transaction count',
   const sealed = Buffer.from(JSON.parse(RECEIPT_RAW).reply, 'base64');
   assert.ok(sealed.length - 32 - 16 < 100);
 });
+
+test('reduced motion keeps the hero in the page flow, above the enclave (audit Nov 7)', () => {
+  const css = readFileSync(new URL('../app/landing.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(block, /\.lp \.hero-copy\{position:relative;min-height:100vh/);
+  assert.match(block, /\.lp \.enclave\{position:relative/);
+  const landing = readFileSync(new URL('../components/Landing.tsx', import.meta.url), 'utf8');
+  assert.match(landing, /const heroOut = REDUCE \? 0 :/, 'the scroll loop must not fade the hero out under reduced motion');
+});

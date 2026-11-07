@@ -10,7 +10,7 @@ One change from the PLAN wording: the complete loop uses the real bank connectio
 2. **Max, 4 minutes before recording** (his default needs the 2-minute term plus 1-minute grace): in window B, **Use Max**, wait for the note, click **Borrow $100.00**. Leave the tab open.
 3. Window A: open the landing page and let it load once (so the intro animation is cached), then reload.
 4. Have a third tab ready on the public ledger: https://kredofi.xyz/ledger
-5. Tab 4: https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7 (receipts expanded). Tab 5: a clean terminal, 24 pt font, with the `curl … | shasum -a 256` command from https://kredofi.xyz/docs/verify typed in.
+5. Tab 4: https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm (receipts expanded). Tab 5: a clean terminal, 24 pt font, with the `curl … | shasum -a 256` command from https://kredofi.xyz/docs/verify typed in.
 
 ## Script
 
@@ -22,9 +22,9 @@ The first 30 seconds are the privacy proof (the enclave and how to check it); th
 | 0:06-0:14 | Scroll once: the camera dives into "Inside the enclave (mainnet)"; the tally counts to 1000 and stamps BAND A. | "On mainnet a pinned scorer fetches up to two years of history, uses the last six full months, inside a sealed enclave, Intel TDX, and puts eight fields on NEAR: a band and limit, a keyed fingerprint, sealed data, nothing raw." |
 | 0:14-0:22 | Tab 4: the real mainnet score on nearblocks, [tx 9w6qBWdV…](https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm). Zoom on the receipts: `request_score` -> `outlayer.near`, the log with version `5175182a…`, then `score_issued`, band A. | "This is a real mainnet score. The contract asked OutLayer for one exact program, by its hash, and accepted the answer only in its own callback." |
 | 0:22-0:30 | Tab 5: a terminal with one command in large type, `curl -sL <pinned WASM URL from /docs/verify> \| shasum -a 256`, printing `5175182a…`; cut to the /ledger Verify panel. | "Anyone can download that program and check the hash. Now the first use, a loan, live on testnet." |
-| 0:30-0:36 | Window A: **Check my limit**, then **Connect your bank (sandbox)**. Plaid opens. | "This demo is testnet: Plaid's sandbox bank, test money, and the same rules running on our server instead of the enclave. No wallet needed." |
+| 0:30-0:36 | Window A: **Check my limit**, then **Connect your bank (sandbox)**. Plaid opens. | "This demo is testnet: Plaid's sandbox bank and test money, scored in the same kind of enclave, OutLayer's testnet. No wallet needed." |
 | 0:36-0:46 | In Plaid: **Continue without phone number**, search **First Platypus**, pick **First Platypus Bank**, `user_good` / `pass_good`, **Submit**, **Continue**, **Finish without saving**. (2x speed.) | "Plaid hands back a one-time token. The scorer uses it once and removes the bank connection." |
-| 0:46-0:57 | "Limit checked in N s", the receipt line, the credit note stamped **BAND B, $75**, the five rule rows. | "Every transaction goes in. Five published rules, one line out, and it keeps none of them." |
+| 0:46-0:57 | "Limit checked in N s", the "What left the enclave" line, the credit note stamped **BAND B, $75**, the five rule rows. | "Every transaction goes in. Five published rules, one line out, and it keeps none of them." |
 | 0:57-1:02 | Point at the right rail, "What left the scorer": band, score, fingerprint, sealed_identity. | "This line is all that went on-chain: a band, a keyed fingerprint so one bank backs one borrower, and a sealed name." |
 | 1:02-1:11 | **Borrow $75.00**; "Loan issued" with the countdown. **Repay $79.50**; Repaid and the PAID stamp. | "Borrow, repay, and your limit grows." |
 | 1:11-1:15 | Click the transaction link under Repaid; testnet.nearblocks.io opens. | "Every step is a real NEAR transaction." |
@@ -38,4 +38,3 @@ The first 30 seconds are the privacy proof (the enclave and how to check it); th
 - On mainnet the same scorer runs inside Intel TDX through OutLayer ([tx 9w6qBWdV…](https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm), with a sealed bank token; live view at https://kredofi.xyz/mainnet). Say "testnet" once on camera; the banner on every app screen says it too.
 - If scoring takes longer than 20 s, cut the wait in editing and keep the "Limit checked in N s" title visible.
 - Don't show `.env`, other terminal windows, the Cloudflare or Hugging Face settings. The only terminal on camera is the one-command hash check.
-- If the testnet demo moves into OutLayer (docs/ENCLAVE_PLAN.md), change the 0:30 line to "the same enclave, with test money" and the rail title back to "What left the enclave".

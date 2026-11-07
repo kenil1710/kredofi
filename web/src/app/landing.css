@@ -237,6 +237,7 @@ html.lenis,html.lenis body{height:auto}
   .lp .grain,.lp .cue i{animation:none}
   #oneline .track{animation:none}#oneline .pause{display:none}
   #journey{height:auto}.lp .stage{position:relative;height:auto;min-height:100vh}
+  .lp .hero-copy{position:relative;min-height:100vh;min-height:100svh}/* in the flow, so the enclave below can't cover it (audit Nov 7) */
   .lp .enclave{position:relative;opacity:1;padding-block:80px}
   .lp .tally .lstamp{opacity:1;transform:rotate(-8deg)}
   #statement{height:auto;padding-block:120px}#statement .pin{position:static;height:auto}#statement p .w{opacity:1}

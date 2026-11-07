@@ -6,6 +6,11 @@ import { AppFooter } from '@/components/AppFooter';
 import { GuillocheStrip } from '@/components/GuillocheStrip';
 import { SandboxBanner } from '@/components/SandboxBanner';
 import { IN_ENCLAVE, NETWORK } from '@/lib/config';
+import { RECEIPT_RAW, RECEIPT_TX_URL } from '@/lib/proofFacts';
+
+// A real testnet enclave receipt (lib/proofFacts.ts, tested), shortened for the page.
+const R = JSON.parse(RECEIPT_RAW) as { band: string; score: number; income_cap: number; fingerprint: string; sealed_identity: string; v: number };
+const cut = (s: string, a: number, b = 0) => `${s.slice(0, a)}…${b ? s.slice(-b) : ''}`;
 
 const CAVEAT = 'Two honest limits: the developer holds the sealing key, and nobody outside can verify the data is deleted when the run ends.';
 
@@ -36,15 +41,15 @@ export default function Trust() {
 
           <h2 id="what-leaves">What leaves</h2>
           <p>Eight fields and nothing else: <code>v</code>, <code>caller</code>, <code>band</code>, <code>score</code>, <code>income_cap</code> (the most your limit can be: one of five buckets, which puts your income in a wide public range), <code>fingerprint</code>, <code>sealed_identity</code> (your name, sealed) and <code>reply</code> (your rule results, sealed to your browser). The chain never sees the raw data, and nobody outside can verify the enclave deletes it when the run ends. Today the developer holds the sealing key (production would make it inside the enclave).</p>
-          <p><b>Public to everyone, linked to your NEAR account:</b> your band, score, income bucket and bank fingerprint, plus your loans and default status.{IN_ENCLAVE ? '' : ' A real receipt from this demo:'}</p>
-          <p>And everything that went on-chain for that score:</p>
+          <p><b>Public to everyone, linked to your NEAR account:</b> your band, score, income bucket and bank fingerprint, plus your loans and default status.</p>
+          <p>Everything that went on-chain for one real testnet enclave score (<a href={RECEIPT_TX_URL} target="_blank" rel="noreferrer">transaction</a>):</p>
           <pre className="doc-code"><code>{`{
-  "band": "B",
-  "score": 720,
-  "income_cap": 250000000,        // $250, the most your limit can be
-  "fingerprint": "7be4d3a3…2cd5", // one bank identity, one borrower
-  "sealed_identity": "KbZjE5/i…", // your name, encrypted
-  "v": 1
+  "band": "${R.band}",
+  "score": ${R.score},
+  "income_cap": ${R.income_cap},        // $${R.income_cap / 1e6}, the most your limit can be
+  "fingerprint": "${cut(R.fingerprint, 8, 4)}", // one bank identity, one borrower
+  "sealed_identity": "${cut(R.sealed_identity, 8)}", // your name, encrypted
+  "v": ${R.v}
   // plus "caller" (your account) and "reply" (rule results, sealed to your browser)
 }`}</code></pre>
           <p>No transactions, balances, account numbers or names. The bank connection is removed after one fetch. <Link href="/docs/privacy">Privacy &amp; the enclave</Link></p>

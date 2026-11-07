@@ -58,3 +58,10 @@ test('the trust table in the README matches /trust and /docs/security', () => {
   for (const r of TRUST_ROWS) assert.ok(readme.includes(`| ${r.what} | ${r.holder} | ${r.misuse} | ${r.pilot} |`), r.what);
   assert.ok(docBySlug('security')!.body.includes(TRUST_ROWS[2].misuse));
 });
+
+test('verify page: testnet wasm URL is the pinned build and the saved bundle is the Nov 7 run (audit Nov 7)', () => {
+  const v = docBySlug('verify')!.body;
+  const src = readFileSync(join(import.meta.dirname, 'pages.ts'), 'utf8'); // the URL shows only in OutLayer mode
+  assert.ok(src.includes('9fdaaea69a4cc017048496a0c5e2b05903c6b02d') && !src.includes('fa82707f'));
+  assert.ok(v.includes('mainnet-score-2026-11-07.attestation.json') && !v.includes('bundle docs/proofs/mainnet-score-2026-11-03'));
+});
