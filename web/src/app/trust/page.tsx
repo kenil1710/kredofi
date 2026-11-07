@@ -41,7 +41,7 @@ export default function Trust() {
 
           <h2 id="what-leaves">What leaves</h2>
           <p>Eight fields and nothing else: <code>v</code>, <code>caller</code>, <code>band</code>, <code>score</code>, <code>income_cap</code> (the most your limit can be: one of five buckets, which puts your income in a wide public range), <code>fingerprint</code>, <code>sealed_identity</code> (your name, sealed) and <code>reply</code> (your rule results, sealed to your browser). The chain never sees the raw data, and nobody outside can verify the enclave deletes it when the run ends. Today the developer holds the sealing key (production would make it inside the enclave).</p>
-          <p><b>Public to everyone, linked to your NEAR account:</b> your band, score, income bucket and bank fingerprint, plus your loans and default status.</p>
+          <p><b>Public to everyone, linked to your NEAR account:</b> your band, score, income bucket and bank fingerprint, plus your loans and default status. <Link href="/docs/privacy#what-leaves-the-scorer">Exactly what&apos;s public →</Link></p>
           <p>Everything that went on-chain for one real testnet enclave score (<a href={RECEIPT_TX_URL} target="_blank" rel="noreferrer">transaction</a>):</p>
           <pre className="doc-code"><code>{`{
   "band": "${R.band}",

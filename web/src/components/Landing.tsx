@@ -32,6 +32,8 @@ const FV = [250, 250, 250, 150, 100];
 const MONTHS = ['October', 'September', 'August', 'July', 'June', 'May'];
 // Hero copy per network (SPEC 2: never claim more privacy than the network the visitor uses gives).
 // Eyebrow, a two-line lede, buttons, and one small line; the details live in the sections below and on /trust.
+/** The docs section listing all eight on-chain fields (linked from "How to check a note" and /trust, not the hero). */
+export const FIELDS_LINK = '/docs/privacy#what-leaves-the-scorer';
 export const HERO_EYEBROW = 'No-collateral USDC loans on NEAR';
 export const HERO_LEDE = IN_ENCLAVE
   ? 'A sealed enclave scores your bank history. Only your band, your score and a few sealed fields reach NEAR.'
@@ -495,6 +497,7 @@ export function Landing() {
                 <h2 id="check-h">How to check a KredoFi note</h2>
                 <p className="intro">Central banks print money with details that are hard to fake. We built every loan the same way. Keep scrolling, or hover the note to look through the loupe.</p>
                 <ol className="feats">{FEATS.map(([h, t]) => <li key={h}><h3>{h}</h3><div className="body"><p>{t}</p></div></li>)}</ol>
+                <p className="fields-link"><Link href={FIELDS_LINK}>Exactly what&apos;s public →</Link> The full list of what goes on-chain.</p>
               </div>
               <div>
                 <div className="viewer">

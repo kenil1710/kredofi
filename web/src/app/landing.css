@@ -108,6 +108,8 @@ html.lenis,html.lenis body{height:auto}
 #check .grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);gap:56px;align-items:center;width:100%}
 #check h2{font-size:clamp(40px,4.6vw,66px);line-height:1}
 #check .intro{font-size:17px;color:#2C4A41;margin-top:18px;max-width:420px}
+#check .fields-link{margin-top:20px;font-size:15px;color:#2C4A41}
+#check .fields-link a{font-weight:600;color:var(--violet-ink);text-decoration:underline;text-underline-offset:3px;margin-right:6px}
 .lp .feats{list-style:none;margin:36px 0 0;padding:0;border-top:1px solid var(--line-paper)}
 .lp .feats li{border-bottom:1px solid var(--line-paper);padding:16px 0 16px 18px;position:relative;opacity:.38;transition:opacity .35s ease}
 .lp .feats li::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:3px;background:var(--violet-ink);transform:scaleY(0);transform-origin:top;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
