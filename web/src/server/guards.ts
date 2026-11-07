@@ -67,20 +67,21 @@ export class ChallengeStore {
 
 /**
  * Test-USDC faucet budget (audit M2). Each call costs the relayer storage (0.00125 NEAR for a new
- * account) and gas, so: 10 calls per IP per hour, 3 lender grants ($500) per IP per day, and at most
+ * account) and gas, so: 10 calls per IP per hour, 10 lender grants ($500) per IP per hour (3 per day until Nov 7; raised for
+ * judges on shared Wi-Fi), and at most
  * 300 calls and 60 lender grants a day in total. The account must also exist on chain (checked by
  * the route), so random implicit ids are refused.
  */
 export class FaucetBudget {
   private perIp = new Quota(10, 3_600_000);
-  private lendPerIp = new Quota(3, 86_400_000);
+  private lendPerIp = new Quota(10, 3_600_000);
   private all = new Quota(300, 86_400_000);
   private lendAll = new Quota(60, 86_400_000);
 
   /** null when allowed (and counted), otherwise the refusal message. */
   check(ip: string, lend: boolean, now = Date.now()): string | null {
     if (!this.perIp.take(ip, now)) return 'Too many test USDC requests from this network. Try again in an hour.';
-    if (lend && !this.lendPerIp.take(ip, now)) return 'This network already received test USDC for lending today.';
+    if (lend && !this.lendPerIp.take(ip, now)) return 'Ten lender test-USDC grants per hour from one network. Try again in an hour.';
     if (!this.all.take('all', now) || (lend && !this.lendAll.take('all', now))) return 'The test USDC faucet reached its daily limit. Try again tomorrow.';
     return null;
   }

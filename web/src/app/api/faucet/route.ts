@@ -1,7 +1,7 @@
 // POST /api/faucet {accountId, purpose?}: register the account with mock USDC (relayer pays storage,
 // SPEC 7 rule 11) and top it up: $10 for borrowers (interest), or $500 once per account for lenders
 // ("Get 500 test USDC", SPEC 8a). Testnet only. Budget (audit M2): the account must exist on chain,
-// 10 calls per IP per hour, 3 lender grants per IP per day, 300 calls / 60 grants a day in total.
+// 10 calls per IP per hour, 10 lender grants per IP per hour, 300 calls / 60 grants a day in total.
 import { NextResponse } from 'next/server';
 import { accountExists, clientIp, fundTestUsdc, isTestnetAccount, rateLimited, viewUsdc } from '@/server/near';
 import { FaucetBudget, publicError } from '@/server/guards';

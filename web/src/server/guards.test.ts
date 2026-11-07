@@ -41,8 +41,13 @@ test('faucet budget: per IP, lender grants, daily total (audit M2)', () => {
   const f = new FaucetBudget();
   for (let i = 0; i < 10; i++) assert.equal(f.check('1.1.1.1', false, 0), null);
   assert.match(f.check('1.1.1.1', false, 0)!, /Too many/);
-  for (let i = 0; i < 3; i++) assert.equal(f.check('2.2.2.2', true, 0), null);
-  assert.match(f.check('2.2.2.2', true, 0)!, /lending today/);
+  for (let i = 0; i < 10; i++) assert.equal(f.check('2.2.2.2', true, 0), null);
+  assert.match(f.check('2.2.2.2', true, 0)!, /Too many|Ten lender/); // the 10 calls/hour cap counts grants too
+  assert.equal(f.check('2.2.2.2', true, 3_600_001), null, 'next hour');
+  const h = new FaucetBudget();
+  let grants = 0;
+  for (let i = 0; i < 70; i++) if (!h.check(`10.1.0.${i}`, true, 0)) grants++;
+  assert.equal(grants, 60, '60 lender grants a day in total, unchanged');
   const g = new FaucetBudget();
   let refused = 0;
   for (let i = 0; i < 400; i++) if (g.check(`10.0.${i >> 8}.${i & 255}`, false, 0)) refused++;
