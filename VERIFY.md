@@ -79,6 +79,8 @@ outlayer-verify tx 9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm --api https://ap
 
 Expected: `PROVEN`, exit code 0, `wasm sha256 5175182a…`, `task 1301269`. The `--api` flag is needed for now: the tool's default address is retired. For a testnet score, add `--network testnet --api https://testnet-api.outlayer.ai` (we checked `Fp1ud4Vy…` and `2S18xg8W…`).
 
+For your own testnet score, the passbook's **Verify my score** button runs this verifier on our server and compares the signed run with your on-chain score (`web/src/lib/verifyScore.ts`). That answer comes from our server; the command is what relies on nobody.
+
 Offline, from the saved evidence: `outlayer-verify bundle docs/proofs/mainnet-score-2026-11-07.attestation.json --offline`. The Nov 3 score (`6888c15e…`, task 1257953) keeps its own evidence: `docs/proofs/mainnet-score-2026-11-03.attestation.json`.
 
 It checks four things: the quote chains to the Intel root and the hardware is up to date; all five measurements (MRTD, RTMR0-3) are on the approved list of `worker.outlayer.near`; the quote commits to the scorer hash, input and output; those match the bytes in the transaction. See the [approved list](https://app.outlayer.ai/docs/trust-verification) with `near contract call-function as-read-only worker.outlayer.near get_approved_measurements json-args '{}' network-config mainnet now`.

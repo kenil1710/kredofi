@@ -27,6 +27,7 @@ import { PART_KEYS, PART_NAMES, reason, whatWouldChange, type Parts } from '@/li
 import { primaryAction } from '@/lib/primaryAction';
 import { usableSummary } from '@/lib/aiSummary';
 import { openWithAny, rememberSecret } from '@/lib/replyKey';
+import { VerifyScore } from '@/components/VerifyScore';
 import { durationWords, levelPlan, levelRuleText, limitAt, mmss, noLevelUpReason } from '@/lib/levels';
 import { IN_ENCLAVE, NETWORK, OUTLAYER_CONTRACT, TOKEN_PUBKEY } from '@/lib/config';
 /** Testnet Dev mode has no enclave (SPEC 2), so the receipt is named after the scorer there. */
@@ -713,6 +714,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
               ) : (
                 <p>Band {sc.band}, level {b?.level}. You can borrow up to {usd(limit)} today. Only the line in &ldquo;{LEFT_TITLE}&rdquo; is on-chain.</p>
               )}
+              {IN_ENCLAVE && scoreHash && acct && !scoring && <VerifyScore key={scoreHash} accountId={acct} txHash={scoreHash} />}
             </Entry>
           )}
 

@@ -387,6 +387,12 @@ Expected: \`PROVEN\`, exit code 0, \`wasm sha256 5175182a…\`. (The \`--api\` f
 
 **What it doesn't prove:** that the enclave deletes the data after the run, or that the approved enclave image is good. OutLayer controls that approved list, and the image isn't linked to published source by this check. The attestation record comes from OutLayer's API, although the quote inside it is Intel-signed.
 
+## 3c. Your own score
+
+After a score, your passbook entry has a **Verify my score** button. Our server runs this same verifier on your transaction (commit \`90c27d9\` of OutLayer's tool) and also checks that the signed run is your account's current on-chain score and that its scorer is the build the contract pins. It shows PROVEN only if all of that passes, NOT PROVEN if a check fails, and "Can't verify right now" if the check couldn't finish, which says nothing about your score.
+
+That answer still comes from our server. To rely on nobody, run the command it shows you, as in 3b. It has the same limits as 3b, and it doesn't prove the income is real: this is test bank data.
+
 ## 4. Can anyone else write a score?
 
 No. On mainnet the contract is in OutLayer mode, so \`dev_submit_score\` is refused, and \`on_score\` is a private callback only the contract's own request can reach. Fake scores, wrong callers, wrong versions and reused fingerprints are all tested.

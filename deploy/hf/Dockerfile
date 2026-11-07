@@ -1,6 +1,10 @@
 # KredoFi testnet demo on a Hugging Face Docker Space. This Space holds only the compiled Next.js
 # standalone server (built and minified locally by scripts/hf_space.py), its public assets and the
 # pinned testnet scorer WASM. No source code and no secrets: keys are Space secrets, injected at runtime.
+# OutLayer's open-source verifier for "Verify my score", built from a pinned commit (same glibc as the runtime image).
+FROM rust:1.93-slim-bookworm AS verifier
+RUN cargo install --locked --git https://github.com/out-layer/outlayer-verify --rev 90c27d9d4fc843194ddc6f8ebaafa4eb320c3bb6 --root /ov outlayer-verify
+
 FROM node:22-bookworm-slim
 ARG WASMTIME_VERSION=50.0.0
 ARG WASMTIME_SHA256=77c19ee0437991f9ac7837b9c269d9c7076744f85dad263fea5214cc2723c7ff
@@ -15,6 +19,8 @@ RUN apt-get update \
  && mv "/tmp/wasmtime-v${WASMTIME_VERSION}-x86_64-linux/wasmtime" /usr/local/bin/wasmtime \
  && rm -rf /tmp/wasmtime* \
  && apt-get purge -y curl xz-utils && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
+COPY --from=verifier /ov/bin/outlayer-verify /usr/local/bin/outlayer-verify
 
 WORKDIR /app
 COPY --chown=node:node app/ ./

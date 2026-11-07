@@ -1,0 +1,24 @@
+# The Space image builds OutLayer's verifier for "Verify my score". Prove that stage builds on Linux and the binary
+# still prints PROVEN for a real testnet score, before a push reaches the Space. No secrets: public data only.
+name: verifier image
+on:
+  push:
+    branches-ignore: [seed-state]
+    paths: [deploy/hf/Dockerfile, .github/workflows/verifier-image.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: build the verifier stage
+        run: docker build --target verifier -t kf-verifier deploy/hf
+      - name: runs in the runtime image and proves a real score
+        run: |
+          docker run --rm --entrypoint sh kf-verifier -c 'cat /ov/bin/outlayer-verify' > ov && chmod +x ov
+          docker run --rm -v "$PWD/ov:/usr/local/bin/outlayer-verify:ro" node:22-bookworm-slim sh -c \
+            'apt-get update -qq && apt-get install -y -qq --no-install-recommends ca-certificates >/dev/null && outlayer-verify tx AZphEEfY5uFjbXTcf6qxRr2qEtQrEQVDSkpnuiLxiuJA --network testnet --api https://testnet-api.outlayer.ai --short --no-color' | tee out.txt
+          grep -q PROVEN out.txt

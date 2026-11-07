@@ -379,6 +379,15 @@ button{font-family:inherit}
 .connect-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-top:6px}
 .trust{max-width:860px;padding-block:40px 96px}
 
+/* Verify my score (components/VerifyScore.tsx) */
+.verify-score{margin:14px 0 4px;max-width:560px}
+.verify-score .hint{margin-top:8px;overflow-wrap:anywhere}
+.verify-head{font-family:var(--display);font-size:24px;line-height:1.2;color:var(--ink)}
+.verify-head.proven{color:var(--violet-ink);letter-spacing:.06em}
+.verify-head.failed{color:var(--red-ink);letter-spacing:.06em}
+.verify-checks{list-style:none;margin:8px 0 0;padding:0}
+.verify-checks li{padding:8px 0;border-bottom:1px solid var(--line-paper);overflow-wrap:anywhere}
+
 /* Level-up countdown and next step after a repayment */
 .levelup{border:2px solid var(--violet-ink);background:rgba(74,44,140,.06);padding:14px 16px;margin:8px 0 12px;max-width:560px}
 .levelup.ready{background:var(--violet-ink);color:#F3F0FA}

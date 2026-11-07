@@ -368,6 +368,8 @@ So judges see how the ledger looks over time, a script (`scripts/seed_ledger.mjs
 
 `partner-vault.kency.testnet` (`contracts/partner-vault`) shows a second contract acting on a KredoFi score. KredoFi is not changed; the only link is its public `get_borrower` view. The band is public on-chain, so the vault needs no consent from anyone. Consent-gated reads are on the roadmap, not built.
 
+**Verify my score** (owner's request, Nov 7; `web/src/app/api/verify-score/route.ts`, `web/src/lib/verifyScore.ts`). In OutLayer mode the passbook's score entry has a button that runs OutLayer's `outlayer-verify` (pinned commit, in the Space image) on the borrower's own score transaction. `proven` needs exit 0, all five layers `pass`, approved measurements, and the signed run matching this account's current on-chain score and the pinned scorer. A check that fails is NOT PROVEN; one that can't finish is "Can't verify right now". It never shows success otherwise. No gas, no transaction; 30 checks per hour per network.
+
 - **Open:** `ft_transfer_call(vault, amount, "open")` on test USDC. `ft_on_transfer` accepts only test USDC, only the message `open`, at least $1, one position per account, then reads `get_borrower(sender)`; the private callback `on_kredofi_read` sets the terms.
 - **Terms:** band A 110%, B 125%, C 140%. Band D, no score, an expired score or a defaulted (blocked) account: 150%. `credit = collateral / ratio`, rounded down.
 - **Refunds:** if the read fails, or any check fails, the full amount returns through NEP-141's resolver. Nothing is held without a position.
