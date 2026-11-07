@@ -146,8 +146,8 @@ export function LedgerPage({ initial = null }: { initial?: Data | null }) {
             <dt>Pending scorer change</dt><dd>{data ? pendingScorerText(data.config, now) : 'loading from the chain'}</dd>
           </dl>
           <p className="hint">On mainnet, kredofi.near pins a scorer you can check yourself:</p>
-          <code>curl -sL https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/6db115961a822664fdef8c8d19f02668b6f67e92/kredofi_scorer.wasm | shasum -a 256</code>
-          <p className="hint">It must print 6888c15e1442b508…7c23e6e2, the version kredofi.near pins. <Link href="/mainnet" prefetch={false}>Mainnet proof, live</Link></p>
+          <code>curl -sL https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fd039dc761f43dd6c517f05df57f735179039b77/kredofi_scorer.wasm | shasum -a 256</code>
+          <p className="hint">It must print 5175182a13e3f3a8…151fa7ce, the version kredofi.near pins. <Link href="/mainnet" prefetch={false}>Mainnet proof, live</Link></p>
         </div>
       </div>
     </main>

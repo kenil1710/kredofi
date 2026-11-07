@@ -49,21 +49,24 @@ A default then falls entirely on lenders: the share price drops by the uncovered
 Planned, not built: a licensed lending partner makes the loans, the pool is capped, loans stay small, and the default rate is measured before rates or limits grow. The rates and how much treasury goes to the reserve would then be set from that data. See the [Roadmap](/docs/roadmap).
 `;
 const T_CONTRACT = NETWORK === 'testnet' ? KREDOFI_CONTRACT : 'kredofi.kency.testnet';
-const MAINNET_SCORER = '6888c15e1442b508202141daf8cc246dddb9ecf5e586f1f0743671de7c23e6e2';
+const MAINNET_SCORER = '5175182a13e3f3a8b737a8730524ca6f4a98575765784a0a4977fdf4151fa7ce';
 const TESTNET_SCORER = ENC ? '96666cdf840746c062738e6e74af5ab46eacd8bc40c60ccb43d9d638ac17bcfc' : 'ac8e2a9c732db84ccaee2854ed4f0b8394443b47e51dc7fcf8499005051ec0e9';
 const TESTNET_WASM = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fa82707fd3a3d8a27513b8ab397d6ccb43aafe5f/kredofi_scorer_testnet.wasm';
 const TESTNET_PIN_NOTE = ENC
   ? 'The contract pins it in every OutLayer request, like mainnet. The file is public: `curl -sL ' + TESTNET_WASM + ' | shasum -a 256` prints the same hash.'
   : "The server refuses to score if its WASM's hash differs from the pinned one.";
-const TX_SCORE = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
+const TX_SCORE = 'https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm';
+const TX_SCORE_NOV3 = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
+const TX_APPLY_NOV7 = 'https://nearblocks.io/txns/29R9wmXS3WLbxdHEdnMSgcy38N375rp4T6mjts8DBFLd';
 const TX_SCORE_NOV2 = 'https://nearblocks.io/txns/CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7';
 const TX_V4 = 'https://nearblocks.io/txns/Gj3X9axsGU2ctvrsPLo3Uhn93YzbL9XYRtC15fHPEp5c';
 const TX_V3 = 'https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu';
 const TX_SCORE_NOV1 = 'https://nearblocks.io/txns/4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu';
-const TX_PIN = 'https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG';
+const TX_PIN = TX_APPLY_NOV7;
+const TX_PIN_NOV3 = 'https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG';
 const TX_DEPLOY = 'https://nearblocks.io/txns/Ags89jDRYZHi4h3ZXxk4kJGenNvrrGxAiAxGHmfKvwhp';
 const TX_MIGRATE = 'https://nearblocks.io/txns/5fqzZSKCED3sv5eg9brTHJTLxCkiDjN9uaVof2bAKK34';
-const WASM_URL = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/6db115961a822664fdef8c8d19f02668b6f67e92/kredofi_scorer.wasm';
+const WASM_URL = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fd039dc761f43dd6c517f05df57f735179039b77/kredofi_scorer.wasm';
 
 export const DOC_PAGES: DocPage[] = [
   {
@@ -274,7 +277,7 @@ The rules are open source and deterministic: the same history always gives the s
 
 ## Income cap
 
-Half your average monthly money in, rounded down to a multiple of $50, at most $1,000. Your limit is never above it.
+Half your average monthly money in, rounded down to one of five buckets: $0, $100, $250, $500 or $1,000. Your limit is never above it.
 
 ## Worked examples (from the tests)
 
@@ -367,18 +370,18 @@ Expected: \`${MAINNET_SCORER}\`. OutLayer downloads the scorer from this commit-
 
 ## 3. Did a real score come from the enclave?
 
-Open [the scoring transaction](${TX_SCORE}) (mainnet, 3 November 2026, with the current scorer; earlier builds scored on [2 November](${TX_SCORE_NOV2}) and [1 November](${TX_SCORE_NOV1})). Its receipts show \`request_score\` (its bank token starts with \`sealed1:\`: sealed to the scorer with the borrower's account, so a copied token is refused), the request to \`outlayer.near\` with the pinned version, the private callback \`on_score\`, the event \`score_issued\` (band A, 1,000) and the unused fee refunded to the borrower.
+Open [the scoring transaction](${TX_SCORE}) (mainnet, 7 November 2026, with the current scorer; earlier builds scored on [3 November](${TX_SCORE_NOV3}), [2 November](${TX_SCORE_NOV2}) and [1 November](${TX_SCORE_NOV1})). Its receipts show \`request_score\` (its bank token starts with \`sealed1:\`: sealed to the scorer with the borrower's account, so a copied token is refused), the request to \`outlayer.near\` with the pinned version, the private callback \`on_score\`, the event \`score_issued\` (band A, 1,000) and the unused fee refunded to the borrower.
 
 ## 3b. Did that run really happen inside Intel TDX?
 
-OutLayer publishes an Intel-signed TDX quote for each run. [Job 1257953](https://app.outlayer.ai/attestation/1257953) is that transaction. Check it with OutLayer's open-source verifier, not its website:
+OutLayer publishes an Intel-signed TDX quote for each run. [Job 1301269](https://app.outlayer.ai/attestation/1301269) is that transaction. Check it with OutLayer's open-source verifier, not its website:
 
 \`\`\`
 cargo install --git https://github.com/out-layer/outlayer-verify outlayer-verify
-outlayer-verify tx 3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo --api https://api.outlayer.ai
+outlayer-verify tx 9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm --api https://api.outlayer.ai
 \`\`\`
 
-Expected: \`PROVEN\`, exit code 0, \`wasm sha256 6888c15e…\`. (The \`--api\` flag is needed for now: the tool's default address is retired. For a testnet score add \`--network testnet --api https://testnet-api.outlayer.ai\`.) It checks that the quote chains to Intel, that all five measurements are on the approved list of \`worker.outlayer.near\`, that the quote commits to the scorer hash, input and output, and that those match the bytes in the transaction. A saved copy is in the repository: \`outlayer-verify bundle docs/proofs/mainnet-score-2026-11-03.attestation.json --offline\`.
+Expected: \`PROVEN\`, exit code 0, \`wasm sha256 5175182a…\`. (The \`--api\` flag is needed for now: the tool's default address is retired. For a testnet score add \`--network testnet --api https://testnet-api.outlayer.ai\`.) It checks that the quote chains to Intel, that all five measurements are on the approved list of \`worker.outlayer.near\`, that the quote commits to the scorer hash, input and output, and that those match the bytes in the transaction. A saved copy is in the repository: \`outlayer-verify bundle docs/proofs/mainnet-score-2026-11-03.attestation.json --offline\`.
 
 **What it doesn't prove:** that the enclave deletes the data after the run, or that the approved enclave image is good. OutLayer controls that approved list, and the image isn't linked to published source by this check. The attestation record comes from OutLayer's API, although the quote inside it is Intel-signed.
 
@@ -596,7 +599,7 @@ What it does reveal, publicly, to everyone:
 - the band, the score and the KredoFi loan history (level, loans, repayments, defaults);
 - \`income_cap\`, one of five buckets, which puts your average monthly income in a range: $0 means below $200 a month, $100 means $200 to $499, $250 means $500 to $999, $500 means $1,000 to $1,999, and $1,000 means $2,000 or more. It never gives a figure, but anyone can read which range you are in.
 - the \`score\` can narrow that further, because the income rule adds 40, 100, 180 or 250 points at $1,000, $2,000 and $3,000 a month. A score of 1,000 can only mean at least $3,000 a month, more than the $1,000 bucket alone says.
-- Buckets apply to scores from the testnet build \`96666cdf…\` onward. Scores already on-chain keep the $50-step value they were issued with. On mainnet, \`kredofi.near\` still pins the older \`6888c15e…\` with $50 steps until the bucket build passes its 24-hour time lock; its deposits are locked and only our own test account has scored there.
+- Buckets apply to scores from the testnet build \`96666cdf…\` onward. Mainnet has used them since 7 November (\`5175182a…\`, applied after its 24-hour time lock); deposits there are locked and only our own test account has scored. Older testnet scores on-chain keep the $50-step value they were issued with.
 - a keyed \`fingerprint\` of the bank identity, which can't be reversed but is the same for every score of that bank identity.
 `,
   },
@@ -664,8 +667,9 @@ The full write-up is \`THREAT_MODEL.md\` in the repository.
 - A real score computed inside OutLayer and stored by the contract's callback (band A, 1,000), with the unused fee refunded to the borrower: [transaction](${TX_SCORE_NOV1}) (1 November, earlier build).
 - Re-pinned to the reproducible build \`7048cc92…\` and scored again inside OutLayer (band A, 1,000, 7.6 seconds): [transaction](${TX_SCORE_NOV2}) (2 November).
 - Contract upgraded with a state migration: [transaction](${TX_MIGRATE}).
-- Security review fixes (3 November; an AI-assisted review, not a professional audit): contract v3, lender deposits locked until real bank data ([transaction](${TX_V3})); scorer \`${MAINNET_SCORER.slice(0, 8)}…\` with sealed bank tokens pinned ([transaction](${TX_PIN})) and scored with a sealed token inside OutLayer (band A, 1,000, 8.5 seconds): [transaction](${TX_SCORE}).
+- Security review fixes (3 November; an AI-assisted review, not a professional audit): contract v3, lender deposits locked until real bank data ([transaction](${TX_V3})); scorer \`6888c15e…\` with sealed bank tokens pinned ([transaction](${TX_PIN_NOV3})) and scored with a sealed token inside OutLayer (band A, 1,000, 8.5 seconds): [transaction](${TX_SCORE_NOV3}).
 - Security review 2 fixes and a 24-hour time lock on scorer re-pins (4 November): contract v4 ([transaction](${TX_V4})).
+- Income cap in five buckets (7 November): scorer \`${MAINNET_SCORER.slice(0, 8)}…\`, the first re-pin through the time lock ([transaction](${TX_APPLY_NOV7})), scored inside OutLayer (band A, 1,000, 7.7 seconds) with the attestation PROVEN: [transaction](${TX_SCORE}).
 - Live view of all of this: [Mainnet proof](/mainnet).
 
 How to check these yourself: [Verify it yourself](/docs/verify).

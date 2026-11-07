@@ -13,6 +13,14 @@ Results:
 - **Step 5:** [tx 2acP4tWJ…](https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG), 0.0002 NEAR.
 - **Step 6:** [tx 3nbdkFd3…](https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo), 0.003993 NEAR. The token was `sealed1:` (228 characters); band A 1000 in 8.5 s; 0.0081 NEAR refunded.
 
+Later re-pin, Nov 5-7 (`income_cap` buckets, scorer `5175182a…`, source commit `89694f4`, public wasm commit `fd039dc`), the first through the 24 h time lock:
+- **Version:** [tx G9CfqecC…](https://nearblocks.io/txns/G9CfqecCvZSeEqoCzqNMTjmcKEBH8AC7cpdgwwCxoGSc), 0.00556 NEAR (Nov 5).
+- **Propose:** [tx FmYKQGSK…](https://nearblocks.io/txns/FmYKQGSKGf1Ea3q2MDHHoMjkC8dfzRi81qzaQrjMPjW8), 0.00020 NEAR (Nov 5; applicable from Nov 6, 11:19 UTC).
+- **Secrets lock:** [tx 3Gbj22t2…](https://nearblocks.io/txns/3Gbj22t2cMg9K2QQxKZaBgCuZ4uAq4x4aJpP9mkHRHZP), 0.001123 NEAR (Nov 7).
+- **Apply:** [tx 29R9wmXS…](https://nearblocks.io/txns/29R9wmXS3WLbxdHEdnMSgcy38N375rp4T6mjts8DBFLd), 0.000200 NEAR (Nov 7).
+- **Score:** [tx 9w6qBWdV…](https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm), 0.003923 NEAR (Nov 7): band A 1000, cap $1,000, 7.665 s in OutLayer, 472 bytes, 0.008164 NEAR refunded. OutLayer's verifier: PROVEN, task 1301269, `docs/proofs/mainnet-score-2026-11-07.attestation.json`.
+- Nov 7 total 0.005246 NEAR. `kredofi.near` holds 0.0600 NEAR above its storage (score floor 0.05).
+
 The original plan follows. No step moves money into or out of the pool; no real-money loan is made (the pool holds $0, and after step 2 lender deposits are refused until `production_data` is set).
 
 What changes on `kredofi.near`:

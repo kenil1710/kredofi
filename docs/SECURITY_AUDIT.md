@@ -14,7 +14,7 @@ It found 2 High, 3 Medium, 5 Low and 5 Info issues. Every finding below has a st
 - **Code:** every fix is in `main`, with tests.
 - **Live testnet site (`kredofi.kency.testnet`, Dev mode):** the web fixes are live.
 - **`app.kency.testnet` (OutLayer mode, from Nov 5):** contract and scorer fixes ship there.
-- **Mainnet `kredofi.near`:** contract v3 and scorer `6888c15e…` have been live since 3 November, after the owner's yes on each transaction ([v3 deploy](https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu), [pin](https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG), `docs/MAINNET_PLAN.md`). The mainnet pool holds $0 and no mainnet loan has been made. Live view: https://kredofi.xyz/mainnet.
+- **Mainnet `kredofi.near`:** contract v3 and scorer `6888c15e…` have been live since 3 November, after the owner's yes on each transaction ([v3 deploy](https://nearblocks.io/txns/2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu), [pin](https://nearblocks.io/txns/2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG), `docs/MAINNET_PLAN.md`). Since then: contract v4 (4 November, below) and scorer `5175182a…` (7 November, Judge review below). The mainnet pool holds $0 and no mainnet loan has been made. Live view: https://kredofi.xyz/mainnet.
 
 ## Findings
 
@@ -133,4 +133,4 @@ Locking means deleting the contract account's last full-access key.
 
 | Finding | Severity | Status |
 |---|---|---|
-| `income_cap` is public and at $50 steps narrowed a low earner's income to about $100, against the claim that lenders never see a salary. | High (privacy) | Fixed on testnet (scorer `96666cdf…`, Nov 5): five buckets (0, 100, 250, 500, 1,000), rounded down, so no limit rises. Mainnet build `5175182a…` waits for the owner's yes and its 24-hour lock. Still public: the range itself, and the score can narrow it. |
+| `income_cap` is public and at $50 steps narrowed a low earner's income to about $100, against the claim that lenders never see a salary. | High (privacy) | Fixed on testnet (scorer `96666cdf…`, Nov 5): five buckets (0, 100, 250, 500, 1,000), rounded down, so no limit rises. Fixed on mainnet (scorer `5175182a…`, Nov 7, after the 24-hour lock and the owner's yes: [lock](https://nearblocks.io/txns/3Gbj22t2cMg9K2QQxKZaBgCuZ4uAq4x4aJpP9mkHRHZP), [apply](https://nearblocks.io/txns/29R9wmXS3WLbxdHEdnMSgcy38N375rp4T6mjts8DBFLd), [score, PROVEN](https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm)). Still public: the range itself, and the score can narrow it. |

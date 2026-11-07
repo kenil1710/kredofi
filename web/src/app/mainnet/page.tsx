@@ -20,18 +20,22 @@ const KNOWN_CODE: Record<string, string> = {
   b7f55eaf89b2d592d1684293f5ec59d02b39e5d8e776319c65381cef94b0691c: 'v3 (3 Nov 2026: security review fixes, deposits gated)',
   '339a94ea36e49d91c60317c0e4c3dd03f14bb6eab9b19d770dc0aa231da21d86': 'v2 (1 Nov 2026)',
 };
-const WASM_URL = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/6db115961a822664fdef8c8d19f02668b6f67e92/kredofi_scorer.wasm';
+const WASM_URL = 'https://raw.githubusercontent.com/kenil1710/kredofi-scorer-wasm/fd039dc761f43dd6c517f05df57f735179039b77/kredofi_scorer.wasm';
 const NB = 'https://nearblocks.io/txns/';
 const SCORES = [
+  { tx: '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', when: '7 Nov 2026', scorer: '5175182a', note: 'band A, 1,000, income cap in the new $1,000 bucket, 7.7 s in the enclave; bank token sealed to the scorer' },
   { tx: '3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo', when: '3 Nov 2026', scorer: '6888c15e', note: 'band A, 1,000, 8.5 s in the enclave; bank token sealed to the scorer' },
   { tx: 'CNsoyGSj6aXtUmGzxUisxERirsv9jAsAZQ7GKVj7Udb7', when: '2 Nov 2026', scorer: '7048cc92', note: 'band A, 1,000, 7.6 s' },
   { tx: '4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu', when: '1 Nov 2026', scorer: '87ceab66', note: 'band A, 1,000, first mainnet score' },
 ];
 const CHANGES = [
+  { tx: '29R9wmXS3WLbxdHEdnMSgcy38N375rp4T6mjts8DBFLd', what: 'Scorer 5175182a… applied after its 24 h time lock (7 Nov: income cap in five buckets)' },
+  { tx: '3Gbj22t2cMg9K2QQxKZaBgCuZ4uAq4x4aJpP9mkHRHZP', what: 'Scorer secrets locked to that build, called from kredofi.near (7 Nov)' },
+  { tx: 'FmYKQGSKGf1Ea3q2MDHHoMjkC8dfzRi81qzaQrjMPjW8', what: 'Scorer 5175182a… proposed in public (5 Nov)' },
   { tx: 'Gj3X9axsGU2ctvrsPLo3Uhn93YzbL9XYRtC15fHPEp5c', what: 'Contract v4 deployed and migrated (4 Nov: security review 2 fixes, 24 h time lock on scorer re-pins)' },
   { tx: '2zyjvpPaybW9nUjpzQksbPVsgmHRxhmMWHkJ24VsSUAu', what: 'Contract v3 deployed and migrated (3 Nov)' },
-  { tx: '2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG', what: 'Scorer 6888c15e… pinned' },
-  { tx: 'EhEiZGuqK7o7UEg7EbUq2GsRVT6YMJv6mYgnGcKaJqrt', what: 'Scorer secrets locked to that build, called from kredofi.near' },
+  { tx: '2acP4tWJVNQDYeqD66kwrMcFa1XfReAffuU4qyk7VxkG', what: 'Scorer 6888c15e… pinned (3 Nov)' },
+  { tx: 'EhEiZGuqK7o7UEg7EbUq2GsRVT6YMJv6mYgnGcKaJqrt', what: 'Scorer secrets locked to that build, called from kredofi.near (3 Nov)' },
 ];
 
 export default async function Mainnet() {
@@ -70,9 +74,9 @@ export default async function Mainnet() {
             {SCORES.map((s) => <li key={s.tx}><a href={NB + s.tx} target="_blank" rel="noreferrer">{s.when}</a>: scorer <code>{s.scorer}…</code>, {s.note}.</li>)}
           </ul>
           <h2 id="attestation">TDX attestation of the newest score</h2>
-          <p>OutLayer publishes an Intel-signed TDX quote for each run. For the 3 November score, <a href="https://app.outlayer.ai/attestation/1257953" target="_blank" rel="noreferrer">job 1257953</a> commits to scorer <code>6888c15e…</code> (the pin above) and to that transaction&apos;s input and output. We ran OutLayer&apos;s open-source verifier on it: <b>PROVEN</b>.</p>
+          <p>OutLayer publishes an Intel-signed TDX quote for each run. For the 7 November score, <a href="https://app.outlayer.ai/attestation/1301269" target="_blank" rel="noreferrer">job 1301269</a> commits to scorer <code>5175182a…</code> (the pin above) and to that transaction&apos;s input and output. We ran OutLayer&apos;s open-source verifier on it: <b>PROVEN</b>.</p>
           <pre className="doc-code"><code>{`cargo install --git https://github.com/out-layer/outlayer-verify outlayer-verify
-outlayer-verify tx 3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo --api https://api.outlayer.ai`}</code></pre>
+outlayer-verify tx 9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm --api https://api.outlayer.ai`}</code></pre>
           <p>It proves the run used approved TDX hardware and this scorer. It doesn&apos;t prove the enclave deletes the data afterwards, and OutLayer controls which enclave builds are approved. <Link href="/docs/verify">What it does and doesn&apos;t show</Link></p>
           <h2 id="changes">Latest changes</h2>
           <ul>
@@ -83,7 +87,7 @@ outlayer-verify tx 3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo --api https://ap
           <ol>
             <li>The published scorer is the pinned one: <pre className="doc-code"><code>{`curl -sL ${WASM_URL} | shasum -a 256`}</code></pre>It must print the pinned scorer above.</li>
             <li>Rebuild it from source on x86_64 Linux with Docker: <pre className="doc-code"><code>./scorer/build-docker.sh</code></pre>Same hash (or run the repository&apos;s workflow &quot;scorer reproducible build&quot;).</li>
-            <li>Open the newest score above: its <code>public_token</code> argument starts with <code>sealed1:</code>, OutLayer logs &quot;Resolved project … version 6888c15e…&quot;, and <code>on_score</code> emits <code>score_issued</code>.</li>
+            <li>Open the newest score above: its <code>public_token</code> argument starts with <code>sealed1:</code>, OutLayer logs &quot;Resolved project … version 5175182a…&quot;, and <code>on_score</code> emits <code>score_issued</code>.</li>
             <li>Every command, step by step: <Link href="/docs/verify">Verify it yourself</Link>. What this does and doesn&apos;t protect: <Link href="/trust">Why is this safe?</Link></li>
           </ol>
         </article>

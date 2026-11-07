@@ -16,21 +16,21 @@ export type MainnetBorrower = { score: { band: string; score: number; scorer_ver
 export type MainnetValues = { cfg: MainnetConfig; pool: MainnetPool; dev: MainnetBorrower; codeSha: string };
 export type MainnetFacts = Picked<MainnetValues>;
 
-/** Read from kredofi.near on 5 Nov 2026. Update with every mainnet re-pin or contract deploy. */
+/** Read from kredofi.near on 7 Nov 2026. Update with every mainnet re-pin or contract deploy. */
 export const MAINNET_RECORD: MainnetValues & { readAt: number } = {
-  readAt: Date.UTC(2026, 10, 5, 14, 0),
+  readAt: Date.UTC(2026, 10, 7, 6, 35),
   codeSha: '147d863d9413b1531eacec9dd5ad69a727837c9c0de10b270e3237306c5ed148',
   cfg: {
     scorer_mode: 'OutLayer',
     outlayer: 'outlayer.near',
-    scorer_version: '6888c15e1442b508202141daf8cc246dddb9ecf5e586f1f0743671de7c23e6e2',
+    scorer_version: '5175182a13e3f3a8b737a8730524ca6f4a98575765784a0a4977fdf4151fa7ce',
     require_production_data: true,
     production_data: false,
     scorer_delay_ns: '86400000000000',
-    pending_scorer: { version: '5175182a13e3f3a8b737a8730524ca6f4a98575765784a0a4977fdf4151fa7ce', proposed_at: '1793877598813650059', apply_at: '1793963998813650059' },
+    pending_scorer: null,
   },
   pool: { cash: '0', outstanding: '0', reserve: '0', total_shares: '0' },
-  dev: { score: { band: 'A', score: 1000, scorer_version: '6888c15e1442b508202141daf8cc246dddb9ecf5e586f1f0743671de7c23e6e2' } },
+  dev: { score: { band: 'A', score: 1000, scorer_version: '5175182a13e3f3a8b737a8730524ca6f4a98575765784a0a4977fdf4151fa7ce' } },
 };
 
 async function rpc<T>(params: object): Promise<T | null> {
