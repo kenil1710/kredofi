@@ -15,7 +15,7 @@ A pinned, open scorer fetches up to two years of bank history, uses the last six
 No wallet and no sign-up: the app creates a throwaway testnet account and a relayer pays every fee.
 
 1. Open https://kredofi.xyz and click **Check my limit**. You see your empty passbook and a Plaid sandbox login.
-2. Click **Connect your bank (sandbox)**. Plaid Link opens. Choose **Continue without phone number**, search **First Platypus Bank** and pick the plain one (not OAuth), log in with `user_good` / `pass_good`, then **Continue** and **Finish without saving**.
+2. Click **Connect your bank (sandbox)**. Plaid Link opens with a 3-step box beside it: **1. Type Platypus** in Plaid's search box (after **Continue without phone number**), **2. Pick First Platypus Bank** (the plain one, not OAuth), **3. log in with `user_good` / `pass_good`**, then **Continue** and **Finish without saving**. Plaid lists real banks first; picking one (Chase, Bank of America, ...) also works in this sandbox and scores the same, but adds about six test screens (sign in with `user_good` / `pass_good`, code `1234`).
 3. Wait about 20 seconds, up to about a minute when the test bank is slow, while the scorer runs in the enclave (OutLayer testnet). You see "Limit checked in N s", a credit note stamped **BAND B, $75**, the five rule results, and on the right the exact output that went on-chain. No transaction, amount or name from the bank appears anywhere.
 4. Click **Borrow $75.00**. A "Loan issued" entry appears with a countdown box, for example "Level up in 0:52".
 5. Wait until the box says "Repay now to level up to $187.50", then click **Repay $79.50**. The Repaid entry says "Your limit rose to level 2."

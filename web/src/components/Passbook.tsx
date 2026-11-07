@@ -28,6 +28,8 @@ import { primaryAction } from '@/lib/primaryAction';
 import { usableSummary } from '@/lib/aiSummary';
 import { openWithAny, rememberSecret } from '@/lib/replyKey';
 import { VerifyScore } from '@/components/VerifyScore';
+import { plaidHintAfter } from '@/lib/plaidHint';
+import { PlatypusSteps, PlatypusStepsOverlay } from '@/components/PlatypusSteps';
 import { durationWords, levelPlan, levelRuleText, limitAt, mmss, noLevelUpReason } from '@/lib/levels';
 import { IN_ENCLAVE, NETWORK, OUTLAYER_CONTRACT, TOKEN_PUBKEY } from '@/lib/config';
 /** Testnet Dev mode has no enclave (SPEC 2), so the receipt is named after the scorer there. */
@@ -45,7 +47,7 @@ const whoName = (w?: Who) => (w === 'custom' ? 'your test borrower' : w === 'pla
 
 // Plaid Link (SPEC 8c), loaded only when the judge asks for it.
 type PlaidHandler = { open: () => void; destroy: () => void };
-declare global { interface Window { Plaid?: { create: (o: { token: string; onSuccess: (publicToken: string) => void; onExit: (err: unknown) => void }) => PlaidHandler } } }
+declare global { interface Window { Plaid?: { create: (o: { token: string; onSuccess: (publicToken: string) => void; onExit: (err: unknown) => void; onEvent?: (name: string, meta: { institution_id?: string | null; institution_name?: string | null }) => void }) => PlaidHandler } } }
 function loadPlaid(): Promise<NonNullable<Window['Plaid']>> {
   if (window.Plaid) return Promise.resolve(window.Plaid);
   return new Promise((res, rej) => {
@@ -95,6 +97,8 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   const [custom, setCustom] = useState<CustomInputs>({ salary: 1200, months: 4, spending: 1500, fees: 2, balance: 200 });
   const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
+  // Hint bar while Plaid Link is open: Link lists real banks first and can't open straight to the sandbox bank.
+  const [plaidHint, setPlaidHint] = useState<{ other: string | null } | null>(null);
   const [b, setB] = useState<BorrowerView | null | undefined>(undefined);
   const [pool, setPool] = useState<PoolView | null>(null);
   const [cfg, setCfg] = useState<ConfigView | null>(null);
@@ -283,9 +287,11 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       setStarting(null);
       const h = Plaid.create({
         token: j.linkToken,
-        onSuccess: (publicToken) => { h.destroy(); void scoreWithToken(publicToken, accountReady); },
-        onExit: () => { h.destroy(); setStarting(null); },
+        onSuccess: (publicToken) => { h.destroy(); setPlaidHint(null); void scoreWithToken(publicToken, accountReady); },
+        onExit: () => { h.destroy(); setPlaidHint(null); setStarting(null); },
+        onEvent: (name, meta) => setPlaidHint((cur) => plaidHintAfter(cur, name, meta)),
       });
+      setPlaidHint({ other: null });
       setStarting('Finish logging in to your bank in the Plaid window…');
       h.open();
     } catch (e) { setStarting(null); setStartError(e instanceof Error ? e.message : 'Plaid Link failed.'); }
@@ -518,7 +524,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   const firstKey = Object.keys(BORROWERS)[0] as BorrowerKey;
   const bar = primary === 'start' ? (scenarios
       ? { text: 'Or pick another borrower above.', button: <button type="button" className="btn btn-violet" onClick={() => pick({ borrower: firstKey })}>Use {BORROWERS[firstKey].name.split(' ')[0]}</button> }
-      : { text: 'Test login: user_good / pass_good', button: <button type="button" className="btn btn-violet" onClick={connectBank} disabled={!!starting}>Connect your bank</button> })
+      : { text: 'Type Platypus, then user_good / pass_good', button: <button type="button" className="btn btn-violet" onClick={connectBank} disabled={!!starting}>Connect your bank</button> })
     : primary === 'retry' ? { text: scoring?.error ?? 'Scoring failed. Nothing changed on-chain.', button: <button type="button" className="btn btn-ink" onClick={retry}>Check my limit again</button> }
     : primary === 'borrow' ? { text: amountError ?? `Band ${sc?.band}, limit ${usd(limit)}`, button: <TxButton tx={borrowTx.state} label={`Borrow ${amount !== null ? usd(amount) : ''}`} onClick={borrow} disabled={!!amountError} /> }
     : primary === 'repay' ? { text: shortBy > 0n ? `You need ${usd(shortBy)} more test USDC` : plan?.kind === 'wait' ? `Repay after ${mmss(plan.atMs - now)} to level up to ${usd(plan.next)}` : plan?.kind === 'ready' ? `Repaying now levels you up to ${usd(plan.next)}` : now < dueMs ? `Due in ${span(dueMs - now)}` : 'Overdue', button: <TxButton tx={repayTx.state} label={`Repay ${usd(due)}`} doneLabel="Repaid" onClick={repay} variant="ink" disabled={shortBy > 0n} /> }
@@ -553,6 +559,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
             : 'Connect a bank to see your limit. Each step lands here as an entry, like a bank passbook. Your bank data never appears on this page or on-chain.'}</p>
         </div>
 
+        {plaidHint && <PlatypusStepsOverlay other={plaidHint.other} />}
         {showPick && !scenarios && (
           <section aria-label="Connect your bank" className="bankstart">
             <SandboxBanner />
@@ -564,7 +571,8 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 <dt>Username</dt><dd><code>user_good</code><CopyButton text="user_good" label="username" /></dd>
                 <dt>Password</dt><dd><code>pass_good</code><CopyButton text="pass_good" label="password" /></dd>
               </dl>
-              <p className="expect">This is Plaid&apos;s public sandbox login: a test bank with test money, the same for everyone. Pick First Platypus Bank (not the OAuth one).</p>
+              <p className="expect">This is Plaid&apos;s public sandbox login: a test bank with test money, the same for everyone. Plaid lists real banks first; use these steps:</p>
+              <PlatypusSteps />
               <p className="connect-row">
                 <button type="button" className="btn btn-violet btn-big" disabled={!!starting} onClick={connectBank}>Connect your bank (sandbox)</button>
                 <Link href="/trust" className="linkbtn">How we keep your data private</Link>
@@ -625,6 +633,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
           <div className="sr-only">
             <h2>Connect your bank (sandbox)</h2>
             <p>Test bank only: this is Plaid&apos;s sandbox. Log in with user_good / pass_good. Never enter your real bank details. Testnet, no real money.</p>
+            <p>Test bank in 3 steps: 1. Type Platypus. 2. Pick First Platypus Bank (not OAuth). 3. Log in with user_good / pass_good.</p>
             <p>Log in to a test bank through Plaid Link. The scorer fetches up to two years of history, uses the last six full months, works out your limit, and keeps none of it.</p>
             <p>No wallet needed: we create a demo account and pay its network fees.</p>
           </div>

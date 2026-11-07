@@ -18,9 +18,9 @@ const PLACEHOLDER = />\s*…\s*</;
 
 const PAGES = {
   '/': {
-    literal: ['Every transaction in. One line out.', 'Public on-chain: your band, score, income bucket, bank fingerprint, loans and default status.', 'repay before the grace period ends', 'Lenders never see your statements.', "Riya gets $100. Sam doesn't, and he's told why.", 'Lending is the boring part, on purpose.', 'How to check a KredoFi note', 'Numbers from a real mainnet enclave run on 7 November, not from a pitch deck.', 'TDX attestation: PROVEN · mainnet run · sandbox data · 7.7 s · Verify →', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', 'Borrow against your payslip.'],
-    text: ['Prove your income on NEAR without showing your bank statements.'],
-    absent: ['Lenders see a band', 'the only score that goes on-chain', 'on time and your next note'],
+    literal: ['Every transaction in. One line out.', 'Public on-chain: your band, score, income bucket, bank fingerprint, loans and default status.', 'repay before the grace period ends', "Riya gets $100. Sam doesn't, and he's told why.", 'Lending is the boring part, on purpose.', 'How to check a KredoFi note', 'Numbers from a real mainnet enclave run on 7 November, not from a pitch deck.', 'TDX attestation: PROVEN · mainnet run · sandbox data · 7.7 s · Verify →', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', 'Borrow against your payslip.'],
+    text: ['Prove your income on NEAR without showing your bank statements.', 'Only your band, your score and a few sealed fields reach NEAR; lenders never see your statements.', "Exactly what's public →"],
+    absent: ['puts eight fields on NEAR: v, caller', 'Lenders see a band', 'the only score that goes on-chain', 'on time and your next note'],
     patterns: [/Income level 250/, /Money left over 150/, /Score 1000/, /Riya 1000/, /Sam 270/],
   },
   '/trust': { literal: ['Why is this safe?', 'The 7 November mainnet run', 'Everything that went on-chain for one real testnet enclave score', 'HoLog3yaJvbEKfXyqHDP4cRAmcqpxTApkBNbEMdapwjC', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm'] },
@@ -41,7 +41,7 @@ const PAGES = {
     noPlaceholder: true,
     check: ({ html }) => assert.ok((html.match(/<li\b[^>]*>\s*<span>/g) ?? []).length >= 10, 'ledger rows in the raw HTML'),
   },
-  '/borrow': { literal: ['Connect your bank (sandbox)', 'Log in with user_good / pass_good.', 'keeps none of it.', 'No wallet needed'] },
+  '/borrow': { literal: ['Connect your bank (sandbox)', 'Log in with user_good / pass_good.', 'Test bank in 3 steps: 1. Type Platypus. 2. Pick First Platypus Bank (not OAuth). 3. Log in with user_good / pass_good.', 'keeps none of it.', 'No wallet needed'] },
 };
 
 for (const [path, want] of Object.entries(PAGES)) {

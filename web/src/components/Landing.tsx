@@ -32,9 +32,10 @@ const FV = [250, 250, 250, 150, 100];
 const MONTHS = ['October', 'September', 'August', 'July', 'June', 'May'];
 // Hero copy per network (SPEC 2: never claim more privacy than the network the visitor uses gives).
 // The hero leads with the product; the Dev-mode caveat is the small note under the buttons (and /trust).
-const HERO_LEDE = IN_ENCLAVE
-  ? 'First use: no-collateral USDC loans. A pinned scorer fetches up to two years of your bank history inside a sealed enclave, uses the last six full months, applies five published rules and puts eight fields on NEAR: v, caller, band, score, income_cap, fingerprint, sealed_identity and reply. Lenders never see your statements.'
-  : 'First use: no-collateral USDC loans. A pinned scorer fetches up to two years of bank history, uses the last six full months, applies five published rules and puts eight fields on NEAR: v, caller, band, score, income_cap, fingerprint, sealed_identity and reply. On mainnet it runs inside a sealed enclave.';
+export const HERO_LEDE = IN_ENCLAVE
+  ? 'A scorer reads your bank history inside a sealed enclave. Only your band, your score and a few sealed fields reach NEAR; lenders never see your statements. First use: no-collateral USDC loans.'
+  : 'A scorer reads your bank history and applies five published rules; on mainnet it runs inside a sealed enclave. Only your band, your score and a few sealed fields reach NEAR; lenders never see your statements. First use: no-collateral USDC loans.';
+export const HERO_FIELDS_LINK = '/docs/privacy#what-leaves-the-scorer';
 const HERO_NOTE = NETWORK === 'mainnet'
   ? 'Mainnet.'
   : IN_ENCLAVE
@@ -450,7 +451,7 @@ export function Landing() {
               <div className="wrap">
                 <div className="hero-inner">
                   <h1><span className="ln"><span>Prove your income on NEAR</span></span><span className="ln"><span>without showing your</span></span><span className="ln"><span>bank statements.</span></span></h1>
-                  <p className="lede">{HERO_LEDE}</p>
+                  <p className="lede">{HERO_LEDE} <Link href={HERO_FIELDS_LINK}>Exactly what&apos;s public →</Link></p>
                   <div className="ctas">
                     <Link className="btn btn-light magnetic" href="/borrow">Check my limit</Link>
                     <a className="btn btn-ghost magnetic" href="#check">How the privacy works</a>
