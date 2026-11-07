@@ -11,7 +11,7 @@ const CAVEAT = 'Two honest limits: the developer holds the sealing key, and nobo
 
 export const metadata: Metadata = { title: 'Why is this safe?, KredoFi', description: 'What KredoFi reads, where it is scored, what leaves, who holds the money, and what is test only.' };
 
-const TX_SCORE = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
+const TX_SCORE = 'https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm';
 
 export default function Trust() {
   return (
@@ -56,7 +56,7 @@ export default function Trust() {
             {IN_ENCLAVE
               ? <li>The contract accepts a score <b>only from that exact scorer</b>, through its own request to the enclave.</li>
               : <li>On mainnet the contract accepts a score <b>only from that exact scorer</b>, through its own request to the enclave. On this testnet demo it accepts scores from our scorer account (Dev mode), so here you trust our server to run that scorer unchanged.</li>}
-            <li><b>Each enclave run has an attestation</b> signed through Intel: this input and output, this pinned scorer, on a build approved on <code>worker.outlayer.near</code>. <a href="https://app.outlayer.ai/attestation/1257953" target="_blank" rel="noreferrer">The 3 November mainnet run</a>, or check it yourself with <Link href="/docs/verify">OutLayer&apos;s verifier</Link>. It proves which build ran, not that the build keeps nothing, and OutLayer decides which builds are approved.</li>
+            <li><b>Each enclave run has an attestation</b> signed through Intel: this input and output, this pinned scorer, on a build approved on <code>worker.outlayer.near</code>. <a href="https://app.outlayer.ai/attestation/1301269" target="_blank" rel="noreferrer">The 7 November mainnet run</a> (scorer <code>5175182a…</code>), or check it yourself with <Link href="/docs/verify">OutLayer&apos;s verifier</Link>. It proves which build ran, not that the build keeps nothing, and OutLayer decides which builds are approved.</li>
             <li>Only you can ask for your score: each request is signed with your account&apos;s own key.</li>
             <li>Every score, loan, repayment and default is a <b>public transaction</b> on the <Link href="/ledger">ledger</Link>.</li>
           </ul>

@@ -1,10 +1,11 @@
 // Every number on the landing proof strip and receipt section, in one place, each checked against its
 // source by proofFacts.test.ts (the attestation bundle, the docs) and on-chain by the release check.
 
-/** Nov 3 mainnet score, Plaid sandbox data, our test account. docs/proofs/ holds its attestation. */
+/** Nov 7 mainnet score, Plaid sandbox data, our test account. docs/proofs/ holds its attestation. */
 export const MAINNET_RUN = {
-  tx: '3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo',
-  seconds: '8.5', // OutLayer's log: time_ms 8496
+  tx: '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm',
+  scorer: '5175182a',
+  seconds: '7.7', // OutLayer's log: time_ms 7665
   outputBytes: 472,
 };
 export const MAINNET_TX_URL = `https://nearblocks.io/txns/${MAINNET_RUN.tx}`;

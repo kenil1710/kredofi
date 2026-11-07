@@ -29,6 +29,7 @@ const SCORES = [
   { tx: '4dgHrA97KfibKifZuVZ2YF5zoAVCy4m2pXxxf9zdijyu', when: '1 Nov 2026', scorer: '87ceab66', note: 'band A, 1,000, first mainnet score' },
 ];
 const CHANGES = [
+  { tx: 'Ba9Gmc1uLvfe6TB1Taqx9hPsqqKnbrZ1waJtRqYDqwcu', what: 'Storage top-up, 0.1 NEAR from the developer account (7 Nov); moves nothing in the pool' },
   { tx: '29R9wmXS3WLbxdHEdnMSgcy38N375rp4T6mjts8DBFLd', what: 'Scorer 5175182a… applied after its 24 h time lock (7 Nov: income cap in five buckets)' },
   { tx: '3Gbj22t2cMg9K2QQxKZaBgCuZ4uAq4x4aJpP9mkHRHZP', what: 'Scorer secrets locked to that build, called from kredofi.near (7 Nov)' },
   { tx: 'FmYKQGSKGf1Ea3q2MDHHoMjkC8dfzRi81qzaQrjMPjW8', what: 'Scorer 5175182a… proposed in public (5 Nov)' },

@@ -19,7 +19,8 @@ Later re-pin, Nov 5-7 (`income_cap` buckets, scorer `5175182a…`, source commit
 - **Secrets lock:** [tx 3Gbj22t2…](https://nearblocks.io/txns/3Gbj22t2cMg9K2QQxKZaBgCuZ4uAq4x4aJpP9mkHRHZP), 0.001123 NEAR (Nov 7).
 - **Apply:** [tx 29R9wmXS…](https://nearblocks.io/txns/29R9wmXS3WLbxdHEdnMSgcy38N375rp4T6mjts8DBFLd), 0.000200 NEAR (Nov 7).
 - **Score:** [tx 9w6qBWdV…](https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm), 0.003923 NEAR (Nov 7): band A 1000, cap $1,000, 7.665 s in OutLayer, 472 bytes, 0.008164 NEAR refunded. OutLayer's verifier: PROVEN, task 1301269, `docs/proofs/mainnet-score-2026-11-07.attestation.json`.
-- Nov 7 total 0.005246 NEAR. `kredofi.near` holds 0.0600 NEAR above its storage (score floor 0.05).
+- Nov 7 total 0.005246 NEAR. `kredofi.near` then held 0.0600 NEAR above its storage (score floor 0.05).
+- **Storage top-up:** [tx Ba9Gmc1u…](https://nearblocks.io/txns/Ba9Gmc1uLvfe6TB1Taqx9hPsqqKnbrZ1waJtRqYDqwcu), 0.1 NEAR (Nov 7, owner's yes): 0.16 NEAR free, room for about 29 new scored borrowers at 379 bytes each.
 
 The original plan follows. No step moves money into or out of the pool; no real-money loan is made (the pool holds $0, and after step 2 lender deposits are refused until `production_data` is set).
 

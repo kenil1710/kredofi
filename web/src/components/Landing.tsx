@@ -16,8 +16,8 @@ import { OneLineOut, ProofStrip } from './LandingProof';
 import { HERO_PROOF } from '@/lib/proofFacts';
 
 const FONTS = { display: display.style.fontFamily, body: body.style.fontFamily };
-const MAINNET_TX = 'https://nearblocks.io/txns/3nbdkFd3uNeeoYhqmE2AQHuRMXLZYbDhEZAUzsVDFGzo';
-const ATTESTATION = 'https://app.outlayer.ai/attestation/1257953';
+const MAINNET_TX = 'https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm';
+const ATTESTATION = 'https://app.outlayer.ai/attestation/1301269';
 
 const ROWS: [string, string, string, number?][] = [
   ['Oct 01', 'Salary, Acme Corp', '+4,000.00', 1], ['Oct 02', 'Rent', '−1,200.00'], ['Oct 06', 'Groceries', '−186.40'], ['Oct 11', 'Electricity', '−92.10'], ['Oct 15', 'To savings', '−600.00'],
@@ -533,7 +533,7 @@ export function Landing() {
 
         <section id="proof" aria-labelledby="proof-h">
           <div className="wrap">
-            <h2 id="proof-h">Numbers from a real mainnet enclave run on 3 November, not from a pitch deck.</h2>
+            <h2 id="proof-h">Numbers from a real mainnet enclave run on 7 November, not from a pitch deck.</h2>
             <p style={{ marginTop: 14, maxWidth: 640, opacity: 0.8 }}>Plaid sandbox data and our own test account: it proves the path, not a real borrower.</p>
             <div className="nums two">
               <div><b>~0.002</b><span>NEAR charged by OutLayer for the run</span></div>

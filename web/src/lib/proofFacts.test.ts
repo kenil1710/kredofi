@@ -7,8 +7,9 @@ import { DOC_PAGES } from './docs/pages.ts';
 const repo = (p: string) => new URL(`../../../${p}`, import.meta.url);
 
 test('the mainnet numbers match the attestation evidence for that transaction', () => {
-  const b = JSON.parse(readFileSync(repo('docs/proofs/mainnet-score-2026-11-03.attestation.json'), 'utf8'));
+  const b = JSON.parse(readFileSync(repo('docs/proofs/mainnet-score-2026-11-07.attestation.json'), 'utf8'));
   assert.equal(b.attestation.transaction_hash, MAINNET_RUN.tx);
+  assert.ok(b.attestation.wasm_hash.startsWith(MAINNET_RUN.scorer));
   const raw = typeof b.output_raw === 'string' ? b.output_raw : JSON.stringify(b.output_raw);
   assert.equal(Buffer.byteLength(raw), MAINNET_RUN.outputBytes);
 });
@@ -27,18 +28,18 @@ test('the docs agree: 24 h on mainnet', () => {
 });
 
 test('the hero line reads as agreed, and /mainnet backs both of its claims', () => {
-  assert.equal(HERO_PROOF, 'TDX attestation: PROVEN · mainnet run · sandbox data · 8.5 s · Verify →');
+  assert.equal(HERO_PROOF, 'TDX attestation: PROVEN · mainnet run · sandbox data · 7.7 s · Verify →');
   const page = readFileSync(repo('web/src/app/mainnet/page.tsx'), 'utf8');
   assert.match(page, /<b>PROVEN<\/b>/);
   assert.ok(page.includes(MAINNET_RUN.tx));
-  assert.match(page, /8\.5 s in the enclave/);
+  assert.match(page, /7\.7 s in the enclave/);
 });
 
 test('the lower proof block repeats nothing the strip already shows', () => {
   const landing = readFileSync(repo('web/src/components/Landing.tsx'), 'utf8');
   const block = landing.slice(landing.indexOf('<section id="proof"'), landing.indexOf('<section id="cta"'));
   assert.ok(block.length > 100);
-  assert.ok(!block.includes('8.5') && !block.includes('472'));
+  assert.ok(!block.includes('7.7') && !block.includes('472'));
   assert.match(block, /PROVEN/);
 });
 

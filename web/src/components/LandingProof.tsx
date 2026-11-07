@@ -10,7 +10,7 @@ export function ProofStrip() {
   return (
     <section id="pstrip" aria-label="The proof, in four numbers">
       <ul className="wrap">
-        <li><b>{MAINNET_RUN.seconds} s</b><span>A real mainnet score inside OutLayer, on sandbox data and our test account. <a href={MAINNET_TX_URL} target="_blank" rel="noreferrer">See the transaction</a></span></li>
+        <li><b>{MAINNET_RUN.seconds} s</b><span>A real mainnet score inside OutLayer (scorer {MAINNET_RUN.scorer}…), on sandbox data and our test account. <a href={MAINNET_TX_URL} target="_blank" rel="noreferrer">See the transaction</a></span></li>
         <li><b>{MAINNET_RUN.outputBytes} bytes</b><span>All that left the enclave for NEAR in that run.</span></li>
         <li><b>{MAINNET_SCORER_DELAY_HOURS} h</b><span>Public notice on mainnet before a scorer re-pin. The contract&apos;s key can still bypass it: <Link href="/trust#who-holds-what">who holds what</Link></span></li>
         <li><b>$0 gas</b><span>No wallet needed to try it on testnet. We pay the fees.</span></li>

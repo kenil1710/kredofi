@@ -18,11 +18,11 @@ const PLACEHOLDER = />\s*…\s*</;
 
 const PAGES = {
   '/': {
-    literal: ['Every transaction in. One line out.', 'They never see your statements or your exact income.', 'Lenders never see your statements.', "Riya gets $100. Sam doesn't, and he's told why.", 'Lending is the boring part, on purpose.', 'How to check a KredoFi note', 'Numbers from a real mainnet enclave run on 3 November, not from a pitch deck.', 'Borrow against your payslip.'],
+    literal: ['Every transaction in. One line out.', 'They never see your statements or your exact income.', 'Lenders never see your statements.', "Riya gets $100. Sam doesn't, and he's told why.", 'Lending is the boring part, on purpose.', 'How to check a KredoFi note', 'Numbers from a real mainnet enclave run on 7 November, not from a pitch deck.', 'TDX attestation: PROVEN · mainnet run · sandbox data · 7.7 s · Verify →', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', 'Borrow against your payslip.'],
     text: ['Prove your income on NEAR without showing your bank statements.'],
     patterns: [/Income level 250/, /Money left over 150/, /Score 1000/, /Riya 1000/, /Sam 270/],
   },
-  '/trust': { literal: ['Why is this safe?'] },
+  '/trust': { literal: ['Why is this safe?', 'The 7 November mainnet run', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm'] },
   '/mainnet': {
     literal: ['What kredofi.near runs, right now.', 'Contract version', 'Pinned scorer', 'Pending scorer change', 'Deposits locked', 'Locked until real bank data', 'TDX attestation of the newest score', 'outlayer-verify tx 9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', 'Check it yourself'],
     patterns: [/Contract version v\d+ .*?\b[0-9a-f]{64}\b/, /Pinned scorer [0-9a-f]{64}\b/, /Pending scorer change ([0-9a-f]{64} (applies at|can be applied now)|none \(time lock)/, /Read at \d+ \w+ \d{4}, \d\d:\d\d UTC|last read at|recorded on/],

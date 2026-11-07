@@ -101,7 +101,7 @@ It found 1 High (a trust/design issue), 1 Medium, 5 Low and 5 Info. Each finding
 | 2 | Deploy v4 + `migrate` in one transaction (10 Tgas) | `kredofi.near` | [tx Gj3X9axs…](https://nearblocks.io/txns/Gj3X9axsGU2ctvrsPLo3Uhn93YzbL9XYRtC15fHPEp5c), about 0.0023 NEAR from its own balance |
 | 3 | Read-only checks | — | `view_code` sha256 = `147d863d…`; `get_config` identical to before except the new `scorer_delay_ns` = `86400000000000` (24 h) and `pending_scorer` = null; `get_pending_scorer` = null; `get_pool`, `get_stats`, the stored score (band A, 1000) and limit ($100) unchanged; storage 294,110 → 301,420 bytes; 0.0600 NEAR free (score floor 0.05) |
 
-No new score transaction was needed: the pin (`6888c15e…`), OutLayer mode and the secrets lock are unchanged, and the free balance is above the 0.05 NEAR floor that `request_score` checks. The margin is small: each new scored borrower stores about 379 bytes (0.0038 NEAR), so about two new mainnet borrowers fit before scores pause until a top-up.
+No new score transaction was needed: the pin (`6888c15e…`), OutLayer mode and the secrets lock are unchanged, and the free balance is above the 0.05 NEAR floor that `request_score` checks. The margin is small: each new scored borrower stores about 379 bytes (0.0038 NEAR), so about two new mainnet borrowers fit before scores pause until a top-up. (Nov 7: topped up 0.1 NEAR, [tx Ba9Gmc1u…](https://nearblocks.io/txns/Ba9Gmc1uLvfe6TB1Taqx9hPsqqKnbrZ1waJtRqYDqwcu); about 29 fit now.)
 
 Every future mainnet re-pin now takes 24 h: publish the build and add it to OutLayer, propose, and 24 h later move the secrets lock and apply back to back.
 
