@@ -31,16 +31,12 @@ const FN = ['Income level', 'Steady income', 'On-time payments', 'Money left ove
 const FV = [250, 250, 250, 150, 100];
 const MONTHS = ['October', 'September', 'August', 'July', 'June', 'May'];
 // Hero copy per network (SPEC 2: never claim more privacy than the network the visitor uses gives).
-// The hero leads with the product; the Dev-mode caveat is the small note under the buttons (and /trust).
+// Eyebrow, a two-line lede, buttons, and one small line; the details live in the sections below and on /trust.
+export const HERO_EYEBROW = 'No-collateral USDC loans on NEAR';
 export const HERO_LEDE = IN_ENCLAVE
-  ? 'A scorer reads your bank history inside a sealed enclave. Only your band, your score and a few sealed fields reach NEAR; lenders never see your statements. First use: no-collateral USDC loans.'
-  : 'A scorer reads your bank history and applies five published rules; on mainnet it runs inside a sealed enclave. Only your band, your score and a few sealed fields reach NEAR; lenders never see your statements. First use: no-collateral USDC loans.';
-export const HERO_FIELDS_LINK = '/docs/privacy#what-leaves-the-scorer';
-const HERO_NOTE = NETWORK === 'mainnet'
-  ? 'Mainnet.'
-  : IN_ENCLAVE
-    ? 'Testnet demo with Plaid\'s sandbox bank, scored in the same enclave service as mainnet (OutLayer), testnet deployment. No wallet needed; we pay the network fees.'
-    : 'Testnet demo with Plaid\'s sandbox bank. No wallet needed; we pay the network fees. On this demo the scorer runs on our server, so our server sees the test bank data while it scores.';
+  ? 'A sealed enclave scores your bank history. Only your band, your score and a few sealed fields reach NEAR.'
+  : 'A scorer reads your bank history, inside a sealed enclave on mainnet. Only your band, your score and a few sealed fields reach NEAR.';
+const HERO_NOTE = NETWORK === 'mainnet' ? 'Mainnet · ' : 'Testnet demo · no wallet needed · ';
 const RULES_SUB = !IN_ENCLAVE
   ? 'Five rules decide the band, and they\'re published as code. On mainnet the contract takes a score only from its own request to the pinned scorer. On this testnet demo our server runs the same scorer and submits the result. The developer still holds the keys that could change this; /trust lists them.'
   : 'Five rules decide the band, and they\'re published as code. The contract takes a score only from its own request to the pinned scorer, and each run has a checkable attestation. The developer still holds the keys that could change this; /trust lists them.';
@@ -112,7 +108,7 @@ export function Landing() {
     const heroIntro = () => {
       if (REDUCE || !gsap) return;
       gsap.from($$('.hero-inner h1 .ln span'), { yPercent: 110, duration: 1.2, stagger: 0.1, ease: 'power4.out' });
-      gsap.from($$('.hero-inner .lede, .hero-inner .ctas, .hero-inner .small'), { y: 24, opacity: 0, duration: 1, stagger: 0.08, delay: 0.35, ease: 'power3.out' });
+      gsap.from($$('.hero-inner .eyebrow, .hero-inner .lede, .hero-inner .ctas, .hero-inner .small'), { y: 24, opacity: 0, duration: 1, stagger: 0.08, delay: 0.35, ease: 'power3.out' });
     };
     libs.then(() => {
       if (!alive) return;
@@ -450,14 +446,14 @@ export function Landing() {
             <div className="hero-copy">
               <div className="wrap">
                 <div className="hero-inner">
+                  <p className="eyebrow">{HERO_EYEBROW}</p>
                   <h1><span className="ln"><span>Prove your income on NEAR</span></span><span className="ln"><span>without showing your</span></span><span className="ln"><span>bank statements.</span></span></h1>
-                  <p className="lede">{HERO_LEDE} <Link href={HERO_FIELDS_LINK}>Exactly what&apos;s public →</Link></p>
+                  <p className="lede">{HERO_LEDE}</p>
                   <div className="ctas">
                     <Link className="btn btn-light magnetic" href="/borrow">Check my limit</Link>
                     <a className="btn btn-ghost magnetic" href="#check">How the privacy works</a>
                   </div>
-                  <p className="small">{HERO_NOTE}{!IN_ENCLAVE && <> <Link href="/trust">Who sees what</Link></>}</p>
-                  <p className="small"><Link href="/mainnet">{HERO_PROOF}</Link></p>
+                  <p className="small">{HERO_NOTE}{!IN_ENCLAVE && NETWORK !== 'mainnet' && <>scored on our server (<Link href="/trust">who sees what</Link>) · </>}<Link href="/mainnet">{HERO_PROOF}</Link></p>
                 </div>
               </div>
             </div>

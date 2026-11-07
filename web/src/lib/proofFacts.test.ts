@@ -28,7 +28,7 @@ test('the docs agree: 24 h on mainnet', () => {
 });
 
 test('the hero line reads as agreed, and /mainnet backs both of its claims', () => {
-  assert.equal(HERO_PROOF, 'TDX attestation: PROVEN · mainnet run · sandbox data · 7.7 s · Verify →');
+  assert.equal(HERO_PROOF, 'TDX attestation PROVEN on mainnet →');
   const page = readFileSync(repo('web/src/app/mainnet/page.tsx'), 'utf8');
   assert.match(page, /<b>PROVEN<\/b>/);
   assert.ok(page.includes(MAINNET_RUN.tx));

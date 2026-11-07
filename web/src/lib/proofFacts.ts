@@ -11,7 +11,8 @@ export const MAINNET_RUN = {
 export const MAINNET_TX_URL = `https://nearblocks.io/txns/${MAINNET_RUN.tx}`;
 
 /** The hero's one proof line, linking to /mainnet. */
-export const HERO_PROOF = `TDX attestation: PROVEN · mainnet run · sandbox data · ${MAINNET_RUN.seconds} s · Verify →`;
+/** The hero's link to /mainnet; the run's details (7.7 s, sandbox data) are in the proof strip right under the hero. */
+export const HERO_PROOF = 'TDX attestation PROVEN on mainnet →';
 
 /** kredofi.near scorer_delay_ns = 86400000000000. The testnet demo uses 60 s on purpose. */
 export const MAINNET_SCORER_DELAY_HOURS = 24;

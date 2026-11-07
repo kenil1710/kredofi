@@ -18,9 +18,9 @@ const PLACEHOLDER = />\s*…\s*</;
 
 const PAGES = {
   '/': {
-    literal: ['Every transaction in. One line out.', 'Public on-chain: your band, score, income bucket, bank fingerprint, loans and default status.', 'repay before the grace period ends', "Riya gets $100. Sam doesn't, and he's told why.", 'Lending is the boring part, on purpose.', 'How to check a KredoFi note', 'Numbers from a real mainnet enclave run on 7 November, not from a pitch deck.', 'TDX attestation: PROVEN · mainnet run · sandbox data · 7.7 s · Verify →', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', 'Borrow against your payslip.'],
-    text: ['Prove your income on NEAR without showing your bank statements.', 'Only your band, your score and a few sealed fields reach NEAR; lenders never see your statements.', "Exactly what's public →"],
-    absent: ['puts eight fields on NEAR: v, caller', 'Lenders see a band', 'the only score that goes on-chain', 'on time and your next note'],
+    literal: ['Every transaction in. One line out.', 'Public on-chain: your band, score, income bucket, bank fingerprint, loans and default status.', 'repay before the grace period ends', "Riya gets $100. Sam doesn't, and he's told why.", 'Lending is the boring part, on purpose.', 'How to check a KredoFi note', 'Numbers from a real mainnet enclave run on 7 November, not from a pitch deck.', 'No-collateral USDC loans on NEAR', 'Testnet demo · no wallet needed · ', 'TDX attestation PROVEN on mainnet →', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', 'Borrow against your payslip.'],
+    text: ['Prove your income on NEAR without showing your bank statements.', 'A sealed enclave scores your bank history. Only your band, your score and a few sealed fields reach NEAR.'],
+    absent: ['mainnet run · sandbox data · 7.7 s · Verify', "Exactly what's public", 'we pay the network fees.', 'puts eight fields on NEAR: v, caller', 'Lenders see a band', 'the only score that goes on-chain', 'on time and your next note'],
     patterns: [/Income level 250/, /Money left over 150/, /Score 1000/, /Riya 1000/, /Sam 270/],
   },
   '/trust': { literal: ['Why is this safe?', 'The 7 November mainnet run', 'Everything that went on-chain for one real testnet enclave score', 'HoLog3yaJvbEKfXyqHDP4cRAmcqpxTApkBNbEMdapwjC', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm'] },
