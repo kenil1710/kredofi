@@ -43,10 +43,10 @@ const HERO_NOTE = NETWORK === 'mainnet'
 const RULES_SUB = !IN_ENCLAVE
   ? 'Five rules decide the band, and they\'re published as code. On mainnet the contract takes a score only from its own request to the pinned scorer. On this testnet demo our server runs the same scorer and submits the result. The developer still holds the keys that could change this; /trust lists them.'
   : 'Five rules decide the band, and they\'re published as code. The contract takes a score only from its own request to the pinned scorer, and each run has a checkable attestation. The developer still holds the keys that could change this; /trust lists them.';
-const STATEMENT = 'Lenders see a band and a limit. They never see your statements or your exact income.';
+const STATEMENT = 'Public on-chain: your band, score, income bucket, bank fingerprint, loans and default status. Never your statements or your exact income.';
 const FEATS: [string, string][] = [
-  ['The amount', '$100 is your limit. The rules set it, not a loan officer. Repay this one on time and your next note says $250.'],
-  ['The letter', "Your band, from A to D. Like the colour-shifting ink on a real note, it changes as you move. It's the only score that goes on-chain."],
+  ['The amount', '$100 is your limit. The rules set it, not a loan officer. Borrow at least half of it, hold it at least half the term, repay before the grace period ends, and your next note says $250.'],
+  ['The letter', "Your band, from A to D. Like the colour-shifting ink on a real note, it changes as you move. It's public on-chain, next to your score."],
   ['The serial number', 'A keyed fingerprint of your bank identity: bank, owner name and account mask. On this contract one identity backs one borrower. Someone with accounts at several banks could still become several borrowers.'],
   ['The thread', 'Your name, encrypted and woven in. It opens for our recovery partner only if you never repay.'],
   ['The watermark', 'An Intel-signed attestation for each enclave run: this input and output, this pinned scorer, on an approved TDX build. Anyone can check it with OutLayer’s verifier.'],
@@ -474,7 +474,7 @@ export function Landing() {
 
         <ProofStrip />
 
-        <section id="statement" aria-label="What lenders see">
+        <section id="statement" aria-label="What is public on-chain">
           <div className="pin"><div className="wrap"><p className="sr-only">{STATEMENT}</p><p aria-hidden="true">{STATEMENT.split(' ').map((w, i) => <span key={i}><span className="w">{w}</span>{' '}</span>)}</p></div></div>
         </section>
 

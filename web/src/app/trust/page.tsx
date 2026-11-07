@@ -35,7 +35,8 @@ export default function Trust() {
             : <p><b>On this testnet demo, honestly:</b> the same pinned scorer runs on our server, outside an enclave, so that server sees the test bank data while it scores. It keeps only the public result. <Link href="/docs/testnet-vs-mainnet">Testnet vs mainnet</Link></p>}
 
           <h2 id="what-leaves">What leaves</h2>
-          <p>Eight fields and nothing else: <code>v</code>, <code>caller</code>, <code>band</code>, <code>score</code>, <code>income_cap</code> (the most your limit can be: one of five buckets, which puts your income in a wide public range), <code>fingerprint</code>, <code>sealed_identity</code> (your name, sealed) and <code>reply</code> (your rule results, sealed to your browser). The chain never sees the raw data, and nobody outside can verify the enclave deletes it when the run ends. Today the developer holds the sealing key (production would make it inside the enclave).{IN_ENCLAVE ? '' : ' A real receipt from this demo:'}</p>
+          <p>Eight fields and nothing else: <code>v</code>, <code>caller</code>, <code>band</code>, <code>score</code>, <code>income_cap</code> (the most your limit can be: one of five buckets, which puts your income in a wide public range), <code>fingerprint</code>, <code>sealed_identity</code> (your name, sealed) and <code>reply</code> (your rule results, sealed to your browser). The chain never sees the raw data, and nobody outside can verify the enclave deletes it when the run ends. Today the developer holds the sealing key (production would make it inside the enclave).</p>
+          <p><b>Public to everyone, linked to your NEAR account:</b> your band, score, income bucket and bank fingerprint, plus your loans and default status.{IN_ENCLAVE ? '' : ' A real receipt from this demo:'}</p>
           <p>And everything that went on-chain for that score:</p>
           <pre className="doc-code"><code>{`{
   "band": "B",

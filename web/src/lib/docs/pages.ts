@@ -87,8 +87,8 @@ The differences are spelled out in [Testnet vs mainnet](/docs/testnet-vs-mainnet
 
 1. You connect a bank through Plaid. KredoFi never sees your bank login.
 2. The scorer reads the last 6 full months of your main account and scores five things: income level, steady income, on-time payments, money left over and a savings buffer. See [Scoring model](/docs/scoring-model).
-3. Only a band (A to D), a score, an income cap, a keyed fingerprint and your name sealed for a recovery partner leave the scorer. See [Privacy & the enclave](/docs/privacy).
-4. You borrow up to your limit and repay one fixed amount. Repay on time and your limit grows. See [For borrowers](/docs/borrowers).
+3. Only a band (A to D), a score, an income cap, a keyed fingerprint and your name sealed for a recovery partner leave the scorer. The band, score, income cap and fingerprint are public. See [Privacy & the enclave](/docs/privacy).
+4. You borrow up to your limit and repay one fixed amount. Repay before the grace period ends and your limit can grow. See [For borrowers](/docs/borrowers).
 5. Lenders fund the pool and earn half the interest. A reserve pays losses first. See [For lenders](/docs/lenders).
 
 ## Where to go next
@@ -184,6 +184,8 @@ When you repay, your level goes up by one if all of these hold. The values come 
 | Hold the loan at least | 15 days (half the term) | 1 minute |
 | Borrow at least | half your limit at the time | half your limit at the time |
 | Your limit can rise at most once per | 30 days (one term) | 2 minutes (one term) |
+
+Repay before the grace period ends: after it, anyone can mark the loan as defaulted. The contract doesn't check the due date for a level-up, so a repayment during the grace period still counts, and so does one after it if nobody has marked the default yet. Don't count on that.
 | Highest level | 4 | 4 |
 
 What the app says, built from those settings:
@@ -205,9 +207,9 @@ After the due date plus the grace period, **anyone** can mark the loan as defaul
 - your account is blocked from borrowing for good, and your bank fingerprint stays taken, so the same bank identity can't start over with a new account;
 - anyone can ask for your sealed name to be released to the recovery partner (once). Only the partner's key can open it.
 
-## What lenders see
+## What is public
 
-Your band, score, loan amounts and dates, linked to your NEAR account. Never your income, transactions or name.
+Everyone, not only lenders, can read these, linked to your NEAR account: your band, score, income bucket (\`income_cap\`), bank fingerprint, level, loan amounts and dates, repayments and default status. Never your statements, exact income, balances or name.
 `,
   },
   {
@@ -239,7 +241,7 @@ When a loan defaults, the **reserve pays first**, up to the loan's principal and
 
 - One borrower can take at most 10% of the pool's value.
 - One bank identity (bank, owner name, account mask) can back only one borrower on this contract. Someone with accounts at several banks could become several borrowers.
-- Limits start at $100 and grow only after on-time repayment of meaningful loans.
+- Limits start at $100 and grow only after repaying meaningful loans held at least half the term.
 - The owner can't withdraw lender cash, outstanding loans or the reserve (see [Fees & treasury](/docs/fees-treasury) and [Security](/docs/security) for the caveat about code upgrades).
 ${CREDIT_MODEL}`,
   },
@@ -391,7 +393,7 @@ No. On mainnet the contract is in OutLayer mode, so \`dev_submit_score\` is refu
 
 ## 5. Does the WASM come from this source?
 
-The source is in the repository (\`scorer/\`). The pinned build is made on x86_64 Linux in a pinned Rust image: \`./scorer/build-docker.sh\` gives \`${MAINNET_SCORER}\` on any x86_64 machine with Docker, and the repository's GitHub workflow prints the same hash (CI run 41623343936). Builds on macOS or ARM Linux give other hashes for the same source, which is why one platform is canonical.
+The source is in the repository (\`scorer/\`). The pinned build is made on x86_64 Linux in a pinned Rust image: \`./scorer/build-docker.sh\` gives \`${MAINNET_SCORER}\` on any x86_64 machine with Docker, and the repository's GitHub workflow prints the same hash (CI runs 42006645803 and 42006679883). Builds on macOS or ARM Linux give other hashes for the same source, which is why one platform is canonical.
 
 ## 6. The testnet demo
 
@@ -520,9 +522,9 @@ The demo's server routes (\`/api/score\`, \`/api/relay\`, \`/api/demo\`, \`/api/
   {
     slug: 'integrate',
     title: 'Use KredoFi scores in your app',
-    summary: 'Read a borrower’s band and limit from any NEAR contract or frontend, and what that never reveals.',
+    summary: 'Read a borrower’s band and limit from any NEAR contract or frontend, what that reveals, and what it never does.',
     body: `
-A KredoFi score is public, on-chain state. Any NEAR contract or frontend can read it with the contract's existing view methods: no API key, no permission from KredoFi, no new code on our side. Use it to gate a feature, size a limit or skip a deposit for people who have proven their income.
+A KredoFi score is public, on-chain state. Any NEAR contract or frontend can read it with the contract's existing view methods, and the borrower isn't asked: there is no consent step today. That is a limit of this version, not a feature. Reads that need the borrower's consent are on the [roadmap](/docs/roadmap). Use it to gate a feature, size a limit or skip a deposit for people who have proven their income.
 
 ## See it working
 
@@ -610,7 +612,7 @@ What it does reveal, publicly, to everyone:
     body: `
 ## What we protect
 
-- **Your bank data** is read only by the pinned scorer, inside the enclave on mainnet. Only eight fields come out: \`v\`, \`caller\`, \`band\`, \`score\`, \`income_cap\`, \`fingerprint\`, \`sealed_identity\` and \`reply\`. Nobody outside can verify the enclave deletes the data when the run ends.
+- **Your bank data** is read only by the pinned scorer, ${ENC ? 'inside the enclave, on mainnet and on the testnet demo' : 'inside the enclave on mainnet'}. Only eight fields come out: \`v\`, \`caller\`, \`band\`, \`score\`, \`income_cap\`, \`fingerprint\`, \`sealed_identity\` and \`reply\`. Nobody outside can verify the enclave deletes the data when the run ends.
 - **Your name** stays sealed unless you default.
 ${ENC ? "- **A score's origin can't be forged.** The contract accepts a score only from its own pinned OutLayer request, on mainnet and on the testnet demo. Its input can be: with Plaid sandbox data anyone can use a test login, so today a score proves where it was computed, not that the income is real." : "- **A score's origin can't be forged on mainnet.** The contract accepts a score only from its own pinned OutLayer request. Its input can be: with Plaid sandbox data anyone can use a test login, so today a score proves where it was computed, not that the income is real. On the testnet demo (Dev mode) it accepts scores from one scorer account that our server holds, so there you trust our server."}
 - **Only you can ask for your score.** ${ENC ? 'The contract requires your account to sign the request, and the bank token inside it is sealed to the enclave together with your account, so a copied token is refused.' : "On mainnet the contract requires your account's signature."} ${ENC ? '(Until the testnet demo moved into the enclave on 4 November, it asked for a one-time challenge signed with a full-access key of your account, a NEAR NEP-413 signed message, instead.)' : "On the testnet demo, every score request carries a one-time challenge signed with a full-access key of your account (a NEAR NEP-413 signed message), so nobody can re-score someone else's account."}
@@ -734,7 +736,7 @@ No owner method can move lender cash, loans or the reserve. But the contract key
     title: 'Roadmap',
     summary: 'A hackathon MVP today; the phases after it, in order.',
     body: `
-KredoFi today is a **hackathon MVP**: it works end to end on testnet, and the mainnet contract scores inside the enclave, but it has never lent real money. These are the next phases, in order. There are no dates: each phase depends on partners and approvals we don't control yet.
+KredoFi today is a **hackathon MVP**: it works end to end on testnet, ${ENC ? 'both contracts score inside the enclave' : 'and the mainnet contract scores inside the enclave'}, but it has never lent real money. These are the next phases, in order. There are no dates: each phase depends on partners and approvals we don't control yet.
 
 ## Now: the MVP
 
@@ -757,7 +759,7 @@ The same rules on bank data shared through India's Account Aggregator network (c
 
 ## Platform: scores for other NEAR apps
 
-Other NEAR contracts and apps already can read a borrower's band and limit with view calls ([Use KredoFi scores in your app](/docs/integrate)). This phase makes that a product: stable interfaces, documented guarantees, and apps that use the score for things other than loans (access, deposits, reputation).
+Other NEAR contracts and apps already can read a borrower's band and limit with view calls ([Use KredoFi scores in your app](/docs/integrate)). This phase makes that a product: stable interfaces, documented guarantees, and apps that use the score for things other than loans (access, deposits, reputation). Planned, not built: reads that need the borrower's consent, so a band is no longer public by default. Today any app can read it without asking.
 
 ## Cross-chain: lenders through NEAR Intents
 

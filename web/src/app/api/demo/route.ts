@@ -4,16 +4,16 @@
 // OutLayer mode: 0.2 NEAR instead, because the account signs request_score itself: NEAR needs the
 // 0.01 fee plus 150 Tgas at the pessimistic gas price (~0.16 NEAR) available up front, although only
 // ~0.003 is spent. After a score the browser sends everything above 0.02 back to the relayer.
-// At most 60 a day in total, none while the relayer is under 3 NEAR.
+// At most 20 an hour and 30 a day per network, 60 a day in total, none while the relayer is under 3 NEAR.
 import { NextResponse } from 'next/server';
 import { actions, PublicKey } from 'near-api-js';
-import { clientIp, overQuota, relayerAccount, relayerBalance, RELAYER_FLOOR } from '@/server/near';
+import { clientIp, relayerAccount, relayerBalance, RELAYER_FLOOR } from '@/server/near';
 import { IN_ENCLAVE, USDC_CONTRACT } from '@/lib/config';
-import { Quota } from '@/server/guards';
+import { DemoAccountBudget, Quota } from '@/server/guards';
 
 export const runtime = 'nodejs';
 const DEMO_NEAR = IN_ENCLAVE ? 200_000_000_000_000_000_000_000n : 5_000_000_000_000_000_000_000n; // 0.2 / 0.005 NEAR
-const daily = new Quota(60, 86_400_000);
+const daily = new Quota(60, 86_400_000), perNetwork = new DemoAccountBudget();
 const USDC_STORAGE = 12_500_000_000_000_000_000_000n; // NEP-145 registration, as in fundTestUsdc
 
 export async function POST(req: Request) {
@@ -21,9 +21,8 @@ export async function POST(req: Request) {
   if (typeof publicKey !== 'string' || !/^ed25519:[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(publicKey)) {
     return NextResponse.json({ error: 'Invalid public key.' }, { status: 400 });
   }
-  if (overQuota(`demo:${clientIp(req)}`, 5, 3_600_000)) {
-    return NextResponse.json({ error: 'Five demo accounts per hour from one network. Reuse the one you have, or try again later.' }, { status: 429 });
-  }
+  const refused = perNetwork.take(clientIp(req));
+  if (refused) return NextResponse.json({ error: refused }, { status: 429 });
   if (IN_ENCLAVE) {
     const bal = await relayerBalance();
     if (bal !== null && bal < RELAYER_FLOOR) return NextResponse.json({ error: 'The demo relayer is low on test NEAR. Connect a testnet wallet, or try again later.' }, { status: 503 });

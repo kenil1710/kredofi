@@ -7,7 +7,7 @@
 | Banknote feature | KredoFi meaning |
 |---|---|
 | The amount | Your limit ($100, then $250, $500, $1,000) |
-| The letter, in colour-shifting ink | Your band, A to D, the only score on-chain |
+| The letter, in colour-shifting ink | Your band, A to D, public on-chain next to your score |
 | The serial number | Fingerprint of your bank account: one bank identity, one borrower on this contract (several banks can get around it) |
 | The security thread | Your name, sealed; opened only after a default |
 | The watermark | Proof the scoring ran inside Intel TDX with the pinned code |

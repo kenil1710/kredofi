@@ -17,6 +17,18 @@ export class Quota {
   }
 }
 
+/** New demo accounts per network: enough for judges sharing Wi-Fi, but one network can't use the whole daily total. */
+export class DemoAccountBudget {
+  private perHour = new Quota(20, 3_600_000);
+  private perDay = new Quota(30, 86_400_000);
+  /** Records one account for `ip`, or returns the refusal (nothing more recorded). */
+  take(ip: string, now = Date.now()): string | null {
+    if (!this.perHour.take(ip, now)) return 'Twenty demo accounts per hour from one network. Reuse the one you have, or try again later.';
+    if (!this.perDay.take(ip, now)) return 'Thirty demo accounts per day from one network. Reuse the one you have, or try again tomorrow.';
+    return null;
+  }
+}
+
 /**
  * One-time score challenges, per account, valid 5 minutes, consumed on use. Each requester (client IP
  * key) holds at most 5 open nonces per account and evicts only its own, so nobody can flood another

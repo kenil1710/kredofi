@@ -18,6 +18,11 @@ export function usd(base: string | bigint | number, opts: { cents?: boolean } = 
   return `${neg ? '−' : ''}$${whole}${showCents ? '.' + cents.toString().padStart(2, '0') : ''}`;
 }
 
+/** Like usd, but drops ".00": "$75", "$187.50" (never rounds a real amount away). */
+export function usdShort(base: string | bigint | number): string {
+  return usd(base).replace(/\.00$/, '');
+}
+
 /** "12.5" or "12" (dollars, as typed) -> base units, or null if not a valid amount. */
 export function parseUsd(input: string): bigint | null {
   const s = input.trim().replace(/^\$/, '').replace(/,/g, '');
@@ -58,6 +63,6 @@ export function amountInWords(dollars: number): string {
     return words(Math.floor(x / 1000)) + ' thousand' + (x % 1000 ? (x % 1000 < 100 ? ' and ' : ' ') + words(x % 1000) : '');
   };
   if (n === 0) return 'Zero US dollars';
-  const w = words(n);
-  return `${w[0].toUpperCase()}${w.slice(1)} US dollars, in USDC`;
+  const w = words(n), c = Math.round((dollars - n) * 100);
+  return `${w[0].toUpperCase()}${w.slice(1)} US dollars${c ? ` and ${c} cents` : ''}, in USDC`;
 }

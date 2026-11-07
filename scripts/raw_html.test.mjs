@@ -18,8 +18,9 @@ const PLACEHOLDER = />\s*…\s*</;
 
 const PAGES = {
   '/': {
-    literal: ['Every transaction in. One line out.', 'They never see your statements or your exact income.', 'Lenders never see your statements.', "Riya gets $100. Sam doesn't, and he's told why.", 'Lending is the boring part, on purpose.', 'How to check a KredoFi note', 'Numbers from a real mainnet enclave run on 7 November, not from a pitch deck.', 'TDX attestation: PROVEN · mainnet run · sandbox data · 7.7 s · Verify →', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', 'Borrow against your payslip.'],
+    literal: ['Every transaction in. One line out.', 'Public on-chain: your band, score, income bucket, bank fingerprint, loans and default status.', 'repay before the grace period ends', 'Lenders never see your statements.', "Riya gets $100. Sam doesn't, and he's told why.", 'Lending is the boring part, on purpose.', 'How to check a KredoFi note', 'Numbers from a real mainnet enclave run on 7 November, not from a pitch deck.', 'TDX attestation: PROVEN · mainnet run · sandbox data · 7.7 s · Verify →', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm', 'Borrow against your payslip.'],
     text: ['Prove your income on NEAR without showing your bank statements.'],
+    absent: ['Lenders see a band', 'the only score that goes on-chain', 'on time and your next note'],
     patterns: [/Income level 250/, /Money left over 150/, /Score 1000/, /Riya 1000/, /Sam 270/],
   },
   '/trust': { literal: ['Why is this safe?', 'The 7 November mainnet run', 'attestation/1301269', '9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm'] },
@@ -28,7 +29,7 @@ const PAGES = {
     patterns: [/Contract version v\d+ .*?\b[0-9a-f]{64}\b/, /Pinned scorer [0-9a-f]{64}\b/, /Pending scorer change ([0-9a-f]{64} (applies at|can be applied now)|none \(time lock)/, /Read at \d+ \w+ \d{4}, \d\d:\d\d UTC|last read at|recorded on/],
     noPlaceholder: true,
   },
-  '/integrate': { literal: ["Your band, another contract's terms.", 'partner-vault.kency.testnet', 'What this demo leaves out'], patterns: [/Band A 110% \$100\.00/, /Band D, no score, expired or defaulted 150% \$73\.33/] },
+  '/integrate': { literal: ["Your band, another contract's terms.", 'partner-vault.kency.testnet', 'What this demo leaves out', 'so any app can read it without asking you'], absent: ['gave no permission'], patterns: [/Band A 110% \$100\.00/, /Band D, no score, expired or defaulted 150% \$73\.33/] },
   '/lend': {
     literal: ['Lend test USDC to the pool.', 'Lost by lenders so far', 'nothing here is a forecast'],
     patterns: [/In the pool \$[\d,]+\.\d\d/, /Lent out right now \$[\d,]+\.\d\d/, /Reserve, pays losses first \$[\d,]+\.\d\d/, /Share price \d\.\d{4} USDC/, /read from the chain at \d+ \w+ \d{4}, \d\d:\d\d UTC/],
@@ -47,6 +48,7 @@ for (const [path, want] of Object.entries(PAGES)) {
   test(`raw HTML of ${path}`, async () => {
     const p = await page(path);
     for (const s of want.literal ?? []) assert.ok(p.literal.includes(s), `${path}: not literal: ${s}`);
+    for (const s of want.absent ?? []) assert.ok(!p.literal.includes(s), `${path}: must be gone: ${s}`);
     for (const s of want.text ?? []) assert.ok(p.text.includes(s), `${path}: not in text: ${s}`);
     for (const r of want.patterns ?? []) assert.match(p.text, r, path);
     if (want.noPlaceholder) assert.doesNotMatch(p.html, PLACEHOLDER, `${path}: empty placeholder`);

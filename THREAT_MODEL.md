@@ -34,7 +34,7 @@ What KredoFi protects, against whom, and where the protection stops. "Mainnet" m
 
 **The contract pays for storage.** Lender and borrower records are paid from the contract's own NEAR. Deposits under 1 USDC are refused, and `/api/health` reports `storageLow` under 0.2 NEAR free. If storage does run out between `request_score` and `on_score`, the borrower can clear the stuck request with `cancel_pending_score` (security review Nov 3, M1; contract build after Nov 3).
 
-**The live demo is not private from us.** On testnet the scorer runs on our server (Dev mode), so the server process sees the Plaid tokens and transactions in memory while it scores. It uses a separate testnet-only `SEAL_KEY` and keeps nothing but the public output and the borrower-sealed `extra`. The AI summary is asked for by the browser after the score, from the band and rule results only (`/api/summary`), so our server sees those too; it keeps nothing. Testnet uses Plaid sandbox data only.
+**The live demo uses test data.** Since Nov 4 the testnet demo scores in OutLayer's testnet enclave, with its own `SEAL_KEY`, so our server no longer sees the Plaid tokens or fetched transactions. It does make the prepared sandbox users (Riya, Sam, Max, build your own), so it knows those made-up profiles. The AI summary is asked for by the browser after the score, from the band and rule results only (`/api/summary`), so our server sees those too; it keeps nothing. Testnet uses Plaid sandbox data only.
 
 **Testnet scoring requires proof of the account.** Since Nov 2 every testnet score request carries a one-time challenge (5 minutes, single use) signed as a NEP-413 message by a full-access key of the account, naming the account and the browser's reply key; the server checks the signature and the key on chain (`web/src/lib/ownership.ts`, tested; a stranger's key, a replayed challenge and a mismatched reply key are refused). It still trusts the single testnet server that does the check; mainnet relies on the contract's own `signer == predecessor` rule.
 
@@ -42,7 +42,7 @@ What KredoFi protects, against whom, and where the protection stops. "Mainnet" m
 
 **Plaid sees the data.** The bank connection goes through Plaid, which sees what any Plaid integration sees. KredoFi's own servers and the chain don't (mainnet).
 
-**What the chain shows.** Bands, scores, loan amounts, due dates, repayments and defaults are public and linked to the borrower's NEAR account. Anyone who knows who owns an account learns their band and repayment history. Income, transactions and names are not on-chain.
+**What the chain shows.** Bands, scores, income buckets (`income_cap`), bank fingerprints, loan amounts, due dates, repayments and defaults are public and linked to the borrower's NEAR account. Any app can read them without the borrower's consent. Anyone who knows who owns an account learns their band, income range and repayment history. Exact income, transactions and names are not on-chain (the name only sealed).
 
 **The fingerprint is only as good as the identity data.** Plaid sandbox account IDs change per login, so the fingerprint uses institution, owner name and mask. A person with accounts at several banks can be several borrowers; name variations could create new fingerprints. Production would use Plaid's persistent account ID.
 
@@ -54,7 +54,7 @@ What KredoFi protects, against whom, and where the protection stops. "Mainnet" m
 
 **Demo accounts are throwaway.** A demo account's full-access key lives in the browser's `localStorage`. Anything that can run script on the page (an XSS bug, a malicious extension) could take it; it holds only test funds. "Start with a new account" forgets the key for good.
 
-**Relayer abuse.** The relayer pays every demo fee. It relays only `borrow`, `withdraw`, `ft_transfer_call` (repay or deposit, 1 yoctoNEAR) and `storage_deposit` to the KredoFi and test USDC contracts, at most 20 actions per account per hour, and creates at most 5 demo accounts per hour per network. The test USDC faucet only funds accounts that exist, 10 times per network per hour and 300 times a day in total; default and release steps check the contract's own date rule before the relayer sends anything. Client IPs come from Cloudflare through our Worker only (IPv6 counted per /64). Limits are in memory and reset on restart. A determined abuser can still spend test NEAR.
+**Relayer abuse.** The relayer pays every demo fee. It relays only `borrow`, `withdraw`, `ft_transfer_call` (repay or deposit, 1 yoctoNEAR) and `storage_deposit` to the KredoFi and test USDC contracts, at most 20 actions per account per hour, and creates at most 20 demo accounts per hour and 30 per day per network, and 60 a day in total. The test USDC faucet only funds accounts that exist, 10 times per network per hour and 300 times a day in total; default and release steps check the contract's own date rule before the relayer sends anything. Client IPs come from Cloudflare through our Worker only (IPv6 counted per /64). Limits are in memory and reset on restart. A determined abuser can still spend test NEAR.
 
 **The AI summary can be wrong.** It never affects the score. Models sometimes state numbers wrongly, so the browser hides any summary that contains a number.
 

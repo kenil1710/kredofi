@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ChallengeStore, FaucetBudget, pastDue, PublicError, publicError, Quota } from './guards.ts';
+import { ChallengeStore, DemoAccountBudget, FaucetBudget, pastDue, PublicError, publicError, Quota } from './guards.ts';
 
 test('challenge flood from another requester cannot evict the victim nonce (audit L3)', () => {
   const s = new ChallengeStore();
@@ -24,6 +24,17 @@ test('challenge map is swept', () => {
   for (let i = 0; i < 100; i++) s.issue(`a${i}.testnet`, 'ip', 'n', 0);
   s.sweep(ChallengeStore.TTL + 1);
   assert.equal(s.size, 0);
+});
+
+test('demo accounts: 20 per hour and 30 per day from one network, other networks unaffected', () => {
+  const b = new DemoAccountBudget();
+  for (let i = 0; i < 20; i++) assert.equal(b.take('a', 0), null);
+  assert.match(b.take('a', 0)!, /Twenty/);
+  assert.equal(b.take('b', 0), null);
+  const hour = 3_600_001;
+  for (let i = 0; i < 10; i++) assert.equal(b.take('a', hour), null);
+  assert.match(b.take('a', hour)!, /Thirty/);
+  assert.equal(b.take('a', 86_400_001 + hour), null);
 });
 
 test('faucet budget: per IP, lender grants, daily total (audit M2)', () => {

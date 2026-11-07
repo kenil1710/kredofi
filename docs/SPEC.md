@@ -313,7 +313,7 @@ Facts tested on Oct 25 (practice script `~/near-practice/metatx`, near-api-js 7.
 Because `ft_transfer_call` needs 1 yocto, and repay and deposit go to the USDC contract (not KredoFi), a function-call key alone cannot repay. Design:
 
 1. The web app generates the demo key in the browser and keeps it in `localStorage` (testnet, test money only; the README says so).
-2. The relayer (a small API route in `web`, holding its own key in env) creates `demo<timestamp>.<relayer>` with a **full-access key** = that demo key, 0.005 test NEAR (covers the account's storage and 1-yocto deposits; the relayer pays all gas), and calls `mock-usdc.storage_deposit` for it. At most 5 new demo accounts per hour per IP.
+2. The relayer (a small API route in `web`, holding its own key in env) creates `demo<timestamp>.<relayer>` with a **full-access key** = that demo key, 0.005 test NEAR (covers the account's storage and 1-yocto deposits; the relayer pays all gas), and calls `mock-usdc.storage_deposit` for it. At most 20 new demo accounts per hour and 30 per day per IP, and 60 a day in total (5 per hour until Nov 7; raised for judges on shared Wi-Fi).
 3. Every demo action is a meta transaction: the browser signs the `DelegateAction`, and the relayer relays it and pays the gas. The user never sees gas or a wallet prompt.
 4. The relayer only relays delegates whose `receiver_id` is the KredoFi contract or `mock-usdc`, with method allowlist `borrow`, `withdraw` (pays only the caller's own shares), `ft_transfer_call` (to KredoFi with msg `repay` or `deposit`, or to the partner vault with msg `open`, section 8e), `storage_deposit`; one FunctionCall per delegate, exact deposits, at most 100 Tgas (`web/src/lib/relayPolicy.ts`). Permissionless default steps for demo accounts (`mark_default`, `request_identity_release`) are sent by the relayer itself (on testnet, scoring runs in Dev mode through `dev_submit_score` by the `dev_scorer` backend, so demo accounts never call `request_score`), and at most 20 relays per demo account per hour. This gives the same safety as a function-call key, enforced by the relayer.
 5. "Connect wallet" stays available. Demo accounts and wallet accounts use the same contract methods; the contract does not know which is which.
@@ -366,7 +366,7 @@ So judges see how the ledger looks over time, a script (`scripts/seed_ledger.mjs
 
 ## 8e. Partner vault: composability demo (owner's decision, Nov 5; testnet only)
 
-`partner-vault.kency.testnet` (`contracts/partner-vault`) shows a second contract acting on a KredoFi score. KredoFi is not changed and gives no permission; the only link is its public `get_borrower` view.
+`partner-vault.kency.testnet` (`contracts/partner-vault`) shows a second contract acting on a KredoFi score. KredoFi is not changed; the only link is its public `get_borrower` view. The band is public on-chain, so the vault needs no consent from anyone. Consent-gated reads are on the roadmap, not built.
 
 - **Open:** `ft_transfer_call(vault, amount, "open")` on test USDC. `ft_on_transfer` accepts only test USDC, only the message `open`, at least $1, one position per account, then reads `get_borrower(sender)`; the private callback `on_kredofi_read` sets the terms.
 - **Terms:** band A 110%, B 125%, C 140%. Band D, no score, an expired score or a defaulted (blocked) account: 150%. `credit = collateral / ratio`, rounded down.

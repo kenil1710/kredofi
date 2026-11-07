@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shortHash, usd, parseUsd, absoluteDate, relativeTime, amountInWords } from './format.ts';
+import { shortHash, usd, usdShort, parseUsd, absoluteDate, relativeTime, amountInWords } from './format.ts';
 
 test('shortHash keeps 6 + 3', () => {
   assert.equal(shortHash('8u8RsNzgxKSdhSbzSwi5qb7CGeWrk9RJWhHzVvWfZfbW'), '8u8RsN…fbW');
@@ -38,4 +38,7 @@ test('amount in words matches the note', () => {
   assert.equal(amountInWords(1000), 'One thousand US dollars, in USDC');
   assert.equal(amountInWords(75), 'Seventy-five US dollars, in USDC');
   assert.equal(amountInWords(0), 'Zero US dollars');
+  assert.equal(amountInWords(187.5), 'One hundred and eighty-seven US dollars and 50 cents, in USDC');
+  assert.equal(usdShort('187500000'), '$187.50');
+  assert.equal(usdShort('75000000'), '$75');
 });

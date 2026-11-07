@@ -98,7 +98,7 @@ export function PartnerVault({ scenarios }: { scenarios: boolean }) {
         <p className="doc-kicker">Composability demo · testnet</p>
         <h1>Your band, another contract&apos;s terms.</h1>
         <p className="doc-summary">
-          <code>{PARTNER_VAULT}</code> is a separate contract that reads your band from KredoFi with a public view call, then decides how much collateral you post. KredoFi wasn&apos;t changed for it and gave no permission.
+          <code>{PARTNER_VAULT}</code> is a separate contract that reads your band from KredoFi with a public view call, then decides how much collateral you post. Your band is public on-chain, so any app can read it without asking you. Reads that need your consent are on the <Link href="/docs/roadmap">roadmap</Link>.
         </p>
         <p>It&apos;s a demo partner we built, not a real lender: the collateral is test USDC, and the credit is a number in the vault, not a token you can spend.</p>
 

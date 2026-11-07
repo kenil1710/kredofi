@@ -20,7 +20,7 @@ import { BORROWERS, CUSTOM_LIMITS, checkCustom, type BorrowerKey, type CustomInp
 import { getBorrowerAt, getConfig, getPool, nearBalance, txReceipts, usdcBalance, type BorrowerView, type ConfigView, type PoolView } from '@/lib/chain';
 import { failedReason, scoreFromReceipts, sealToken } from '@/lib/outlayer';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
-import { absoluteDate, amountInWords, parseUsd, usd } from '@/lib/format';
+import { absoluteDate, amountInWords, parseUsd, usd, usdShort } from '@/lib/format';
 import { serialFromFingerprint } from '@/lib/drawNote';
 import { newKeypair, openSealed } from '@/lib/seal';
 import { PART_KEYS, PART_NAMES, reason, whatWouldChange, type Parts } from '@/lib/reasons';
@@ -446,9 +446,9 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
 
   const defaulted = !!b?.blocked && loan?.state === 'Defaulted';
   // A defaulted borrower's note shows the loan he took, stamped DEFAULT (his limit is now 0 for good).
-  const noteDollars = Number((defaulted && loan ? ns(loan.principal) : limit) / 1_000_000n);
+  const noteDollars = Number(defaulted && loan ? ns(loan.principal) : limit) / 1_000_000;
   const noteData = sc && {
-    name: acct ?? '', band: sc.band, amount: noteDollars, words: amountInWords(noteDollars),
+    name: acct ?? '', band: sc.band, amount: Number.isInteger(noteDollars) ? noteDollars : noteDollars.toFixed(2), words: amountInWords(noteDollars),
     repay: denied ? 'Not issued' : defaulted && loan ? `${absoluteDate(loan.due_at)}, ${usd(due)}, not repaid` : loan?.state === 'Active' ? `${absoluteDate(loan.due_at)}, ${usd(due)}` : `${cfg ? durationWords(cfg.loan_term_ns) : 'one term'} after you borrow, ${usd(limit + ceilBps(limit, INTEREST_BPS[sc.band]))}`,
     serial: serialFromFingerprint(sc.fingerprint),
     proof: scoreHash ? `Scored by the pinned scorer (testnet), transaction ${scoreHash.slice(0, 6)}…${scoreHash.slice(-3)}` : 'Scored by the pinned scorer (testnet)',
@@ -673,7 +673,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 <CreditNote data={noteData} drawIn={press > 0} label={`${denied ? 'Not issued' : 'Credit note'} for ${acct}: band ${sc.band}, limit ${usd(limit)}`}>
                   {defaulted
                     ? <Stamp kind="default" press={press} shakeRef={resultBox}>DEFAULT</Stamp>
-                    : <Stamp kind={denied ? 'rejected' : 'approved'} press={press} shakeRef={resultBox}>{denied ? 'NOT THIS TIME' : `BAND ${sc.band}, ${usd(limit, { cents: false })}`}</Stamp>}
+                    : <Stamp kind={denied ? 'rejected' : 'approved'} press={press} shakeRef={resultBox}>{denied ? 'NOT THIS TIME' : `BAND ${sc.band}, ${usdShort(limit)}`}</Stamp>}
                 </CreditNote>
                 {parts ? (
                   <Tally play={press} rows={PART_KEYS.map((k) => ({ label: PART_NAMES[k], detail: reason(k, parts[k]), points: parts[k] }))} />
@@ -708,7 +708,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 <div className="change">
                   <h3>What would change this</h3>
                   <ul>{(parts ? whatWouldChange(parts) : ['Income in all of the last 6 months', 'No overdraft or returned-payment fees', 'Spending below income']).map((x) => <li key={x}>{x}</li>)}</ul>
-                  <p style={{ marginTop: 8 }}>Lenders see only the band. Nothing else about this result is on-chain.</p>
+                  <p style={{ marginTop: 8 }}>Public on-chain: your band, score, income bucket and bank fingerprint. Your transactions and these reasons are not.</p>
                 </div>
               ) : (
                 <p>Band {sc.band}, level {b?.level}. You can borrow up to {usd(limit)} today. Only the line in &ldquo;{LEFT_TITLE}&rdquo; is on-chain.</p>

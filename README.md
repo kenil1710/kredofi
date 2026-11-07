@@ -6,7 +6,7 @@ A pinned, open scorer fetches up to two years of bank history, uses the last six
 - **Mainnet** (`kredofi.near`): the scorer runs inside a TEE (OutLayer, Intel TDX), and the contract accepts a score only from its own request to the pinned build ([a real score, Nov 7](https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm)).
 - **Testnet demo** (since Nov 4): a testnet build of the same scorer also runs inside the enclave (OutLayer testnet), and the contract accepts a score only from its own request, as on mainnet.
 
-**First use: no-collateral USDC loans.** Borrow up to your limit, repay one fixed amount, and the limit grows. Any NEAR contract or app can read the same band and limit with view calls: [Use KredoFi scores in your app](https://kredofi.xyz/docs/integrate).
+**First use: no-collateral USDC loans.** Borrow up to your limit, repay one fixed amount, and the limit grows. The band and limit are public, so any NEAR contract or app can read them with view calls, without the borrower's consent (consent-gated reads are on the roadmap): [Use KredoFi scores in your app](https://kredofi.xyz/docs/integrate).
 
 **Live demo (NEAR testnet):** https://kredofi.xyz · **Documentation:** https://kredofi.xyz/docs · **Mainnet proof (live from `kredofi.near`):** https://kredofi.xyz/mainnet
 
@@ -17,8 +17,8 @@ No wallet and no sign-up: the app creates a throwaway testnet account and a rela
 1. Open https://kredofi.xyz and click **Check my limit**. You see your empty passbook and a Plaid sandbox login.
 2. Click **Connect your bank (sandbox)**. Plaid Link opens. Choose **Continue without phone number**, search **First Platypus Bank** and pick the plain one (not OAuth), log in with `user_good` / `pass_good`, then **Continue** and **Finish without saving**.
 3. Wait about 20 seconds, up to about a minute when the test bank is slow, while the scorer runs in the enclave (OutLayer testnet). You see "Limit checked in N s", a credit note stamped **BAND B, $75**, the five rule results, and on the right the exact output that went on-chain. No transaction, amount or name from the bank appears anywhere.
-4. Click **Borrow**. A "Loan issued" entry appears with a live countdown: "Repay after 0:52 to level up to $187.50".
-5. Wait for "Repaying now levels you up to $187.50", then click **Repay**. The Repaid entry says your limit rose to level 2.
+4. Click **Borrow $75.00**. A "Loan issued" entry appears with a countdown box, for example "Level up in 0:52".
+5. Wait until the box says "Repay now to level up to $187.50", then click **Repay $79.50**. The Repaid entry says "Your limit rose to level 2."
 6. Open **Public ledger** (top nav): every score, loan and repayment is listed with a link to its transaction, and the **Verify** panel shows the contract and the pinned scorer hash.
 7. Optional, footer link **Demo scenarios**: Riya (band A, $100), Sam (refused, with the reasons and what would change them), Max (borrows and never repays; after 3 minutes anyone can mark the default, the reserve pays the pool first, up to its balance, and his name is released to the recovery partner).
 
@@ -34,7 +34,7 @@ Testnet terms are shortened so the whole loop fits a demo:
 
 ## The problem
 
-You can't borrow on-chain without locking up more collateral than you borrow, and proving income off-chain means handing your whole bank history to the lender. KredoFi checks income privately: a program anyone can verify reads the history (inside an enclave on mainnet), applies five published rules, and returns only what a lender needs.
+You can't borrow on-chain without locking up more collateral than you borrow, and proving income off-chain means handing your whole bank history to the lender. KredoFi checks income privately: a program anyone can verify reads the history inside an enclave (on mainnet and on the testnet demo), applies five published rules, and puts eight fields on-chain. The band, score, income bucket and fingerprint are public and linked to the borrower's account, as are loans and default status; statements and exact income are not.
 
 ## What is real and what is test
 
@@ -42,7 +42,7 @@ You can't borrow on-chain without locking up more collateral than you borrow, an
 |---|---|---|
 | Contract | [`app.kency.testnet`](https://testnet.nearblocks.io/address/app.kency.testnet) (since Nov 4, contract v4; the Nov 1–4 Dev-mode contract [`kredofi.kency.testnet`](https://testnet.nearblocks.io/address/kredofi.kency.testnet) now holds only our own test runs, history kept) | [`kredofi.near`](https://nearblocks.io/address/kredofi.near) |
 | Where the scorer runs | **OutLayer testnet** (Intel TDX): your account signs `request_score` itself (a relayer funds the fee), the contract calls OutLayer and accepts the score only in its own callback (`on_score`). Your browser seals the Plaid token to the enclave first | **OutLayer** (Intel TDX): the contract calls OutLayer itself and accepts the score only in its own callback (`on_score`) |
-| Pinned scorer (SHA-256) | testnet build `96666cdf…` (production logic and sealed tokens, plus the shared sandbox login tied to your account; no fetch receipt) | production build `5175182a…` (sealed Plaid tokens, `income_cap` buckets), [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm); both built reproducibly on x86_64 Linux ([VERIFY.md](VERIFY.md)) |
+| Pinned scorer (SHA-256) | testnet build `96666cdf…` (production logic and sealed tokens, plus the shared sandbox login tied to your account; it leaves out the "fetch receipt", the counts of accounts and transactions read that only the older server-run demo showed the borrower) | production build `5175182a…` (sealed Plaid tokens, `income_cap` buckets), [public wasm](https://github.com/kenil1710/kredofi-scorer-wasm); both built reproducibly on x86_64 Linux ([VERIFY.md](VERIFY.md)) |
 | Bank data | Plaid sandbox (public test logins) | Plaid sandbox (no production access yet) |
 | Money | mock USDC (`musdc.kency.testnet`), test NEAR | real USDC contract configured; lender deposits locked until real bank data; no loans made |
 | AI summary | NEAR AI Cloud, asked for by your browser after the score (band + rule results only, `web/src/app/api/summary/route.ts`) | not in the production build |
@@ -150,7 +150,7 @@ Fonts: Bodoni Moda and Public Sans (Google Fonts). Code was written with Claude 
 
 ## Status and roadmap
 
-This is a **hackathon MVP**: it works end to end on testnet, and the mainnet contract scores inside the enclave, but it has never lent real money. The next phases, in order and without dates (each depends on partners and approvals we don't control yet):
+This is a **hackathon MVP**: it works end to end on testnet, both contracts score inside the enclave, but it has never lent real money. The next phases, in order and without dates (each depends on partners and approvals we don't control yet):
 
 1. **Now (MVP):** testnet demo; `kredofi.near` scores in OutLayer with lender deposits locked until real bank data ([/mainnet](https://kredofi.xyz/mainnet)).
 2. **Pilot:** Plaid production access and a licensed lending partner; multisig owner (the scorer re-pin time lock is already built), then locked contract keys; a capped pool.
