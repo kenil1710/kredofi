@@ -52,8 +52,8 @@ test('developer rows never count as visitors or seeded, and labels name the UTC 
   assert.deepEqual(visitorStats(events).A, { scored: 1, loans_issued: 0, repaid: 0, defaulted: 0, volume: '0' });
   // A score the contract counted but the index hasn't delivered yet can't appear as a visitor: only rows count.
   assert.equal(visitorStats([]).A.scored, 0);
-  assert.equal(devCheckLabel(nov4), 'Developer check (Nov 4)');
-  assert.equal(devCheckCaption(devCheckTimes(events)), 'Developer check (Nov 4)');
-  assert.equal(devCheckCaption([nov5, nov4, nov4]), 'Developer check (Nov 4, Nov 5)');
-  assert.equal(devCheckCaption([nov4, nov5, Date.UTC(2026, 10, 26)]), 'Developer check (Nov 4 to Nov 26)');
+  assert.equal(devCheckLabel(nov4), 'Developer check (Nov 4 UTC)');
+  assert.equal(devCheckCaption(devCheckTimes(events)), 'Developer check (Nov 4 UTC)');
+  assert.equal(devCheckCaption([nov5, nov4, nov4]), 'Developer check (Nov 4, Nov 5 UTC)');
+  assert.equal(devCheckCaption([nov4, nov5, Date.UTC(2026, 10, 26)]), 'Developer check (Nov 4 to Nov 26 UTC)');
 });

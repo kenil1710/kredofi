@@ -20,12 +20,12 @@ export const DEV_CHECK_NOV4 = new Set([
 export const DEV_CHECK_NOTE = 'Rows tagged Developer check are our own live tests of this site, not visitors: real enclave scores on Plaid sandbox data, and the reserve was topped back up after their defaults.';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const day = (ms: number) => { const d = new Date(ms); return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`; };
-/** "Developer check (Nov 4)": the UTC day of the row. */
-export const devCheckLabel = (ms: number) => `Developer check (${day(ms)})`;
+/** "Developer check (Nov 4 UTC)": the UTC day of the row, said so (dates are local or marked UTC). */
+export const devCheckLabel = (ms: number) => `Developer check (${day(ms)} UTC)`;
 /** Caption of the band table: every day with developer rows, oldest first. */
 export const devCheckCaption = (days: number[]) => {
   const d = [...new Set([...days].sort((a, b) => a - b).map(day))];
-  return `Developer check (${d.length > 2 ? `${d[0]} to ${d.at(-1)}` : d.join(', ') || 'none yet'})`; // daily checks would make a long list
+  return `Developer check (${d.length > 2 ? `${d[0]} to ${d.at(-1)} UTC` : d.length ? `${d.join(', ')} UTC` : 'none yet'})`; // daily checks would make a long list
 };
 
 export const isDevCheck = (account: unknown): boolean => typeof account === 'string' && (DEV_CHECK_PATTERN.test(account) || DEV_CHECK_NOV4.has(account));

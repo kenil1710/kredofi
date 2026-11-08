@@ -37,10 +37,41 @@ export function parseUsd(input: string): bigint | null {
   return BigInt(w) * 1_000_000n + BigInt((f + '00').slice(0, 2)) * 10_000n;
 }
 
-/** Due dates: always absolute, with the year (DESIGN 7.8). */
-export function absoluteDate(ns: string | bigint, locale = 'en-GB'): string {
-  const ms = Number(BigInt(ns) / 1_000_000n);
-  return new Date(ms).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+// Dates and times in the passbook and credit note: all in the visitor's time zone, never a UTC date
+// next to a local clock (bug Nov 9). `tz` is for tests; undefined = the browser's own zone.
+const zoned = (tz?: string) => (tz ? { timeZone: tz } : {});
+const msOfNs = (ns: string | bigint) => Number(BigInt(ns) / 1_000_000n);
+
+/** Due dates: always absolute, with the year (DESIGN 7.8). "9 November 2026". */
+export function absoluteDate(ns: string | bigint, tz?: string): string {
+  return new Date(msOfNs(ns)).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', ...zoned(tz) });
+}
+
+/** "01:41" (24 h). */
+export function clockTime(ms: number, tz?: string): string {
+  return new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, ...zoned(tz) });
+}
+
+/** "9 Nov". */
+export function shortDay(ms: number, tz?: string): string {
+  return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...zoned(tz) });
+}
+
+/** "GMT+5:30", "GMT-8", "UTC", "CET". */
+export function zoneName(ms: number, tz?: string): string {
+  return new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short', ...zoned(tz) }).formatToParts(ms).find((p) => p.type === 'timeZoneName')?.value ?? '';
+}
+
+/** "9 November 2026, 07:11 GMT+5:30": date, time and zone from the same clock. */
+export function dateTimeZone(ns: string | bigint, tz?: string): string {
+  const ms = msOfNs(ns);
+  return `${absoluteDate(ns, tz)}, ${clockTime(ms, tz)} ${zoneName(ms, tz)}`;
+}
+
+/** /lend: the deposit field's default, from the USDC held: up to $100, rounded down to the cent. */
+export function defaultDeposit(bal: bigint | null): string {
+  if (bal === null || bal <= 0n) return '100';
+  return usdInput(bal < 100_000_000n ? bal : 100_000_000n).replace(/\.00$/, '');
 }
 
 /** "just now", "2 min ago", "3 h ago", "5 days ago". */

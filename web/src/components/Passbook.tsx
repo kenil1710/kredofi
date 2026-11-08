@@ -20,7 +20,7 @@ import { BORROWERS, CUSTOM_LIMITS, checkCustom, type BorrowerKey, type CustomInp
 import { getBorrowerAt, getConfig, getPool, nearBalance, txReceipts, usdcBalance, type BorrowerView, type ConfigView, type PoolView } from '@/lib/chain';
 import { failedReason, scoreFromReceipts, sealToken } from '@/lib/outlayer';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
-import { absoluteDate, amountInWords, parseUsd, usd, usdShort } from '@/lib/format';
+import { absoluteDate, amountInWords, clockTime, dateTimeZone, parseUsd, shortDay, usd, usdShort } from '@/lib/format';
 import { serialFromFingerprint } from '@/lib/drawNote';
 import { newKeypair, openSealed } from '@/lib/seal';
 import { PART_KEYS, PART_NAMES, reason, whatWouldChange, type Parts } from '@/lib/reasons';
@@ -69,8 +69,8 @@ const INTEREST_BPS: Record<string, bigint> = { A: 400n, B: 600n, C: 800n, D: 0n 
 const ceilBps = (a: bigint, bps: bigint) => (a * bps + 9999n) / 10000n;
 const ns = (s: string) => BigInt(s);
 const msOf = (nsStr: string) => Number(ns(nsStr) / 1_000_000n);
-const clock = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-const day = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+const clock = (ms: number) => clockTime(ms); // visitor's time zone, same as every date below
+const day = (ms: number) => shortDay(ms);
 function span(ms: number) {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return s >= 120 ? `${Math.ceil(s / 60)} min` : s >= 60 ? `1 min ${s - 60} s` : `${s} s`;
@@ -755,7 +755,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
               <Fragment key={r.dueAt}>
                 {r.state === 'Active' && isCurrent && loan ? (
                 <Entry when={clock(msOf(loan.issued_at))} sub={day(msOf(loan.issued_at))} title="Loan issued">
-                  <p>{usd(loan.principal)} USDC arrived in {acct}. Repay {usd(due)} by {absoluteDate(loan.due_at)}, {clock(dueMs)}.</p>
+                  <p>{usd(loan.principal)} USDC arrived in {acct}. Repay {usd(due)} by {dateTimeZone(loan.due_at)}.</p>
                   <dl className="terms">
                     <dt>Interest</dt><dd>{usd(loan.interest)} flat</dd>
                     <dt>Due</dt><dd className="num">{now < dueMs ? `in ${span(dueMs - now)}` : now < dueMs + graceMs ? `overdue, grace ends in ${span(dueMs + graceMs - now)}` : 'grace period over'}</dd>
@@ -786,7 +786,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 </Entry>
                 ) : (
                   <Entry when={clock(r.issuedMs)} sub={day(r.issuedMs)} title="Loan issued">
-                    <p>{usd(r.principal)} USDC arrived in {acct}. Repay {usd(r.principal + r.interest)} by {absoluteDate(r.dueAt)}, {clock(msOf(r.dueAt))}.</p>
+                    <p>{usd(r.principal)} USDC arrived in {acct}. Repay {usd(r.principal + r.interest)} by {dateTimeZone(r.dueAt)}.</p>
                     {r.issuedHash && <p className="txline">Transaction <HashLink hash={r.issuedHash} /></p>}
                   </Entry>
                 )}
@@ -823,7 +823,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 )}
 
                 {r.state === 'Defaulted' && (isCurrent && b?.blocked && loan ? (
-                <Entry when={clock(dueMs + graceMs)} sub={day(dueMs)} title="Defaulted">
+                <Entry when={clock(dueMs + graceMs)} sub={day(dueMs + graceMs)} title="Defaulted">
                   <div ref={loanBox} style={{ position: 'relative' }}>
                     <ul className="chain">
                       <li><span>Loan marked as defaulted</span><span>{usd(loan.principal)}</span></li>
