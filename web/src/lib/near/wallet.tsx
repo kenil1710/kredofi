@@ -4,16 +4,37 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { NearConnector } from '@hot-labs/near-connect';
 import { NETWORK } from '../config';
-import { WALLET_NO_ANSWER, WALLET_TIMEOUT_MS, withTimeout } from '../tx';
+import { POPUP_BLOCKED_HINT, WALLET_NO_ANSWER, WALLET_TIMEOUT_MS, withTimeout } from '../tx';
 
-/** Every wallet request gives up after WALLET_TIMEOUT_MS, and NEAR Connect's own prompt (e.g. Meteor's
- *  "Continue in Meteor Web") is removed so it doesn't stay over the page. */
+/** While a wallet request waits on the wallet's own prompt (NEAR Connect shows it, e.g. Meteor's "Continue in
+ *  Meteor Web", when the browser needs a click to open the wallet window), a small hint about blocked popups
+ *  sits above it. Appended to the end of <body>, after NEAR Connect's prompt, so it is drawn on top. */
+function watchWalletPrompt(): () => void {
+  let hint: HTMLElement | null = null;
+  const tick = () => {
+    const open = [...document.querySelectorAll<HTMLElement>('.hot-connector-popup')].some((el) => el.style.display === 'block');
+    if (open && !hint) {
+      hint = document.createElement('p');
+      hint.className = 'wallet-popup-hint';
+      hint.setAttribute('role', 'status');
+      hint.textContent = POPUP_BLOCKED_HINT;
+      document.body.appendChild(hint);
+    } else if (!open && hint) { hint.remove(); hint = null; }
+  };
+  const t = setInterval(tick, 400);
+  return () => { clearInterval(t); hint?.remove(); };
+}
+
+/** Every wallet request gives up after WALLET_TIMEOUT_MS, and NEAR Connect's own prompt is removed so it
+ *  doesn't stay over the page. */
 async function walletCall<T>(p: Promise<T>): Promise<T> {
+  const stop = watchWalletPrompt();
   try { return await withTimeout(p, WALLET_TIMEOUT_MS, WALLET_NO_ANSWER); }
   catch (e) {
     if (e instanceof Error && e.message === WALLET_NO_ANSWER) document.querySelectorAll('.hot-connector-popup').forEach((el) => el.remove());
     throw e;
   }
+  finally { stop(); }
 }
 
 type FunctionCall = {

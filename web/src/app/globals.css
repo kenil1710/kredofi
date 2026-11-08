@@ -403,6 +403,8 @@ button{font-family:inherit}
    sandbox login and its own copy icons) sits at the bottom. Wide screens: bottom-left, above that bar and clear of
    the page title. Phones and tablets: a compact box that covers only the bar's title row, so Plaid's login line
    below stays visible. Very short screens have no free space: the box takes the bottom. */
+/* Over NEAR Connect's wallet prompt (lib/near/wallet.tsx): a small note at the top, never blocking a click. */
+.wallet-popup-hint{position:fixed;z-index:2147483647;top:12px;left:50%;transform:translateX(-50%);width:min(560px,calc(100vw - 32px));margin:0;padding:10px 14px;background:var(--paper);color:var(--ink);border:2px solid var(--violet-ink);font:500 14px/1.4 'Public Sans',system-ui,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.35);pointer-events:none}
 .pbsteps-overlay{position:fixed;z-index:2147483647;left:24px;bottom:164px;width:min(340px,calc(50vw - 210px));box-shadow:0 12px 30px rgba(0,0,0,.35)}
 .pbsteps-overlay:empty{display:none}
 /* Clicks pass through to Plaid everywhere except the Copy buttons, so the box can never block a Plaid control. */

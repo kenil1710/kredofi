@@ -55,7 +55,9 @@ export const OFFLINE_NOT_SENT = 'No connection to NEAR. Nothing was sent; check 
 /** A wallet that never answers (live test Nov 8: Meteor Web opened its home page, not the request) must not leave
  *  "Checking your limit" stuck: every wallet call gives up after this long. */
 export const WALLET_TIMEOUT_MS = 60_000;
-export const WALLET_NO_ANSWER = 'Your wallet didn’t respond. Allow popups for kredofi.xyz, close other wallet tabs, and try again — or use the no-wallet demo.';
+/** Also shown as a small hint while the wallet's own prompt (e.g. "Continue in Meteor Web") is open. */
+export const POPUP_BLOCKED_HINT = 'If nothing opened, your browser blocked the wallet window — click the blocked-popup icon in the address bar, choose Always allow for kredofi.xyz, then press Check my limit again.';
+export const WALLET_NO_ANSWER = `Your wallet didn’t respond. Allow popups for kredofi.xyz, close other wallet tabs, and try again — or use the no-wallet demo. ${POPUP_BLOCKED_HINT}`;
 export const isWalletNoAnswer = (e: unknown) => e instanceof Error && e.message === WALLET_NO_ANSWER;
 export const RELAY_NO_ANSWER ='No answer from the relayer in 45 seconds. It may still go through: reload the page before trying again.';
 

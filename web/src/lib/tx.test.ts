@@ -73,9 +73,15 @@ test('withTimeout: a stalled step fails with its message instead of spinning for
 
 test('a wallet that never answers gives up after 60 s with a clear way out (live test Nov 8, Meteor Web)', async () => {
   const { readFileSync } = await import('node:fs');
-  const { WALLET_NO_ANSWER, WALLET_TIMEOUT_MS, isWalletNoAnswer, withTimeout } = await import('./tx.ts');
+  const { POPUP_BLOCKED_HINT, WALLET_NO_ANSWER, WALLET_TIMEOUT_MS, isWalletNoAnswer, withTimeout } = await import('./tx.ts');
   assert.equal(WALLET_TIMEOUT_MS, 60_000);
-  assert.equal(WALLET_NO_ANSWER, 'Your wallet didn’t respond. Allow popups for kredofi.xyz, close other wallet tabs, and try again — or use the no-wallet demo.');
+  const hint = 'If nothing opened, your browser blocked the wallet window — click the blocked-popup icon in the address bar, choose Always allow for kredofi.xyz, then press Check my limit again.';
+  assert.equal(POPUP_BLOCKED_HINT, hint);
+  assert.equal(WALLET_NO_ANSWER, `Your wallet didn’t respond. Allow popups for kredofi.xyz, close other wallet tabs, and try again — or use the no-wallet demo. ${hint}`);
+  // The same hint shows while the wallet's own prompt ("Continue in Meteor Web") is open, for every request.
+  const w = readFileSync(new URL('./near/wallet.tsx', import.meta.url), 'utf8');
+  assert.match(w, /async function walletCall[\s\S]*?const stop = watchWalletPrompt\(\);[\s\S]*?finally \{ stop\(\); \}/);
+  assert.match(w, /hint\.textContent = POPUP_BLOCKED_HINT/);
   const e = await withTimeout(new Promise(() => {}), 10, WALLET_NO_ANSWER).catch((x) => x);
   assert.ok(isWalletNoAnswer(e));
   assert.ok(!isWalletNoAnswer(new Error('Wallet closed')));
