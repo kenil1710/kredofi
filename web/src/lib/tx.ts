@@ -52,7 +52,12 @@ export function withTimeout<T>(p: Promise<T>, ms: number, message: string): Prom
   return Promise.race([p, new Promise<never>((_, reject) => { t = setTimeout(() => reject(new Error(message)), ms); })]).finally(() => clearTimeout(t));
 }
 export const OFFLINE_NOT_SENT = 'No connection to NEAR. Nothing was sent; check your connection and try again.';
-export const RELAY_NO_ANSWER = 'No answer from the relayer in 45 seconds. It may still go through: reload the page before trying again.';
+/** A wallet that never answers (live test Nov 8: Meteor Web opened its home page, not the request) must not leave
+ *  "Checking your limit" stuck: every wallet call gives up after this long. */
+export const WALLET_TIMEOUT_MS = 60_000;
+export const WALLET_NO_ANSWER = 'Your wallet didn’t respond. Allow popups for kredofi.xyz, close other wallet tabs, and try again — or use the no-wallet demo.';
+export const isWalletNoAnswer = (e: unknown) => e instanceof Error && e.message === WALLET_NO_ANSWER;
+export const RELAY_NO_ANSWER ='No answer from the relayer in 45 seconds. It may still go through: reload the page before trying again.';
 
 export function classifyError(err: unknown): { kind: TxErrorKind; message: string } {
   const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err ?? '');

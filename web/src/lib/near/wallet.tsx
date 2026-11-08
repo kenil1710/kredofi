@@ -4,6 +4,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { NearConnector } from '@hot-labs/near-connect';
 import { NETWORK } from '../config';
+import { WALLET_NO_ANSWER, WALLET_TIMEOUT_MS, withTimeout } from '../tx';
+
+/** Every wallet request gives up after WALLET_TIMEOUT_MS, and NEAR Connect's own prompt (e.g. Meteor's
+ *  "Continue in Meteor Web") is removed so it doesn't stay over the page. */
+async function walletCall<T>(p: Promise<T>): Promise<T> {
+  try { return await withTimeout(p, WALLET_TIMEOUT_MS, WALLET_NO_ANSWER); }
+  catch (e) {
+    if (e instanceof Error && e.message === WALLET_NO_ANSWER) document.querySelectorAll('.hot-connector-popup').forEach((el) => el.remove());
+    throw e;
+  }
+}
 
 type FunctionCall = {
   type: 'FunctionCall';
@@ -64,22 +75,22 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     await c.connect();
   }, [getConnector]);
 
+  // Never wait on a wallet that doesn't answer: "Continue without a wallet" must always work.
   const disconnect = useCallback(async () => {
-    const c = await getConnector();
-    await c.disconnect();
-    setAccountId(null);
+    try { const c = await getConnector(); await withTimeout(c.disconnect(), 5000, 'disconnect'); } catch { /* signed out here anyway */ }
+    finally { setAccountId(null); }
   }, [getConnector]);
 
   const signAndSend = useCallback(async (receiverId: string, actions: FunctionCall[]) => {
     const c = await getConnector();
     const wallet = await c.wallet();
-    return wallet.signAndSendTransaction({ network: NETWORK, receiverId, actions });
+    return walletCall(wallet.signAndSendTransaction({ network: NETWORK, receiverId, actions }));
   }, [getConnector]);
 
   const signMessage = useCallback(async (p: { message: string; recipient: string; nonce: Uint8Array }) => {
     const c = await getConnector();
     const wallet = await c.wallet();
-    const out = await wallet.signMessage({ ...p, network: NETWORK, signerId: accountId ?? undefined });
+    const out = await walletCall(wallet.signMessage({ ...p, network: NETWORK, signerId: accountId ?? undefined }));
     return { publicKey: String(out.publicKey), signature: String(out.signature) };
   }, [getConnector, accountId]);
 

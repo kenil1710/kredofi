@@ -70,3 +70,24 @@ test('withTimeout: a stalled step fails with its message instead of spinning for
   assert.equal(await withTimeout(Promise.resolve(7), 1000, 'x'), 7);
   assert.equal(classifyError(new Error(OFFLINE_NOT_SENT)).message, OFFLINE_NOT_SENT);
 });
+
+test('a wallet that never answers gives up after 60 s with a clear way out (live test Nov 8, Meteor Web)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { WALLET_NO_ANSWER, WALLET_TIMEOUT_MS, isWalletNoAnswer, withTimeout } = await import('./tx.ts');
+  assert.equal(WALLET_TIMEOUT_MS, 60_000);
+  assert.equal(WALLET_NO_ANSWER, 'Your wallet didn’t respond. Allow popups for kredofi.xyz, close other wallet tabs, and try again — or use the no-wallet demo.');
+  const e = await withTimeout(new Promise(() => {}), 10, WALLET_NO_ANSWER).catch((x) => x);
+  assert.ok(isWalletNoAnswer(e));
+  assert.ok(!isWalletNoAnswer(new Error('Wallet closed')));
+  // Shown as is, not turned into "You cancelled the signature".
+  assert.deepEqual(classifyError(e), { kind: 'network', message: WALLET_NO_ANSWER });
+  // Every wallet request goes through the timeout: the ownership message and every transaction.
+  const wallet = readFileSync(new URL('./near/wallet.tsx', import.meta.url), 'utf8');
+  assert.match(wallet, /walletCall\(wallet\.signAndSendTransaction\(/);
+  assert.match(wallet, /walletCall\(wallet\.signMessage\(/);
+  assert.equal((wallet.match(/wallet\.sign\w+\(/g) ?? []).length, 2, 'no wallet request without the timeout');
+  // The passbook stops on it (no second wallet request) and offers the no-wallet demo.
+  const pb = readFileSync(new URL('../components/Passbook.tsx', import.meta.url), 'utf8');
+  assert.match(pb, /isWalletNoAnswer\(e\)\) \{ holdToken\(src\); updateSession\(\{ who \}, acctId\); setScoring\(\{ step: 'failed'/);
+  assert.equal((pb.match(/onClick=\{continueWithoutWallet\}>Continue without a wallet</g) ?? []).length, 2);
+});

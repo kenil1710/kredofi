@@ -29,6 +29,7 @@ import { usableSummary } from '@/lib/aiSummary';
 import { openWithAny, rememberSecret } from '@/lib/replyKey';
 import { VerifyScore } from '@/components/VerifyScore';
 import { plaidHintAfter } from '@/lib/plaidHint';
+import { isWalletNoAnswer, WALLET_NO_ANSWER } from '@/lib/tx';
 import { PlatypusSteps, PlatypusStepsOverlay } from '@/components/PlatypusSteps';
 import { durationWords, levelPlan, levelRuleText, limitAt, mmss, noLevelUpReason } from '@/lib/levels';
 import { IN_ENCLAVE, NETWORK, OUTLAYER_CONTRACT, TOKEN_PUBKEY } from '@/lib/config';
@@ -199,16 +200,22 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
     const acctId = forAccount ?? acct;
     if (!acctId) return;
     const who = src.borrower;
+    heldToken.current = null;
+    // The card shows before the first wallet request, so a wallet that doesn't answer is never a blank wait.
+    setScoring({ step: 'sent', elapsed: 0 });
+    setTimeout(() => scoringBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
     // Wallets: a reply key the wallet can re-derive anywhere; demo accounts: a fresh key in this browser.
     let kp: { secret: string; public: string };
     try { kp = (account.kind === 'wallet' ? await account.walletReplyKey(acctId) : null) ?? newKeypair(); }
-    catch { kp = newKeypair(); }
+    catch (e) {
+      // A wallet that never answered would not answer the score request either: stop here, keep the bank login.
+      if (isWalletNoAnswer(e)) { holdToken(src); updateSession({ who }, acctId); setScoring({ step: 'failed', elapsed: 0, error: WALLET_NO_ANSWER }); return; }
+      kp = newKeypair();
+    }
     // `scoringSince` lets a reload mid-scoring pick the result up (the server keeps going).
     updateSession({ who, replySecret: kp.secret, replySecrets: rememberSecret(loadSession(acctId).replySecrets, kp.secret), output: undefined, extra: undefined, scoreHash: undefined, pendingHash: undefined, scoredIn: undefined, scoringSince: Date.now(), prevIssued: b?.score?.issued_at ?? '0' }, acctId);
     scoringLive.current = true;
     const started = Date.now();
-    setScoring({ step: 'sent', elapsed: 0 });
-    setTimeout(() => scoringBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
     const timer = setInterval(() => setScoring((s) => (s && s.step === 'sent' ? { ...s, elapsed: Math.round((Date.now() - started) / 1000) } : s)), 1000);
     try {
       const f = account.kind === 'demo' ? null : await fetch('/api/faucet', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accountId: acctId }) });
@@ -241,6 +248,8 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
       // scoring, so keep `scoringSince` and let the resume check follow the chain. Clear it only when
       // the server actually said no.
       if (!(e instanceof TypeError)) updateSession({ scoringSince: undefined }, acctId);
+      // The wallet never sent request_score, so the bank login is unused: "Check my limit again" skips Plaid.
+      if (isWalletNoAnswer(e)) holdToken(src);
       setScoring((s) => ({ step: 'failed', elapsed: s?.elapsed ?? 0, error: e instanceof Error ? e.message : 'Scoring failed.' }));
     }
     finally { scoringLive.current = false; }
@@ -265,6 +274,13 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
   // A Plaid login whose demo account could not be created yet (e.g. the hourly limit): kept, so
   // "Try again" doesn't need Plaid again (a public token lasts 30 minutes).
   const heldToken = useRef<{ token: string; at: number } | null>(null);
+  const holdToken = (src: Source) => { if (src.publicToken) heldToken.current = { token: src.publicToken, at: Date.now() }; };
+  // Wallet users (e.g. a wallet that doesn't answer) can switch to the no-wallet demo at any time.
+  const continueWithoutWallet = async () => {
+    heldToken.current = null; // made for the wallet account
+    setScoring(null); setStartError(null); setStarting(null);
+    await account.signOut();
+  };
   const scoreWithToken = async (publicToken: string, accountReady?: Promise<string | null>) => {
     setStarting('Setting up your demo account…');
     let a = await (accountReady ?? ensureAccount(true));
@@ -581,7 +597,9 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
             {starting && <p className="acct" aria-live="polite">{starting}</p>}
             {startError && <p className="hint err" role="alert" style={{ marginTop: 12 }}>{startError}</p>}
             <p className="acct">
-              {acct ? `Signed in as ${acct}. We pay the network and scoring fees.` : <>No wallet needed: we create a demo account and pay its network fees. <button type="button" className="linkbtn" onClick={account.connectWallet}>Connect a wallet instead</button></>}
+              {acct ? (account.kind === 'wallet'
+                ? <>Signed in with your wallet as {acct}. Your wallet signs each step. <button type="button" className="linkbtn" onClick={continueWithoutWallet}>Continue without a wallet</button></>
+                : `Signed in as ${acct}. We pay the network and scoring fees.`) : <>No wallet needed: we create a demo account and pay its network fees. <button type="button" className="linkbtn" onClick={account.connectWallet}>Connect a wallet instead</button></>}
             </p>
           </section>
         )}
@@ -655,7 +673,7 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
           {(scoring || (sc && scoreHash)) && (
             <Entry liRef={scoringBox} when={scoring && scoring.step !== 'sealed' ? clock(now) : clock(scoredAt)} sub={scoring && scoring.step !== 'sealed' ? 'Now' : day(scoredAt)}
               title={!scoring || scoring.step === 'sealed' ? `Limit checked${(scoring?.elapsed ?? sess.scoredIn) ? ` in ${scoring?.elapsed ?? sess.scoredIn} s` : ''}` : scoring.step === 'failed' ? 'Scoring failed' : 'Checking your limit'}>
-              <EnclavePanel step={scoring?.step ?? 'sealed'} elapsed={scoring?.elapsed ?? sess.scoredIn ?? 0} labels={IN_ENCLAVE ? OL_PHASES : DEV_PHASES} timerAt={1} failedAt={1}
+              <EnclavePanel step={scoring?.step ?? 'sealed'} elapsed={scoring?.elapsed ?? sess.scoredIn ?? 0} labels={IN_ENCLAVE ? OL_PHASES : DEV_PHASES} timerAt={1} failedAt={scoring?.error === WALLET_NO_ANSWER ? 0 : 1}
                 txHash={scoring?.hash ?? scoreHash} failure={scoring?.error} rows={who === 'sam' ? DECOR_ROWS.irregular : DECOR_ROWS.steady}
                 note={IN_ENCLAVE ? 'The pinned scorer runs inside Intel TDX through OutLayer testnet; the contract takes its answer only in its own callback.' : 'Testnet: the pinned scorer runs on our server, outside the enclave. On mainnet the same code runs inside Intel TDX through OutLayer.'} />
               {scoring && scoring.step !== 'sealed' && !scenarios && <SandboxBanner />}
@@ -672,7 +690,8 @@ export function Passbook({ mode = 'main' }: { mode?: 'main' | 'scenarios' }) {
                 </p>
               )}
               {scoring?.step === 'failed' && who && (
-                <p id="pa-retry"><button type="button" className="btn btn-ink" onClick={retry}>Check my limit again</button></p>
+                <p id="pa-retry"><button type="button" className="btn btn-ink" onClick={retry}>Check my limit again</button>
+                  {account.kind === 'wallet' && !scenarios && <> <button type="button" className="btn btn-line" onClick={continueWithoutWallet}>Continue without a wallet</button></>}</p>
               )}
             </Entry>
           )}
