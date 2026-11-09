@@ -3,12 +3,15 @@ import { clientIpFrom } from './clientIp';
 // Server-side NEAR access for the testnet API routes. Keys come from web/.env.local.
 import { Account, FailoverRpcProvider, JsonRpcProvider, actions } from 'near-api-js';
 import { KREDOFI_CONTRACT, NETWORK, RPC, USDC_CONTRACT } from '@/lib/config';
+import { SigningProvider } from './signingProvider';
 
 // Free RPC endpoints rate-limit (FastNEAR returns 429 under load), so fail over between providers.
 // NEAR_RPC_URLS (comma-separated) overrides the list, e.g. with a paid key in production.
 export const RPC_URLS = (process.env.NEAR_RPC_URLS?.split(',').map((u) => u.trim()).filter(Boolean)) ??
   [RPC, NETWORK === 'mainnet' ? 'https://rpc.mainnet.near.org' : 'https://rpc.testnet.near.org'];
 export const provider = new FailoverRpcProvider(RPC_URLS.map((url) => new JsonRpcProvider({ url })));
+// Signers use the same endpoints, but a stale nonce reaches Account so it re-reads it (signingProvider.ts).
+const signingProvider = new SigningProvider(RPC_URLS.map((url) => new JsonRpcProvider({ url })));
 
 /** Raw JSON-RPC with the same failover (for methods near-api-js doesn't wrap the way we need). */
 export async function rpc<T = unknown>(method: string, params: unknown): Promise<T> {
@@ -33,7 +36,7 @@ function account(idVar: string, keyVar: string) {
   const id = process.env[idVar], key = process.env[keyVar];
   if (!id || !key) throw new Error(`${idVar}/${keyVar} not configured`);
   let a = accounts.get(id);
-  if (!a) { a = new Account(id, provider, key as `ed25519:${string}`); accounts.set(id, a); }
+  if (!a) { a = new Account(id, signingProvider, key as `ed25519:${string}`); accounts.set(id, a); }
   return a;
 }
 export const scorerAccount = () => account('DEV_SCORER_ACCOUNT_ID', 'DEV_SCORER_KEY');
