@@ -113,7 +113,8 @@ button{font-family:inherit}
 /* App chrome (passbook reference) */
 .banner{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:var(--ink);color:var(--paper);font-size:14px}
 .banner .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;min-height:60px;padding-block:8px}
-.banner .logo{font-family:var(--display);font-size:22px;font-weight:600;color:var(--paper);text-decoration:none}
+.banner .logo{font-family:var(--display);font-size:22px;font-weight:600;color:var(--paper);text-decoration:none;display:inline-flex;align-items:center;gap:9px}
+.logo .mark{flex:none;display:block}
 .banner nav{display:flex;gap:22px;flex:1}
 .banner nav a{color:#C7D3CD;text-decoration:none}
 .banner nav a[aria-current]{color:var(--paper);text-decoration:underline;text-underline-offset:6px}

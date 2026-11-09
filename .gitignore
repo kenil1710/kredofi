@@ -36,3 +36,4 @@ web/.data/
 build/
 scorer/target-docker/
 scripts/.seed/
+docs/brand/.fonts.json

@@ -73,3 +73,24 @@ test('every docs page has its heading and real text in the raw HTML', async () =
     assert.ok(d.text.split(' ').length > 150, `/docs/${s}: only ${d.text.split(' ').length} words`);
   }
 });
+
+// Link previews (X, Telegram, Slack) read these tags from the raw HTML only; the image URL must load as a PNG.
+test('every page has the og:/twitter: share card, favicon set and nav mark', async () => {
+  let card;
+  for (const path of Object.keys(PAGES)) {
+    const r = await fetch(BASE + path, { headers: { 'user-agent': 'Twitterbot/1.0' } });
+    const h = await r.text();
+    const meta = (attr, name) => decode(h.match(new RegExp(`<meta ${attr}="${name}" content="([^"]*)"`))?.[1] ?? '');
+    assert.equal(meta('name', 'twitter:card'), 'summary_large_image', `${path} twitter:card`);
+    for (const [a, n] of [['property', 'og:title'], ['property', 'og:description'], ['property', 'og:image:alt'], ['name', 'twitter:title'], ['name', 'twitter:image']])
+      assert.ok(meta(a, n), `${path} ${n}`);
+    card = meta('property', 'og:image');
+    assert.match(card, /^https:\/\/kredofi\.xyz\/share-card\.png/, `${path} og:image`);
+    assert.equal(meta('property', 'og:image:width'), '1200'); assert.equal(meta('property', 'og:image:height'), '630');
+    for (const rel of ['rel="icon" href="/favicon.ico', 'rel="icon" href="/icon.svg', 'rel="apple-touch-icon" href="/apple-icon.png']) assert.ok(h.includes(rel), `${path} ${rel}`);
+    assert.ok(/class="logo"[^>]*><svg class="mark"/.test(h), `${path} nav mark`);
+  }
+  const img = await fetch(BASE + new URL(card).pathname + new URL(card).search);
+  assert.equal(img.status, 200); assert.equal(img.headers.get('content-type'), 'image/png');
+  for (const f of ['/favicon.ico', '/icon.svg', '/apple-icon.png']) assert.equal((await fetch(BASE + f)).status, 200, f);
+});

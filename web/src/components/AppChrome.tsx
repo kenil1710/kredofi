@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AccountMenu } from './AccountMenu';
+import { Mark } from './Mark';
 import { NETWORK } from '@/lib/config';
 
 const LINKS = [['/borrow', 'Borrow'], ['/lend', 'Lend'], ['/ledger', 'Public ledger'], ['/docs', 'Docs'], ['/trust', 'Trust']] as const;
@@ -13,7 +14,7 @@ export function AppChrome() {
     <>
       <header className="banner">
         <div className="wrap">
-          <Link className="logo" href="/">KredoFi</Link>
+          <Link className="logo" href="/"><Mark />KredoFi</Link>
           <nav aria-label="Main">
             {LINKS.map(([href, text]) => (
               <Link key={href} href={href} aria-current={path === href || path.startsWith(`${href}/`) ? 'page' : undefined}>{text}</Link>

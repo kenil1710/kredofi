@@ -7,6 +7,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { drawNote, type Ovi } from '@/lib/drawNote';
+import { Mark } from './Mark';
 import { display, body } from '@/lib/fonts';
 import { describe, lostByLenders, type LedgerEvent } from '@/lib/events';
 import { IN_ENCLAVE, KREDOFI_CONTRACT, NETWORK } from '@/lib/config';
@@ -424,7 +425,7 @@ export function Landing() {
 
       <header className="nav">
         <div className="wrap">
-          <a className="logo" href="#journey" aria-label="KredoFi, back to top">KredoFi</a>
+          <a className="logo" href="#journey" aria-label="KredoFi, back to top"><Mark />KredoFi</a>
           <nav aria-label="Main">
             <a className="inpage" href="#check">How to check a note</a>
             <a className="inpage" href="#two">The rules</a>
