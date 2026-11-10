@@ -8,7 +8,7 @@ A pinned, open scorer fetches up to two years of bank history, uses the last six
 
 **First use: no-collateral USDC loans.** Borrow up to your limit, repay one fixed amount, and the limit grows. The band and limit are public, so any NEAR contract or app can read them with view calls, without the borrower's consent (consent-gated reads are on the roadmap): [Use KredoFi scores in your app](https://kredofi.xyz/docs/integrate).
 
-**Live demo (NEAR testnet):** https://kredofi.xyz · **Documentation:** https://kredofi.xyz/docs · **Mainnet proof (live from `kredofi.near`):** https://kredofi.xyz/mainnet
+**Live demo (NEAR testnet):** https://kredofi.xyz · **Documentation:** https://kredofi.xyz/docs · **Mainnet proof (live from `kredofi.near`):** https://kredofi.xyz/mainnet · **X:** [@KredoFi](https://x.com/KredoFi)
 
 ## Try it in 3 minutes
 

@@ -572,7 +572,7 @@ export function Landing() {
       <footer>
         <div className="wrap">
           <p>KredoFi, built for NEAR HACKATHON in November 2026. Plaid sandbox data only; not a lending offer.</p>
-          <p><a href={MAINNET_TX}>A real mainnet score</a> (sandbox data, our test account) · <Link href="/trust">Why is this safe?</Link> · <Link href="/docs">Docs</Link> · <Link href="/ledger">Public ledger</Link> · <Link href="/scenarios">Demo scenarios</Link></p>
+          <p><a href={MAINNET_TX}>A real mainnet score</a> (sandbox data, our test account) · <Link href="/trust">Why is this safe?</Link> · <Link href="/docs">Docs</Link> · <Link href="/ledger">Public ledger</Link> · <Link href="/scenarios">Demo scenarios</Link> · <a href="https://x.com/KredoFi" target="_blank" rel="noreferrer">X: @KredoFi</a></p>
         </div>
       </footer>
     </div>

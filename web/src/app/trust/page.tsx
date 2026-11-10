@@ -90,7 +90,7 @@ export default function Trust() {
           </ul>
 
           <h2 id="who-built-it">Who built it</h2>
-          <p>Kenil Vekariya (Kency), Surat, India. X: <a href="https://x.com/vekariya_kenil" target="_blank" rel="noreferrer">@vekariya_kenil</a>. Built for the NEAR Hackathon, November 2026.</p>
+          <p>Kenil Vekariya (Kency), Surat, India. X: <a href="https://x.com/vekariya_kenil" target="_blank" rel="noreferrer">@vekariya_kenil</a>; project account <a href="https://x.com/KredoFi" target="_blank" rel="noreferrer">@KredoFi</a>. Built for the NEAR Hackathon, November 2026.</p>
 
           <h2 id="faq">FAQ</h2>
           <h3>Can KredoFi see my bank password?</h3>
