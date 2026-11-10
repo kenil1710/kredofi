@@ -13,15 +13,16 @@ from fontTools.pens.boundsPen import BoundsPen
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 OUT = os.path.join(ROOT, 'docs', 'brand')
 
-def find_font(family, need='K'):
+def find_font(family, need='K', style=('Regular', 'Thin Regular')):
     for f in sorted(glob.glob(os.path.join(ROOT, 'web', '.next', 'static', 'media', '*.woff2'))):
         t = TTFont(f)
-        if t['name'].getDebugName(1).startswith(family) and t['name'].getDebugName(2) in ('Regular', 'Thin Regular') \
-                and 'Italic' not in t['name'].getDebugName(1) and ord(need) in t.getBestCmap():
+        if t['name'].getDebugName(1).startswith(family) and t['name'].getDebugName(2) in style \
+                and 'Italic' not in t['name'].getDebugName(1) and all(ord(c) in t.getBestCmap() for c in need):
             return f
     sys.exit(f'{family} not found in web/.next/static/media: run a web build first')
 
 BODONI, PUBLIC = find_font('Bodoni Moda'), find_font('Public Sans')
+BODONI_ITALIC = find_font('Bodoni Moda', 'Keep your bank statements.', ('Italic',))  # X banner (render_x.mjs)
 C = dict(night='#08130F', deep='#0F2A23', paper='#E6EAE1', mint='#9FD9BF', violet='#8E6CF0')
 
 def glyph_k(wght, opsz):
@@ -79,5 +80,5 @@ marks = {
 os.makedirs(OUT, exist_ok=True)
 for name, body in marks.items():
     open(os.path.join(OUT, name), 'w').write(body)
-json.dump({'bodoni': os.path.abspath(BODONI), 'public': os.path.abspath(PUBLIC)}, open(os.path.join(OUT, '.fonts.json'), 'w'))
+json.dump({'bodoni': os.path.abspath(BODONI), 'bodoniItalic': os.path.abspath(BODONI_ITALIC), 'public': os.path.abspath(PUBLIC)}, open(os.path.join(OUT, '.fonts.json'), 'w'))
 print('wrote', ', '.join(marks))
