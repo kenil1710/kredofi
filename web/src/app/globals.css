@@ -234,6 +234,8 @@ button{font-family:inherit}
 .ledger tr{border-top:1px solid var(--line-night)}
 .ledger tr.sum{border-top:4px double var(--paper)}
 .ledger tr.sum th{color:var(--paper);font-weight:600}
+.lend-earn{margin-top:56px;max-width:520px}
+.lend-earn p{color:#BFCDC6;font-size:16px;line-height:1.55;margin-top:14px}
 .feed{border:1px solid var(--line-night);background:rgba(8,19,15,.5)}
 .feed h2{font-size:24px;padding:22px 24px;border-bottom:1px solid var(--line-night);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
 .feed h2 small{font-family:var(--body);font-size:13px;color:var(--muted);letter-spacing:0}

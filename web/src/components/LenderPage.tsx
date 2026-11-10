@@ -1,6 +1,7 @@
 'use client';
 // Lender page (DESIGN 3 "Lender", 7.2): pool ledger with a double rule, your share, cash available to
-// withdraw now, deposit and withdraw. No yield forecast: only the share price, read from the chain.
+// withdraw now, deposit and withdraw, and how lenders earn. No yield forecast and no APY: only the share
+// price and what lenders actually earned and lost, read from the chain.
 import { useCallback, useEffect, useState } from 'react';
 import { defaultDeposit } from '@/lib/format';
 import { useAccount } from '@/lib/near/account';
@@ -10,7 +11,7 @@ import { TxButton, TxStatus } from './TxButton';
 import { view, getPool, usdcBalance, type PoolView } from '@/lib/chain';
 import { KREDOFI_CONTRACT, USDC_CONTRACT } from '@/lib/config';
 import { parseUsd, usd } from '@/lib/format';
-import { lostByLenders, utcMinuteMs, type LendFirstPaint } from '@/lib/ledgerView';
+import { lenderTotalsOf, utcMinuteMs, type LendFirstPaint } from '@/lib/ledgerView';
 import { IntentsPanel } from './IntentsPanel';
 
 type Lender = { shares: string; value: string };
@@ -23,6 +24,7 @@ export function LenderPage({ initial = null }: { initial?: LendFirstPaint | null
   const [me, setMe] = useState<Lender | null>(null);
   const [bal, setBal] = useState<bigint | null>(null);
   const [lost, setLost] = useState<bigint | null>(initial ? BigInt(initial.lost) : null);
+  const [earned, setEarned] = useState<bigint | null>(initial ? BigInt(initial.earned) : null);
   const [dep, setDep] = useState('100');
   const [wd, setWd] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
@@ -33,7 +35,8 @@ export function LenderPage({ initial = null }: { initial?: LendFirstPaint | null
     setPool(await getPool());
     setLive(true);
     fetch('/api/ledger').then((r) => r.json()).then((j) => {
-      setLost(lostByLenders(j.events));
+      const t = lenderTotalsOf(j);
+      setEarned(BigInt(t.earned)); setLost(BigInt(t.lost));
     }).catch(() => {});
     if (acct) {
       setMe(await view<Lender>(KREDOFI_CONTRACT, 'get_lender', { account_id: acct }));
@@ -91,6 +94,7 @@ export function LenderPage({ initial = null }: { initial?: LendFirstPaint | null
             <tr><th scope="row">In the pool</th><td>{pool ? usd(pool.pool_value) : 'loading'}</td></tr>
             <tr><th scope="row">Lent out right now</th><td>{pool ? usd(pool.outstanding) : 'loading'}</td></tr>
             <tr><th scope="row">Reserve, pays losses first</th><td>{pool ? usd(pool.reserve) : 'loading'}</td></tr>
+            <tr><th scope="row">Earned by lenders so far (test USDC, testnet)</th><td>{earned !== null ? usd(earned) : 'loading'}</td></tr>
             <tr className="sum"><th scope="row">Lost by lenders so far</th><td>{lost !== null ? usd(lost) : 'loading'}</td></tr>
           </tbody>
         </table>
@@ -98,6 +102,13 @@ export function LenderPage({ initial = null }: { initial?: LendFirstPaint | null
           {pool ? <>Share price {price.toFixed(4)} USDC (it started at 1.0000).</> : <>Loading live data from {KREDOFI_CONTRACT}. The share price started at 1.0000.</>} It only moves with repaid interest and uncovered losses; nothing here is a forecast.
           {!live && initial && <span className="sr-only"> These numbers were read from the chain at {utcMinuteMs(initial.at)}; an open page refreshes them every 5 seconds.</span>}
         </p>
+
+        <section className="lend-earn" aria-labelledby="earn-h">
+          <h2 id="earn-h">How lenders earn</h2>
+          <p>Lenders earn only when borrowers repay. Each repaid loan pays flat interest for its term: 4% in band A, 6% in band B, 8% in band C. Half goes to lenders by raising the pool&apos;s share price; the other half goes to the KredoFi treasury. &ldquo;Earned by lenders so far&rdquo; above adds up that half from every repayment on {KREDOFI_CONTRACT}.</p>
+          <p>The limits: money that isn&apos;t lent out earns nothing today. The reserve pays losses first; beyond it, lenders can lose money. This is a testnet demo with test USDC.</p>
+          <p>Planned, not built: idle pool funds earning a base yield through a NEAR money market.</p>
+        </section>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

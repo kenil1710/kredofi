@@ -579,7 +579,7 @@ export function Landing() {
   );
 }
 
-type LedgerAnswer = { events: LedgerEvent[]; pool: { pool_value: string; outstanding: string; reserve: string } };
+type LedgerAnswer = { events: LedgerEvent[]; lenders?: { lost: string }; pool: { pool_value: string; outstanding: string; reserve: string } };
 
 /** Count up to a value once it scrolls into view (landing .cnt), then follow live changes. */
 function CountUp({ to }: { to: bigint | null }) {
@@ -640,7 +640,8 @@ function LiveLend() {
   }, []);
 
   const pool = data?.pool;
-  const lost = data ? lostByLenders(data.events) : null;
+  // The server's total covers every event; `events` holds only the newest 200.
+  const lost = data ? (data.lenders ? BigInt(data.lenders.lost) : lostByLenders(data.events)) : null;
   return (
     <div className="wrap grid" ref={box}>
       <div className="copy">

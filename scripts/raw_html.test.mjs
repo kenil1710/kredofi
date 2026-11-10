@@ -38,8 +38,9 @@ const PAGES = {
   },
   '/integrate': { literal: ["Your band, another contract's terms.", 'partner-vault.kency.testnet', 'What this demo leaves out', 'so any app can read it without asking you'], absent: ['gave no permission'], patterns: [/Band A 110% \$100\.00/, /Band D, no score, expired or defaulted 150% \$73\.33/] },
   '/lend': {
-    literal: ['Lend test USDC to the pool.', 'Lost by lenders so far', 'nothing here is a forecast'],
-    patterns: [/In the pool \$[\d,]+\.\d\d/, /Lent out right now \$[\d,]+\.\d\d/, /Reserve, pays losses first \$[\d,]+\.\d\d/, /Share price \d\.\d{4} USDC/, /read from the chain at \d+ \w+ \d{4}, \d\d:\d\d UTC/],
+    literal: ['Lend test USDC to the pool.', 'Lost by lenders so far', 'nothing here is a forecast', 'How lenders earn', 'Lenders earn only when borrowers repay.', '4% in band A, 6% in band B, 8% in band C', "money that isn't lent out earns nothing today", 'beyond it, lenders can lose money', 'This is a testnet demo with test USDC.', 'Planned, not built: idle pool funds earning a base yield through a NEAR money market.'],
+    absent: ['APY', 'APR'],
+    patterns: [/Earned by lenders so far \(test USDC, testnet\) \$[\d,]+\.\d\d/, /In the pool \$[\d,]+\.\d\d/, /Lent out right now \$[\d,]+\.\d\d/, /Reserve, pays losses first \$[\d,]+\.\d\d/, /Share price \d\.\d{4} USDC/, /read from the chain at \d+ \w+ \d{4}, \d\d:\d\d UTC/],
     noPlaceholder: true,
   },
   '/ledger': {

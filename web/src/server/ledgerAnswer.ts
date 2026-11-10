@@ -6,7 +6,7 @@ import 'server-only';
 import { allEvents, lastChange } from './ledger';
 import { viewPool } from './near';
 import { devCheckStats, devCheckTimes, seededStats, visitorStats } from '@/lib/seeded';
-import type { LedgerData } from '@/lib/ledgerView';
+import { lenderTotals, type LedgerData } from '@/lib/ledgerView';
 
 type Answer = LedgerData & { stale?: boolean };
 let last: Answer | null = null;
@@ -14,8 +14,8 @@ let inflight: Promise<Answer> | null = null;
 
 async function build(): Promise<Answer> {
   const [events, stats, pool, config] = await Promise.all([allEvents(), viewPool('get_stats'), viewPool('get_pool'), viewPool('get_config')]);
-  // Seeded demo numbers come from every indexed event (not just the 200 sent); SPEC 8d.
-  return { events: events.slice(0, 200), stats, seeded: seededStats(events), visitors: visitorStats(events), devCheck: devCheckStats(events), devCheckTimes: devCheckTimes(events), pool, config, updatedAt: Date.now() } as Answer;
+  // Seeded demo numbers and lender totals come from every indexed event (not just the 200 sent); SPEC 8d.
+  return { events: events.slice(0, 200), stats, seeded: seededStats(events), visitors: visitorStats(events), devCheck: devCheckStats(events), devCheckTimes: devCheckTimes(events), lenders: lenderTotals(events), pool, config, updatedAt: Date.now() } as Answer;
 }
 
 /** Throws only if the chain refuses and nothing was ever read. */
