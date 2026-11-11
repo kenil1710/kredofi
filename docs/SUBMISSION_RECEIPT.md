@@ -5,6 +5,19 @@
 - **requestId:** `b8b63a36-d57f-4178-9aeb-e7222bb02007`
 - **Server response:** HTTP 201 Created, empty body
 
+## Recorded: public directory check (2026-11-11, read-only)
+
+`GET https://nearhackathon.com/api/projects?page=1&q=KredoFi` (the directory behind the site's "Submitted projects" list) returned exactly one project:
+
+```
+id: b8b63a36-d57f-4178-9aeb-e7222bb02007   (= our requestId)
+project_name: KredoFi
+tracks: defi, privacy, realworld
+demo_url: https://x.com/KredoFi/status/2120460127384084766
+```
+
+One entry, saved under our requestId, so the submission is recorded once. The directory does not show the repository, email or payout account. The rules (HACKATHON.md) offer no status lookup and mention no confirmation email. Corrections go through https://nearhackathon.com/request-changes, never a second submission.
+
 ## What was submitted
 
 | Field | Value |
