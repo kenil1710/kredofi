@@ -10,7 +10,7 @@ A pinned, open scorer fetches up to two years of bank history, uses the last six
 
 **Live demo (NEAR testnet):** https://kredofi.xyz · **Documentation:** https://kredofi.xyz/docs · **Mainnet proof (live from `kredofi.near`):** https://kredofi.xyz/mainnet · **X:** [@KredoFi](https://x.com/KredoFi)
 
-**Demo video:** link added after the X post
+**Demo video:** https://x.com/KredoFi/status/2120460127384084766
 
 ## Try it in 3 minutes
 
