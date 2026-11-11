@@ -11,11 +11,13 @@ export const SEEDED_NOTE = 'Rows tagged Seeded demo were made by our script with
 
 // Our own live checks of the site (SPEC 8d). Accounts only we can create: sub-accounts of the relayer
 // and of the owner, named devcheck… (scripts/lib/devcheck.mjs), plus the 11 accounts of the first
-// retest on Nov 4, from before the prefix existed. They are never counted as visitors.
+// retest on Nov 4, from before the prefix existed, and the Nov 11 pre-submission run through the site's own
+// borrow and repay buttons (the relayer only takes demo… accounts). They are never counted as visitors.
 export const DEV_CHECK_PATTERN = /^devcheck[a-z0-9-]*\.(relayer\.)?kency\.testnet$/;
 export const DEV_CHECK_NOV4 = new Set([
   'demo1793783652206', 'demo1793783680537', 'demo1793783718793', 'demo1793783748572', 'demo1793784220359',
   'demo1793784249388', 'demo1793787737173', 'demo1793787774658', 'demo1793787808941',
+  'demo1794387161290', // Nov 11: full borrower run through the site's buttons
 ].map((d) => `${d}.relayer.kency.testnet`).concat('kredofi-audit-1793698130.testnet', 'kredofi-xyz-1793691803.testnet'));
 export const DEV_CHECK_NOTE = 'Rows tagged Developer check are our own live tests of this site, not visitors: real enclave scores on Plaid sandbox data, and the reserve was topped back up after their defaults.';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

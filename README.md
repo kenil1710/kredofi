@@ -10,6 +10,8 @@ A pinned, open scorer fetches up to two years of bank history, uses the last six
 
 **Live demo (NEAR testnet):** https://kredofi.xyz · **Documentation:** https://kredofi.xyz/docs · **Mainnet proof (live from `kredofi.near`):** https://kredofi.xyz/mainnet · **X:** [@KredoFi](https://x.com/KredoFi)
 
+**Demo video:** link added after the X post
+
 ## Try it in 3 minutes
 
 No wallet and no sign-up: the app creates a throwaway testnet account and a relayer pays every fee.

@@ -32,7 +32,7 @@ test('seeded numbers per band, and visitors = contract totals minus seeded', () 
 });
 
 test('developer checks: the prefix under accounts only we control, plus the 11 retest accounts of Nov 4', () => {
-  for (const a of ['devcheck1793790000000.relayer.kency.testnet', 'devcheck-wallet-1.kency.testnet', 'demo1793787808941.relayer.kency.testnet', 'kredofi-audit-1793698130.testnet', 'kredofi-xyz-1793691803.testnet']) assert.equal(isDevCheck(a), true, a);
+  for (const a of ['devcheck1793790000000.relayer.kency.testnet', 'devcheck-wallet-1.kency.testnet', 'demo1793787808941.relayer.kency.testnet', 'demo1794387161290.relayer.kency.testnet', 'kredofi-audit-1793698130.testnet', 'kredofi-xyz-1793691803.testnet']) assert.equal(isDevCheck(a), true, a);
   // A visitor can't claim the tag: top-level names and other parents don't match, nor do fresh demo accounts.
   for (const a of ['devcheck.testnet', 'devcheck1.evil.testnet', 'devcheck1.relayer.kency.testnet.evil.testnet', 'xdevcheck1.relayer.kency.testnet', 'demo1793790000000.relayer.kency.testnet', 'borrower-01.kredofi-seed.testnet', null]) assert.equal(isDevCheck(a), false, String(a));
   assert.equal(isDevCheckEvent(ev('score_issued', { borrower: 'devcheck1.relayer.kency.testnet', band: 'A' }, 1)), true);
