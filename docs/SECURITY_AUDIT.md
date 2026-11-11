@@ -134,3 +134,21 @@ Locking means deleting the contract account's last full-access key.
 | Finding | Severity | Status |
 |---|---|---|
 | `income_cap` is public and at $50 steps narrowed a low earner's income to about $100, against the claim that lenders never see a salary. | High (privacy) | Fixed on testnet (scorer `96666cdf…`, Nov 5): five buckets (0, 100, 250, 500, 1,000), rounded down, so no limit rises. Fixed on mainnet (scorer `5175182a…`, Nov 7, after the 24-hour lock and the owner's yes: [lock](https://nearblocks.io/txns/3Gbj22t2cMg9K2QQxKZaBgCuZ4uAq4x4aJpP9mkHRHZP), [apply](https://nearblocks.io/txns/29R9wmXS3WLbxdHEdnMSgcy38N375rp4T6mjts8DBFLd), [score, PROVEN](https://nearblocks.io/txns/9w6qBWdViZrE2Y4KisYxxjdMtbCmAvRyNvAs6WGbymHm)). Still public: the range itself, and the score can narrow it. |
+
+## Incident, Nov 11, 2026: four key values printed in a Claude Code session
+
+**What happened.** While checking the prize payout address against our own accounts, the AI coding agent ran a `grep` over `.env` and `web/.env.local` whose pattern matched every 64-character hex value. It printed the values of `SEAL_KEY` (mainnet), `SEAL_KEY_TESTNET`, `PARTNER_PRIVKEY`, `PROXY_SECRET` and `PARTNER_PUBKEY` (public by design). No key value is in this entry.
+
+**Where the values went.** Only into that session: the terminal output, the session's local transcript on the developer's Mac (to be deleted after the session), and the model provider that ran the session. Not into git, the public repository, the site, Hugging Face, Cloudflare or any log we publish. A scan of all 144 commits the same day found no key value in history.
+
+**What the keys protect today.** Only Plaid sandbox data: test banks, test identities and test money, the same for everyone.
+- `SEAL_KEY` (mainnet scorer secret in OutLayer): the keyed bank fingerprints and the sealed names on `kredofi.near`. Every name sealed so far is a Plaid sandbox identity, and lender deposits on mainnet are locked until real bank data (H2).
+- `SEAL_KEY_TESTNET`: the same for `app.kency.testnet` (sandbox data only).
+- `PARTNER_PRIVKEY`: the demo recovery partner's key, which opens names released after a default (sandbox names only).
+- `PROXY_SECRET`: lets a request claim a visitor IP to the app's rate limits.
+
+**Done.**
+- `PROXY_SECRET` rotated the same day: a new random value in `.env`, `web/.env.local`, the Hugging Face Space secret and the Cloudflare Worker secret, never printed. Checked after: kredofi.xyz pages load, a page load straight to the Space without the secret still redirects to kredofi.xyz, the rate limits key on the visitor's own IP (a request through kredofi.xyz right after a direct hit is not in the shared "direct" bucket, and a second one within 3 s gets 429), and the health watch passes.
+- The cause is fixed: the agent may no longer search or print `.env`, `.env.local` or `~/.near-credentials`. A Claude Code hook (`.claude/hooks/guard_secret_reads.py`, wired in `.claude/settings.json`) blocks grep, rg, cat, head, sed and the like on those files, and recursive grep; searches use `git grep`. Rule added to CLAUDE.md.
+
+**Still to do (must happen after Nov 25, when judging ends, and before any real bank data).** Rotate `SEAL_KEY`, `SEAL_KEY_TESTNET` and `PARTNER_PRIVKEY`. `SEAL_KEY` lives in OutLayer's secrets for the pinned mainnet build, so that rotation is a mainnet step and needs the owner's yes. A new `SEAL_KEY` changes every fingerprint, so borrowers scored before the rotation get a new fingerprint on their next score. Names sealed under the old key stay readable with the old key, so the rotation must come before any real borrower is scored. Until then the old keys protect sandbox data only.

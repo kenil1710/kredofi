@@ -119,4 +119,5 @@ cd web && npm install && npm test && npx tsc --noEmit && npx next build && npx n
 - Never deploy to mainnet, sign mainnet transactions, push, make the repo public, post on X or submit the hackathon form without the human's explicit yes.
 - Never use the human's prize wallet (HOT) in any script. Mainnet dev work uses the separate dev account.
 - Never print, log or commit `PLAID_SECRET`, `SEAL_KEY`, `NEARAI_KEY`, `RELAYER_KEY`, `HC_PING_URL`, private keys or Plaid access tokens.
+- Never read `.env`, `.env.local`, `web/.env.local` or `~/.near-credentials` with grep, rg, find, cat, head, tail, sed, awk or any other search or print tool, not even to get "just the names" (Nov 11 incident, docs/SECURITY_AUDIT.md). Search the code with `git grep` (tracked files only), never recursive grep. The only ways to use these files are `set -a; source .env; set +a`, the project scripts that load keys without printing them, and editing a value without printing it. Enforced by `.claude/hooks/guard_secret_reads.py`.
 - Never add features outside SPEC without asking. Cut scope before cutting tests.
